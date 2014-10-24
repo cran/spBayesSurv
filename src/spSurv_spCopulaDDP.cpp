@@ -12,7 +12,7 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   	SEXP K_, SEXP V_, SEXP w_, SEXP alpha_, SEXP mu_, SEXP Sig_,
 		SEXP m0_, SEXP S0_, SEXP Sig0_, SEXP k0_, SEXP a0_, SEXP b0_, 
     SEXP nua_, SEXP nub_, SEXP xpred_, SEXP ds0n_, SEXP dnn_, SEXP theta_, 
-    SEXP theta0_, SEXP spl0_, SEXP spS0_, SEXP spadapter_) {
+    SEXP theta0_, SEXP spl0_, SEXP spS0_, SEXP spadapter_, SEXP status_) {
 	BEGIN_RCPP
 	
   // Transfer R variables into C++;
@@ -26,6 +26,7 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   const arma::mat X = as<mat>(X_); // p by n
   const int p = X.n_rows;
   const int n = X.n_cols;
+  bool status = as<bool>(status_);
   
   // things about spatial copula
   arma::mat ds0n = as<mat>(ds0n_); // n by npred
@@ -65,8 +66,8 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int npred = xpred.n_rows;
   
   // Temp variables
-  double MinRes = Rcpp::min(yobs)-5.0;
-  double MaxRes = Rcpp::max(yobs)+5.0;
+  double MinRes = Rcpp::min(yobs)-3.0;
+  double MaxRes = Rcpp::max(yobs)+3.0;
   arma::mat Xbeta = X.t()*beta;
   NumericVector y(n);  for (int i=0; i<n; ++i) y[i] = yobs[i];
   IntegerVector nK(N);
@@ -105,8 +106,10 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   NumericVector theta2_save(nsave);
   arma::mat z_save(n, nsave);
   NumericMatrix Zpred(npred, nsave);
+  arma::mat V_save(N, nsave);
+  IntegerMatrix K_save(n, nsave);
   
-  GetRNGstate();
+  RNGScope scope;
 	
 	// Set the Armadillo seed from R's 
 	// int seed = (int)Rf_runif(0.0, 10000.0);
@@ -116,10 +119,13 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   DDP_Vtow(w, V, N);
 
   // initial period
-  spCopulaInitial( K, y, beta, tau2, V, w, alpha, mu, Sig, invSig, yobs, delta, X, m0, S0, Sig0, k0, 
+  if(status){
+    spCopulaInitial( K, y, beta, tau2, V, w, alpha, mu, Sig, invSig, yobs, delta, X, m0, S0, Sig0, k0, 
                    a0, b0, nua, nub, invS0, invS0m0);
-  Xbeta = X.t()*beta;
-  tau = Rcpp::sqrt(tau2);
+    Xbeta = X.t()*beta;
+    tau = Rcpp::sqrt(tau2);
+  }
+  
   // get transformed survival time z
   for (int i=0; i<n; ++i){
     for (int k=0; k<N; ++k){
@@ -148,9 +154,18 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
       nK[k] += 1;
       Kind(nK[k]-1, k) = i;
     }
+    
+    //Sample theta1 and theta2;
+    spCopula_sample_theta(theta, rejtheta, spSnew, thetabarnew, Cinv, logdetC, 
+                 theta1a, theta1b, theta2a, theta2b, spl0, spS0, dnn, spadapter, iscan, z, n);
 
     // Sample y_i when delta_i=0
     spCopula_sample_y(y, rejy, zPhi, z, w, yobs, delta, Xbeta, tau, K, Cinv, n, N);
+    
+    //Sample V;
+    spCopula_sample_V(V, rejV, zPhi, z, w, nK, alpha, Cinv, N);
+    //spCopula_sample_V_block(V, rejV, zPhi, z, w, nK, alpha, Cinv, N);
+    DDP_Vtow(w, V, N); // From V to w
   
     // Sample beta;
     spCopula_sample_beta(beta, rejbeta, zPhi, z, w, y, X, tau2, nK, Kind, mu, Sig, invSig, Cinv, n, N, p);
@@ -159,15 +174,15 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     //Sample simga2;
     spCopula_sample_sigma2(tau2, rejsigma, zPhi, z, w, y, Xbeta, nK, Kind, nua, nub, Cinv, n, N);
     tau = Rcpp::sqrt(tau2);
-  
-    //Sample V;
-    spCopula_sample_V(V, rejV, zPhi, z, w, nK, alpha, Cinv, N);
-    DDP_Vtow(w, V, N); // From V to w
-  
+
     //Sample alpha;
     double a0star = a0+N-1;
-    double b0star = b0-std::log(w[N-1]);
-    alpha = Rf_rgamma(a0star, 1/b0star);
+    double b0star = b0-log(w[N-1]);
+    if(b0star>(b0+740.0)){
+      // Rprintf( "b0star = %f\n", b0star );
+      b0star = b0+(N-1.0)/alpha;
+    }
+    alpha = Rf_rgamma(a0star, 1.0/b0star);
   
     //Sample mu;
     arma::mat S0star = inv_sympd( invS0 + (double)N*invSig );
@@ -182,10 +197,6 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     invSig = rwish( inv_sympd((double)k0*Sig0 + mu_beta), k0+N );
     Sig = inv_sympd(invSig);
   
-    //Sample theta1 and theta2;
-    spCopula_sample_theta(theta, rejtheta, spSnew, thetabarnew, Cinv, logdetC, 
-                 theta1a, theta1b, theta2a, theta2b, spl0, spS0, dnn, spadapter, iscan, z, n);
-  
     // Save the sample
     if (iscan>=nburn) {
       ++skiptally;
@@ -197,10 +208,12 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
         // save samples
         alpha_save[isave] = alpha;
         y_save(_,isave) = y;
+        K_save(_,isave) = K;
         for (int k=0; k<N; ++k){
           (beta_save.slice(isave)).col(k) = beta.col(k);
           sigma2_save(k, isave) = 1.0/tau2[k];
           w_save(k, isave) = w[k];
+          V_save(k,isave) = V[k];
         }
         theta1_save[isave] = theta[0];
         theta2_save[isave] = theta[1];
@@ -236,6 +249,13 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   arma::vec Linvmean = arma::mean(Linv, 1);
   arma::vec cpo = 1.0/Linvmean;
   
+  // save current values
+  List state; 
+  state["K"] = K; state["y"] = y; state["V"] = V;
+  state["w"] = w; state["beta"] = beta; state["sigma2"] = 1.0/tau2;
+  state["alpha"] = alpha; state["mu"] = mu; state["Sig"] = Sig;
+  state["theta"] = theta; state["spSnew"] = spSnew;
+  
   return List::create(Named("beta")=beta_save,
                       Named("sigma2")=sigma2_save,
                       Named("w")=w_save,
@@ -251,8 +271,10 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
                       Named("ratetheta")=ratetheta,
                       Named("cpo")=cpo,
                       Named("Ypred")=Ypred,
-                      Named("Zpred")=Zpred);
-	PutRNGstate();
+                      Named("Zpred")=Zpred,
+                      Named("V")=V_save,
+                      Named("K")=K_save,
+                      Named("state")=state);
 	END_RCPP
 }
 
@@ -265,7 +287,7 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 		SEXP m0_, SEXP S0_, SEXP Sig0_, SEXP k0_, SEXP a0_, SEXP b0_, 
     SEXP nua_, SEXP nub_, SEXP xpred_, SEXP ds0n_, SEXP dnn_, SEXP theta_, 
     SEXP theta0_, SEXP spl0_, SEXP spS0_, SEXP spadapter_,
-    SEXP dnm_, SEXP dmm_, SEXP blocki_, SEXP ds0m_, SEXP ds0block_) {
+    SEXP dnm_, SEXP dmm_, SEXP blocki_, SEXP ds0m_, SEXP ds0block_, SEXP status_) {
 	BEGIN_RCPP
 	
   // Transfer R variables into C++;
@@ -279,6 +301,7 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   const arma::mat X = as<mat>(X_); // p by n
   const int p = X.n_rows;
   const int n = X.n_cols;
+  bool status = as<bool>(status_);
   
   // things about spatial copula
   arma::mat ds0block = as<mat>(ds0block_); // n by npred;
@@ -363,8 +386,10 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   NumericVector theta2_save(nsave);
   arma::mat z_save(n, nsave);
   NumericMatrix Zpred(npred, nsave);
+  arma::mat V_save(N, nsave);
+  IntegerMatrix K_save(n, nsave);
   
-  GetRNGstate();
+  RNGScope scope;
 	
 	// Set the Armadillo seed from R's 
 	// int seed = (int)Rf_runif(0.0, 10000.0);
@@ -374,10 +399,13 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   DDP_Vtow(w, V, N);
 
   // initial period
-  spCopulaInitial( K, y, beta, tau2, V, w, alpha, mu, Sig, invSig, yobs, delta, X, m0, S0, Sig0, k0, 
+  if(status){
+    spCopulaInitial( K, y, beta, tau2, V, w, alpha, mu, Sig, invSig, yobs, delta, X, m0, S0, Sig0, k0, 
                    a0, b0, nua, nub, invS0, invS0m0);
-  Xbeta = X.t()*beta;
-  tau = Rcpp::sqrt(tau2);
+    Xbeta = X.t()*beta;
+    tau = Rcpp::sqrt(tau2);
+  }
+  
   // get transformed survival time z
   for (int i=0; i<n; ++i){
     for (int k=0; k<N; ++k){
@@ -406,9 +434,18 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
       nK[k] += 1;
       Kind(nK[k]-1, k) = i;
     }
+    
+    //Sample theta1 and theta2;
+    spCopula_sample_theta_FSA(theta, rejtheta, spSnew, thetabarnew, Cinv, logdetC, 
+                 theta1a, theta1b, theta2a, theta2b, spl0, spS0, dnn, spadapter, iscan, z, n, dnm, dmm, blocki);
 
     // Sample y_i when delta_i=0
     spCopula_sample_y(y, rejy, zPhi, z, w, yobs, delta, Xbeta, tau, K, Cinv, n, N);
+    
+    //Sample V;
+    spCopula_sample_V(V, rejV, zPhi, z, w, nK, alpha, Cinv, N);
+    //spCopula_sample_V_block(V, rejV, zPhi, z, w, nK, alpha, Cinv, N);
+    DDP_Vtow(w, V, N); // From V to w
   
     // Sample beta;
     spCopula_sample_beta(beta, rejbeta, zPhi, z, w, y, X, tau2, nK, Kind, mu, Sig, invSig, Cinv, n, N, p);
@@ -417,16 +454,16 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     //Sample simga2;
     spCopula_sample_sigma2(tau2, rejsigma, zPhi, z, w, y, Xbeta, nK, Kind, nua, nub, Cinv, n, N);
     tau = Rcpp::sqrt(tau2);
-  
-    //Sample V;
-    spCopula_sample_V(V, rejV, zPhi, z, w, nK, alpha, Cinv, N);
-    DDP_Vtow(w, V, N); // From V to w
-  
+
     //Sample alpha;
     double a0star = a0+N-1;
-    double b0star = b0-std::log(w[N-1]);
-    alpha = Rf_rgamma(a0star, 1/b0star);
-  
+    double b0star = b0-log(w[N-1]);
+    if(b0star>(b0+740.0)){
+      // Rprintf( "b0star = %f\n", b0star );
+      b0star = b0+(N-1.0)/alpha;
+    }
+    alpha = Rf_rgamma(a0star, 1.0/b0star);
+
     //Sample mu;
     arma::mat S0star = inv_sympd( invS0 + (double)N*invSig );
     arma::vec m0star = S0star*( invS0m0 + invSig*arma::sum(beta, 1) );
@@ -439,11 +476,7 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     }
     invSig = rwish( inv_sympd((double)k0*Sig0 + mu_beta), k0+N );
     Sig = inv_sympd(invSig);
-  
-    //Sample theta1 and theta2;
-    spCopula_sample_theta_FSA(theta, rejtheta, spSnew, thetabarnew, Cinv, logdetC, 
-                 theta1a, theta1b, theta2a, theta2b, spl0, spS0, dnn, spadapter, iscan, z, n, dnm, dmm, blocki);
-  
+
     // Save the sample
     if (iscan>=nburn) {
       ++skiptally;
@@ -455,10 +488,12 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
         // save samples
         alpha_save[isave] = alpha;
         y_save(_,isave) = y;
+        K_save(_,isave) = K;
         for (int k=0; k<N; ++k){
           (beta_save.slice(isave)).col(k) = beta.col(k);
           sigma2_save(k, isave) = 1.0/tau2[k];
           w_save(k, isave) = w[k];
+          V_save(k,isave) = V[k];
         }
         theta1_save[isave] = theta[0];
         theta2_save[isave] = theta[1];
@@ -498,6 +533,13 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   arma::vec Linvmean = arma::mean(Linv, 1);
   arma::vec cpo = 1.0/Linvmean;
   
+  // save current values
+  List state; 
+  state["K"] = K; state["y"] = y; state["V"] = V;
+  state["w"] = w; state["beta"] = beta; state["sigma2"] = 1.0/tau2;
+  state["alpha"] = alpha; state["mu"] = mu; state["Sig"] = Sig;
+  state["theta"] = theta; state["spSnew"] = spSnew;
+  
   return List::create(Named("beta")=beta_save,
                       Named("sigma2")=sigma2_save,
                       Named("w")=w_save,
@@ -513,8 +555,10 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
                       Named("ratetheta")=ratetheta,
                       Named("cpo")=cpo,
                       Named("Ypred")=Ypred,
-                      Named("Zpred")=Zpred);
-	PutRNGstate();
+                      Named("Zpred")=Zpred,
+                      Named("V")=V_save,
+                      Named("K")=K_save,
+                      Named("state")=state);
 	END_RCPP
 }
 

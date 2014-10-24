@@ -80,7 +80,7 @@ SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   NumericVector rejbetatf(ntlr);
   double rejbetace=0;
 	
-	GetRNGstate();
+	RNGScope scope;
   
 	// Set the Armadillo seed from R's 
 	//int seed = (int)Rf_runif(0.0, 10000.0);
@@ -403,7 +403,6 @@ SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
                       Named("cpo")=cpo,
                       Named("ratebetatf")=ratebetatf,
                       Named("ratebetace")=ratebetace);
-	PutRNGstate();
 	END_RCPP
 }
 

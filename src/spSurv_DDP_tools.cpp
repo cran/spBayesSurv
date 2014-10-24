@@ -101,9 +101,10 @@ void DDP_Vtow(arma::vec& w, Rcpp::NumericVector V, int N){
   double temp=0.0;
   w[0] = V[0];
   for (int k=1; k<N; ++k){
-    temp += w[k-1];
-    w[k] = std::max((1-temp)*V[k], ESMALL);
-  };
+    temp += std::log(1.0-V[k-1]);
+    // w[k] = std:max(std::exp(temp+std::log(V[k])), 1e-320);
+    w[k] = std::exp(temp+std::log(V[k]));
+  }
 }
 
 // sample(1:N, prob=w), where w.size()=N
@@ -182,10 +183,10 @@ void anovaDDP_sample_sigma2(Rcpp::NumericVector& tau2, const Rcpp::NumericVector
       }
       double nuak = nua + nK[k]*0.5;
       double nubk = nub + 0.5*sumtemp;
-      tau2[k] = Rf_rgamma(nuak, 1/nubk);
+      tau2[k] = Rf_rgamma(nuak, 1.0/nubk);
       }
     else{
-      tau2[k] = Rf_rgamma(nua, 1/nub);
+      tau2[k] = Rf_rgamma(nua, 1.0/nub);
     }
   }
 }
@@ -296,6 +297,83 @@ void spCopula_sample_beta(arma::mat& beta, Rcpp::NumericVector& rejbeta, arma::m
   }
 }
 
+// Sample beta blockwise;
+void spCopula_sample_beta_block(arma::mat& beta, Rcpp::NumericVector& rejbeta, arma::mat& zPhi, arma::vec& z, arma::vec w, 
+      const Rcpp::NumericVector& y, const arma::mat& X, Rcpp::NumericVector tau2, const Rcpp::IntegerVector& nK, 
+      const Rcpp::IntegerMatrix& Kind, arma::vec mu, arma::mat Sig, arma::mat invSig, const arma::mat& Cinv, int n, int N, int p){
+  
+  arma::mat betaold = beta;
+  arma::vec zold = z;
+  arma::mat zPhiold = zPhi;
+  for (int k=0; k<N; ++k){
+    if (nK[k]>0){
+      arma::mat xxnk(p,p); xxnk.fill(0.0);
+      arma::vec xynk(p); xynk.fill(0.0);
+      for (int ii=0; ii<nK[k]; ++ii){
+        int i = Kind(ii, k);
+        arma::vec Xi = X.col(i);
+        xxnk += Xi*(arma::trans(Xi));
+        xynk += Xi*y[i];
+      }
+      arma::mat Sigk = arma::inv_sympd(invSig + xxnk*tau2[k]);
+      arma::vec muk = Sigk*(invSig*mu + xynk*tau2[k]);
+      beta.col(k) = mvrnorm(muk, Sigk);
+      }
+    else{
+      beta.col(k) = mvrnorm(mu, Sig);
+    }
+  }
+  double tempold = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
+  arma::mat Xbeta = X.t()*beta;
+  for (int i=0; i<n; ++i){
+    for (int k=0; k<N; ++k){
+      zPhi(i,k) = Rf_pnorm5((y[i]-Xbeta(i,k))*std::sqrt(tau2[k]), 0, 1.0, true, false);
+    }
+  }
+  z = qnormvec( zPhi*w );
+  double tempnew = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
+  double ratio = std::exp(tempnew-tempold);
+  double uu = unif_rand();
+  double phinew = 0;
+  double phiold = 0;
+  if (uu>ratio){
+    for (int k=0; k<N; ++k){
+      arma::vec betakold = betaold.col(k);
+      if (nK[k]>0){
+        arma::mat xxnk(p,p); xxnk.fill(0.0);
+        arma::vec xynk(p); xynk.fill(0.0);
+        for (int ii=0; ii<nK[k]; ++ii){
+          int i = Kind(ii, k);
+          arma::vec Xi = X.col(i);
+          xxnk += Xi*(arma::trans(Xi));
+          xynk += Xi*y[i];
+        }
+        arma::mat Sigk = arma::inv_sympd(invSig + xxnk*tau2[k]);
+        arma::vec muk = Sigk*(invSig*mu + xynk*tau2[k]);
+        phiold += -0.5*arma::dot( (betakold-muk), solve(Sigk, (betakold-muk)) );
+        beta.col(k) = mvrnorm(betakold, Sigk);
+        phinew += -0.5*arma::dot( (beta.col(k)-muk), solve(Sigk, (beta.col(k)-muk)) );
+      }
+      else{
+        //phiold += -0.5*arma::dot( (betakold-mu), solve(Sig, (betakold-mu)) );
+        beta.col(k) = mvrnorm(betakold, Sig);
+        //phinew += -0.5*arma::dot( (beta.col(k)-mu), solve(Sig, (beta.col(k)-mu)) );
+      }
+    }
+    arma::mat Xbeta = X.t()*beta;
+    for (int i=0; i<n; ++i){
+      for (int k=0; k<N; ++k){
+        zPhi(i,k) = Rf_pnorm5((y[i]-Xbeta(i,k))*std::sqrt(tau2[k]), 0, 1.0, true, false);
+      }
+    }
+    z = qnormvec( zPhi*w );
+    double tempnew2 = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
+    double ratio2 = std::exp( phinew - phiold )*(std::exp(tempnew2-tempnew)-1)/(std::exp(tempold-tempnew)-1);
+    double uu2 = unif_rand();
+    if (uu2>ratio2) {beta = betaold; rejbeta=rejbeta+1.0; zPhi=zPhiold; z=zold;}
+  }
+}
+
 //Sample simga2;
 void spCopula_sample_sigma2(Rcpp::NumericVector& tau2, Rcpp::NumericVector& rejsigma, arma::mat& zPhi, arma::vec& z, 
       arma::vec w, const Rcpp::NumericVector& y, const arma::mat& Xbeta, const Rcpp::IntegerVector& nK, 
@@ -340,12 +418,47 @@ void spCopula_sample_sigma2(Rcpp::NumericVector& tau2, Rcpp::NumericVector& rejs
   }
 }
 
+//Sample simga2 blockwise;
+void spCopula_sample_sigma2_block(Rcpp::NumericVector& tau2, Rcpp::NumericVector& rejsigma, arma::mat& zPhi, arma::vec& z, 
+      arma::vec w, const Rcpp::NumericVector& y, const arma::mat& Xbeta, const Rcpp::IntegerVector& nK, 
+      const Rcpp::IntegerMatrix& Kind, double nua, double nub, const arma::mat& Cinv, int n, int N){
+  Rcpp::NumericVector tau2old = tau2;
+  arma::vec zold = z;
+  arma::mat zPhiold = zPhi;
+  for (int k=0; k<N; ++k){
+    if (nK[k]>0){
+      double sumtemp=0;
+      for (int ii=0; ii<nK[k]; ++ii){
+        int i = Kind(ii, k);
+        sumtemp  += pow( (y[i]-Xbeta(i,k)), 2);
+      }
+      double nuak = nua + nK[k]*0.5;
+      double nubk = nub + 0.5*sumtemp;
+      tau2[k] = Rf_rgamma(nuak, 1.0/nubk);
+      }
+    else{
+      tau2[k] = Rf_rgamma(nua, 1.0/nub);
+    }
+  }
+  double tempold = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
+  for (int i=0; i<n; ++i){
+    for (int k=0; k<N; ++k){
+      zPhi(i,k) = Rf_pnorm5((y[i]-Xbeta(i,k))*std::sqrt(tau2[k]), 0, 1.0, true, false);
+    }
+  }
+  z = qnormvec( zPhi*w );
+  double tempnew = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
+  double ratio = std::exp(tempnew-tempold);
+  double uu = unif_rand();
+  if (uu>ratio) {tau2 = tau2old; rejsigma=rejsigma+1.0; zPhi=zPhiold; z=zold;}
+}
+
 //Sample V;
 void spCopula_sample_V(Rcpp::NumericVector& V, Rcpp::NumericVector& rejV, arma::mat& zPhi, arma::vec& z, arma::vec& w, 
       const Rcpp::IntegerVector& nK, double alpha, const arma::mat& Cinv, int N){
   arma::vec nkk = as<vec>(nK);
   for (int k=0; k<(N-1); ++k){
-    double alphak = alpha + arma::sum(nkk.subvec(k+1, N-1));
+    double alphak = alpha + arma::sum(nkk.subvec(k+1, N-1))+ESMALL;
     double aa = nK[k] + 1.0;
     double Vkold = V[k];
     arma::vec zold = z;
@@ -358,6 +471,26 @@ void spCopula_sample_V(Rcpp::NumericVector& V, Rcpp::NumericVector& rejV, arma::
     double uu = unif_rand();
     if (uu>ratio) {V[k] = Vkold; ++rejV[k]; z=zold; }    
   }
+}
+
+//Sample V blockwise;
+void spCopula_sample_V_block(Rcpp::NumericVector& V, Rcpp::NumericVector& rejV, arma::mat& zPhi, arma::vec& z, arma::vec& w, 
+      const Rcpp::IntegerVector& nK, double alpha, const arma::mat& Cinv, int N){
+  arma::vec nkk = as<vec>(nK);
+  Rcpp::NumericVector Vkold=V;
+  arma::vec zold = z;
+  for (int k=0; k<(N-1); ++k){
+    double alphak = alpha + arma::sum(nkk.subvec(k+1, N-1))+ESMALL;
+    double aa = nK[k] + 1.0;
+    V[k] = Rf_rbeta(aa, alphak);
+  }
+  double tempold = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
+  DDP_Vtow(w, V, N); // From V to w
+  z = qnormvec( zPhi*w );
+  double tempnew = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
+  double ratio = std::exp(tempnew-tempold);
+  double uu = unif_rand();
+  if (uu>ratio) {V = Vkold; rejV=rejV+1.0; z=zold; }
 }
 
 // Calculate CPO for spatial Copula DDP
@@ -420,15 +553,7 @@ void spCopulaInitial(Rcpp::IntegerVector& K, Rcpp::NumericVector& y, arma::mat& 
         y[i] = trun_rnorm(Xbeta(i, K[i]-1), 1.0/tau[K[i]-1], yobs[i], R_PosInf);
       }
     }
-
-    // Sample beta;
-    anovaDDP_sample_beta(beta, y, X, tau2, nK, Kind, mu, Sig, invSig, N, p);
-    Xbeta = X.t()*beta;
-
-    //Sample simga2;
-    anovaDDP_sample_sigma2(tau2, y, Xbeta, nK, Kind, nua, nub, N);
-    tau = Rcpp::sqrt(tau2);
-
+    
     //Sample V;
     vec nkk = as<vec>(nK);
     for (int k=0; k<(N-1); ++k){
@@ -438,11 +563,23 @@ void spCopulaInitial(Rcpp::IntegerVector& K, Rcpp::NumericVector& y, arma::mat& 
     }
     // From V to w
     DDP_Vtow(w, V, N);
-    
+
+    // Sample beta;
+    anovaDDP_sample_beta(beta, y, X, tau2, nK, Kind, mu, Sig, invSig, N, p);
+    Xbeta = X.t()*beta;
+
+    //Sample simga2;
+    anovaDDP_sample_sigma2(tau2, y, Xbeta, nK, Kind, nua, nub, N);
+    tau = Rcpp::sqrt(tau2);
+
     //Sample alpha;
     double a0star = a0+N-1;
-    double b0star = b0-std::log(w[N-1]);
-    alpha = Rf_rgamma(a0star, 1/b0star);
+    double b0star = b0-log(w[N-1]);
+    if(b0star>(b0+740.0)){
+      // Rprintf( "b0star = %f\n", b0star );
+      b0star = b0+(N-1.0)/alpha;
+    }
+    alpha = Rf_rgamma(a0star, 1.0/b0star);
   
     //Sample mu;
     arma::mat S0star = inv_sympd( invS0 + (double)N*invSig );

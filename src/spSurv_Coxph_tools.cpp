@@ -12,7 +12,7 @@ using namespace std;
 /////////////////////////////////////////////////////////////////////
 // Get cutpoints from Exp(hcen)
 Rcpp::NumericVector Cutpoints(double hcen, int M1){
-  Rcpp::NumericVector d(M1); d[0] = 0; d[M1-1] = ELARGE; 
+  Rcpp::NumericVector d(M1); d[0] = 0; d[M1-1] = 1e30; 
   for(int k=1; k<(M1-1); ++k) d[k] = -std::log(1.0-(double)k/(M1-1.0))/hcen;
   return(d);
 }
@@ -53,6 +53,9 @@ arma::vec Lambda0tvec(Rcpp::NumericVector t, Rcpp::NumericVector h, Rcpp::Numeri
 // Claculate cdf of survival time given xi
 double Foft(double t, Rcpp::NumericVector h, Rcpp::NumericVector d, double xibeta){
   double res = 1- std::exp( -Lambda0t(t, h, d)*std::exp(xibeta) );
+  double smallest = 1e-10;
+  if(res<smallest) res=smallest;
+  if(res>(1.0-smallest)) res=1.0-smallest;
   return(res);
 }
 
@@ -63,7 +66,7 @@ double foft(double t, Rcpp::NumericVector h, Rcpp::NumericVector d, double xibet
   while ( (t>d[k]) ){
     ++k;
   }
-  double res = std::exp( -Lambda0t(t, h, d)*std::exp(xibeta) )*h[k]*std::exp(xibeta);
+  double res =  (1.0-Foft(t,h,d,xibeta))*h[k]*std::exp(xibeta);
   return(res);
 }
 
@@ -234,7 +237,7 @@ arma::vec LinvIndeptCox(Rcpp::NumericVector tobs, Rcpp::IntegerVector delta, arm
 // Claculate transformed survival time vector z
 void Getz(arma::vec& z, const Rcpp::NumericVector& t, Rcpp::NumericVector h, Rcpp::NumericVector d, const arma::vec& Xbeta, int n){
   for(int i=0; i<n; ++i){
-    double Fti = 1- std::exp( -Lambda0t(t[i], h, d)*std::exp(Xbeta[i]) );
+    double Fti = Foft(t[i], h, d, Xbeta[i]);
     z[i] = Rf_qnorm5(Fti, 0, 1, true, false);
   }
 }

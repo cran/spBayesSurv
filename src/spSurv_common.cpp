@@ -149,7 +149,7 @@ void GetCinv_FSA(int n, double theta1, double theta2, const arma::mat& dnn, cons
   arma::mat Cnn = arma::exp(-theta2*dnn); 
   arma::mat Cnm = arma::exp(-theta2*dnm);
   arma::mat Cmm = arma::exp(-theta2*dmm);
-  arma::mat Cs = theta1*(Cnn-Cnm*arma::solve(Cmm, Cnm.t())) + (1-theta1)*arma::eye(n,n);
+  arma::mat Cs = theta1*(Cnn-Cnm*arma::solve(Cmm, Cnm.t())) + (1.0-theta1)*arma::eye(n,n);
   arma::mat invCs = arma::zeros(n, n);
   // Rprintf( "FSA1=%f\n", logdetC );
   for (int i=1; i<blocki.size();i++){
@@ -172,7 +172,7 @@ void GetCinv_FSA(int n, double theta1, double theta2, const arma::mat& dnn, cons
 
 // Preprocess C^{-1} to get Cinv directly
 void GetCinv(int n, double theta1, double theta2, const arma::mat& dnn, arma::mat& Cinv, double& logdetC){
-  arma::mat Cnn = theta1*arma::exp(-theta2*dnn)+(1-theta1)*arma::eye(n,n);
+  arma::mat Cnn = theta1*arma::exp(-theta2*dnn)+(1.0-theta1)*arma::eye(n,n);
   Cinv = arma::inv_sympd(Cnn);
   double val0, sign0;
   arma::log_det(val0, sign0, Cnn);
@@ -199,34 +199,67 @@ arma::vec trans_theta_inv(arma::vec trans){
 void spCopula_sample_theta(arma::vec& theta, int& rejtheta, arma::mat& spSnew, arma::vec& thetabarnew, arma::mat& Cinv, double& logdetC, 
                  double theta1a, double theta1b, double theta2a, double theta2b, double spl0, arma::mat spS0, const arma::mat& dnn, 
                  double spadapter, int iscan, const arma::vec& z, int n){
-  arma::vec trans = trans_theta(theta);
-  double tempold = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + (theta1a+1.0)*std::log(theta[0]) + (theta1b-1)*std::log(1.0-theta[0]) 
-                   - trans[0] + theta2a*std::log(theta[1]) - theta2b*theta[1];
-  arma::vec thetaold = theta;
-  arma::vec transold = trans;
-  arma::mat Cinvold = Cinv;
-  double logdetCold = logdetC;
-  if(iscan>spl0){
-      trans = mvrnorm(transold, spSnew);
+  if(theta1a<0){
+    double Snew = spSnew(1,1);
+    double barnew = thetabarnew[1];
+    double theta2 = theta[1];
+    double trans2 = std::log(theta2);
+    double tempold = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + theta2a*std::log(theta2) - theta2b*theta2;
+    double thetaold = theta2;
+    double transold = trans2;
+    arma::mat Cinvold = Cinv;
+    double logdetCold = logdetC;
+    if(iscan>spl0){
+        trans2 = Rf_rnorm(transold, Snew);
+    }else{
+        trans2 = Rf_rnorm(transold, spS0(1,1));
+    }
+    theta2 = std::exp(trans2);
+    GetCinv(n, theta[0], theta2, dnn, Cinv, logdetC);
+    double tempnew = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + theta2a*std::log(theta2) - theta2b*theta2;
+    double ratio = std::exp( tempnew-tempold );
+    // Rprintf( "%f\n", ratio );
+    double uu = unif_rand();
+    if (uu>ratio) {
+      theta2 = thetaold; ++rejtheta; Cinv=Cinvold; logdetC=logdetCold; trans2=transold;
+    }
+    double nn = iscan+1.0;
+    double barold = barnew;
+    barnew = (nn)/(nn+1.0)*barold + trans2/(nn+1.0);
+    double Sold = Snew;
+    spSnew(1,1) = (nn-1.0)/nn*Sold+spadapter*2.0/nn*(nn*barold*barold-(nn+1.0)*barnew*barnew+trans2*trans2 + 0.001);
+    thetabarnew[1] = barnew;
+    theta[1] = theta2;
   }else{
-      trans = mvrnorm(transold, spS0);
+    arma::vec trans = trans_theta(theta);
+    double tempold = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + (theta1a+1.0)*std::log(theta[0]) + (theta1b-1)*std::log(1.0-theta[0]) 
+                     - trans[0] + theta2a*std::log(theta[1]) - theta2b*theta[1];
+    arma::vec thetaold = theta;
+    arma::vec transold = trans;
+    arma::mat Cinvold = Cinv;
+    double logdetCold = logdetC;
+    if(iscan>spl0){
+        trans = mvrnorm(transold, spSnew);
+    }else{
+        trans = mvrnorm(transold, spS0);
+    }
+    theta = trans_theta_inv(trans);
+    GetCinv(n, theta[0], theta[1], dnn, Cinv, logdetC);
+    double tempnew = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + (theta1a+1.0)*std::log(theta[0]) + (theta1b-1)*std::log(1.0-theta[0]) 
+                     - trans[0] + theta2a*std::log(theta[1]) - theta2b*theta[1];
+    double ratio = std::exp( tempnew-tempold );
+    // Rprintf( "%f\n", ratio );
+    double uu = unif_rand();
+    if (uu>ratio) {
+      theta = thetaold; ++rejtheta; Cinv=Cinvold; logdetC=logdetCold; trans=transold;
+    }
+    double nn = iscan+1.0;
+    arma::vec thetabarold = thetabarnew;
+    thetabarnew = (nn)/(nn+1.0)*thetabarold + trans/(nn+1.0);
+    arma::mat spSold = spSnew;
+    spSnew = (nn-1.0)/nn*spSold + spadapter/nn*(nn*thetabarold*thetabarold.t() - (nn+1.0)*thetabarnew*thetabarnew.t() 
+            + trans*trans.t() + 0.001*arma::eye(2,2) );
   }
-  theta = trans_theta_inv(trans);
-  GetCinv(n, theta[0], theta[1], dnn, Cinv, logdetC);
-  double tempnew = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + (theta1a+1.0)*std::log(theta[0]) + (theta1b-1)*std::log(1.0-theta[0]) 
-                   - trans[0] + theta2a*std::log(theta[1]) - theta2b*theta[1];
-  double ratio = std::exp( tempnew-tempold );
-  // Rprintf( "%f\n", ratio );
-  double uu = unif_rand();
-  if (uu>ratio) {
-    theta = thetaold; ++rejtheta; Cinv=Cinvold; logdetC=logdetCold; trans=transold;
-  }
-  double nn = iscan+1.0;
-  arma::vec thetabarold = thetabarnew;
-  thetabarnew = (nn)/(nn+1.0)*thetabarold + trans/(nn+1.0);
-  arma::mat spSold = spSnew;
-  spSnew = (nn-1.0)/nn*spSold + spadapter/nn*(nn*thetabarold*thetabarold.t() - (nn+1.0)*thetabarnew*thetabarnew.t() 
-          + trans*trans.t() + 0.05*arma::eye(2,2) );
 }
 
 //Sample theta using adaptive M-H for spatial Copula Model using FSA;
@@ -234,34 +267,67 @@ void spCopula_sample_theta_FSA(arma::vec& theta, int& rejtheta, arma::mat& spSne
                  double theta1a, double theta1b, double theta2a, double theta2b, double spl0, arma::mat spS0, const arma::mat& dnn, 
                  double spadapter, int iscan, const arma::vec& z, int n, const arma::mat& dnm, const arma::mat& dmm, 
                 const Rcpp::IntegerVector& blocki){
-  arma::vec trans = trans_theta(theta);
-  double tempold = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + (theta1a+1.0)*std::log(theta[0]) + (theta1b-1)*std::log(1.0-theta[0]) 
-                   - trans[0] + theta2a*std::log(theta[1]) - theta2b*theta[1];
-  arma::vec thetaold = theta;
-  arma::vec transold = trans;
-  arma::mat Cinvold = Cinv;
-  double logdetCold = logdetC;
-  if(iscan>spl0){
-      trans = mvrnorm(transold, spSnew);
+  if(theta1a<0){
+    double Snew = spSnew(1,1);
+    double barnew = thetabarnew[1];
+    double theta2 = theta[1];
+    double trans2 = std::log(theta2);
+    double tempold = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + theta2a*std::log(theta2) - theta2b*theta2;
+    double thetaold = theta2;
+    double transold = trans2;
+    arma::mat Cinvold = Cinv;
+    double logdetCold = logdetC;
+    if(iscan>spl0){
+        trans2 = Rf_rnorm(transold, Snew);
+    }else{
+        trans2 = Rf_rnorm(transold, spS0(1,1));
+    }
+    theta2 = std::exp(trans2);
+    GetCinv_FSA(n, theta[0], theta2, dnn, dnm, dmm, blocki, Cinv, logdetC);
+    double tempnew = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + theta2a*std::log(theta2) - theta2b*theta2;
+    double ratio = std::exp( tempnew-tempold );
+    // Rprintf( "%f\n", ratio );
+    double uu = unif_rand();
+    if (uu>ratio) {
+      theta2 = thetaold; ++rejtheta; Cinv=Cinvold; logdetC=logdetCold; trans2=transold;
+    }
+    double nn = iscan+1.0;
+    double barold = barnew;
+    barnew = (nn)/(nn+1.0)*barold + trans2/(nn+1.0);
+    double Sold = Snew;
+    spSnew(1,1) = (nn-1.0)/nn*Sold+spadapter*2.0/nn*(nn*barold*barold-(nn+1.0)*barnew*barnew+trans2*trans2 + 0.001);
+    thetabarnew[1] = barnew;
+    theta[1] = theta2;
   }else{
-      trans = mvrnorm(transold, spS0);
+    arma::vec trans = trans_theta(theta);
+    double tempold = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + (theta1a+1.0)*std::log(theta[0]) + (theta1b-1)*std::log(1.0-theta[0]) 
+                     - trans[0] + theta2a*std::log(theta[1]) - theta2b*theta[1];
+    arma::vec thetaold = theta;
+    arma::vec transold = trans;
+    arma::mat Cinvold = Cinv;
+    double logdetCold = logdetC;
+    if(iscan>spl0){
+        trans = mvrnorm(transold, spSnew);
+    }else{
+        trans = mvrnorm(transold, spS0);
+    }
+    theta = trans_theta_inv(trans);
+    GetCinv_FSA(n, theta[0], theta[1], dnn, dnm, dmm, blocki, Cinv, logdetC);
+    double tempnew = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + (theta1a+1.0)*std::log(theta[0]) + (theta1b-1)*std::log(1.0-theta[0]) 
+                     - trans[0] + theta2a*std::log(theta[1]) - theta2b*theta[1];
+    double ratio = std::exp( tempnew-tempold );
+    // Rprintf( "%f\n", ratio );
+    double uu = unif_rand();
+    if (uu>ratio) {
+      theta = thetaold; ++rejtheta; Cinv=Cinvold; logdetC=logdetCold; trans=transold;
+    }
+    double nn = iscan+1;
+    arma::vec thetabarold = thetabarnew;
+    thetabarnew = (nn)/(nn+1.0)*thetabarold + trans/(nn+1.0);
+    arma::mat spSold = spSnew;
+    spSnew = (nn-1.0)/nn*spSold + spadapter/nn*(nn*thetabarold*thetabarold.t() - (nn+1.0)*thetabarnew*thetabarnew.t() 
+            + trans*trans.t() + 0.001*arma::eye(2,2) );
   }
-  theta = trans_theta_inv(trans);
-  GetCinv_FSA(n, theta[0], theta[1], dnn, dnm, dmm, blocki, Cinv, logdetC);
-  double tempnew = -0.5*logdetC - 0.5*arma::dot(z, Cinv*z) + (theta1a+1.0)*std::log(theta[0]) + (theta1b-1)*std::log(1.0-theta[0]) 
-                   - trans[0] + theta2a*std::log(theta[1]) - theta2b*theta[1];
-  double ratio = std::exp( tempnew-tempold );
-  // Rprintf( "%f\n", ratio );
-  double uu = unif_rand();
-  if (uu>ratio) {
-    theta = thetaold; ++rejtheta; Cinv=Cinvold; logdetC=logdetCold; trans=transold;
-  }
-  double nn = iscan+1;
-  arma::vec thetabarold = thetabarnew;
-  thetabarnew = (nn)/(nn+1.0)*thetabarold + trans/(nn+1.0);
-  arma::mat spSold = spSnew;
-  spSnew = (nn-1.0)/nn*spSold + spadapter/nn*(nn*thetabarold*thetabarold.t() - (nn+1.0)*thetabarnew*thetabarnew.t() 
-          + trans*trans.t() + 0.05*arma::eye(2,2) );
 }
 
 // Get distance matrix for s1 s2 ... sn and s1 s2 ... sm, where s1 is column vector with coordinates

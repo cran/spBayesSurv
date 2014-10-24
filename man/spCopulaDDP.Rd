@@ -8,7 +8,7 @@ This function fits a marginal Bayesian Nonparametric model (Zhou, Hanson and Kna
 }
    
 \usage{
-spCopulaDDP(y, delta, x=NULL, s, prediction, prior, mcmc, state, 
+spCopulaDDP(y, delta, x=NULL, s, prediction, prior, mcmc, state, status=TRUE,
             FSA = TRUE, knots, data=sys.frame(sys.parent()), 
             na.action=na.fail, work.dir=NULL)
 }
@@ -45,6 +45,10 @@ spCopulaDDP(y, delta, x=NULL, s, prediction, prior, mcmc, state,
 
     \item{state}{    a list giving the current value of the parameters. This list is used
                      if the current analysis is the continuation of a previous analysis.}    
+                     
+    \item{status}{   a logical variable indicating whether this run is new (\code{TRUE}) or the continuation of 
+                     a previous analysis (\code{FALSE}). In the latter case the current value of the parameters 
+                     must be specified in the object state.}
     
     \item{FSA}{      indicate if the full scale approximation is need. The default is FALSE.} 
     
@@ -119,7 +123,7 @@ s1 = runif(ntot, 0, wdist); s2 = runif(ntot, 0, ldist);
 s = rbind(s1,s2);
 #plot(s[1,], s[2,]);
 ## divide them into blocks
-nldist=10; nwdist=4;
+nldist=5; nwdist=2;
 nb=nldist*nwdist; nb; # number of blocks;
 coor = matrix(0, nb, 4); ## four edges for each block;
 tempindex=1; lstep=ldist/nldist; wstep=wdist/nwdist;
@@ -135,7 +139,7 @@ for(i in 1:nb){
   blockid[((s1>coor[i,1])*(s1<=coor[i,2])*(s2>coor[i,3])*(s2<=coor[i,4]))==1]=i;
 }
 ## Choose knots S*
-nldist=15; nwdist=6;
+nldist=10; nwdist=4;
 m=nldist*nwdist; m; # number of knots;
 ss = matrix(0, m, 2); 
 tempindex=1; lstep=ldist/nldist; wstep=wdist/nwdist;
@@ -213,6 +217,7 @@ dtrain = dtotal[-predindex,];
 
 # rename the variables 
 d = dtrain; n=nrow(d); n;
+d = d[order(d$id), ];
 s = cbind(d$s1, d$s2);
 y = d$y;
 x = d$x;
@@ -230,32 +235,24 @@ prediction = list(spred=s0, xpred=xpred, predid=dpred$id);
 # spatial copula DDP 
 ###############################################################
 # MCMC parameters
-nburn <- 1000
-nsave <- 500
-nskip <- 1
-ndisplay <- 100
+nburn <- 5000
+nsave <- 5000
+nskip <- 0
+ndisplay <- 500
 mcmc <- list(nburn=nburn,
              nsave=nsave,
              nskip=nskip,
              ndisplay=ndisplay)
 
 # Prior information
-prior = list(N = 10,
-             m0 = rep(0,p), 
-             S0 = diag(rep(1e5,p), nrow=p, ncol=p), 
-             Sig0 = diag(rep(1e5,p), nrow=p, ncol=p), 
-             k0 = 7,
-             nua = 2, nub = 1, 
-             a0 = 1, b0 = 1,
-             spS0 = diag(c(4,4)), 
-             spadapter = 1,
-             theta0 = c(1.0, 1.0, 0.5, 0.2));
+prior = list(N = 10, 
+             a0 = 2, b0 = 2);
 
 # current state values
-state <- list(theta=c(0.95, 0.5));
+state <- NULL;
 
 # Fit the model
-fitspDDP = spCopulaDDP( y = y,
+res = spCopulaDDP( y = y,
               delta =delta, 
               x = x, 
               s = s, 
@@ -263,9 +260,8 @@ fitspDDP = spCopulaDDP( y = y,
               prior=prior, 
               mcmc=mcmc,
               state=state,
-              FSA=FALSE,
+              FSA=FALSE,status=TRUE,
               knots=knots);
-res = fitspDDP; remove(fitspDDP);
 # trace plots
 par(mfrow = c(3,2))
 w.save2 = res$w;
@@ -286,6 +282,10 @@ traceplot(mcmc(theta2.save2), main="theta2")
 LPML2 = sum(log(res$cpo)); LPML2;
 ## MSPE
 mean((dpred$yTrue-apply(res$Ypred, 1, median))^2); 
+
+## Proportions for number of clusters 
+gg=apply(res$K, 2, function(x) length(table(x)));
+table(gg)/length(gg);
 
 ## plots
 par(mfrow = c(2,2));
@@ -310,6 +310,8 @@ plot(ygrid, 1-Fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 1),
 for(i in 1:nxpred){
   lines(ygrid, 1-Fi(ygrid, xnew[i]), lwd=2)
   lines(ygrid, Shat[,i], lty=2, lwd=2, col=4);
+  lines(ygrid, estimates$Shatup[,i], lty=2, lwd=1, col=4);
+  lines(ygrid, estimates$Shatlow[,i], lty=2, lwd=1, col=4);
 }
 ## density in t
 plot(tgrid, fi(ygrid, xnew[1])/tgrid, "l", lwd=2, ylim=c(0, 0.15), 
@@ -324,6 +326,8 @@ plot(tgrid, 1-Fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 1),
 for(i in 1:nxpred){
   lines(tgrid, 1-Fi(ygrid, xnew[i]), lwd=2)
   lines(tgrid, Shat[,i], lty=2, lwd=2, col=4);
+  lines(tgrid, estimates$Shatup[,i], lty=2, lwd=1, col=4);
+  lines(tgrid, estimates$Shatlow[,i], lty=2, lwd=1, col=4);
 }
 
 }

@@ -8,7 +8,7 @@ This function fits a Bayesian Nonparametric model for non-spatial right censored
 }
    
 \usage{
-anovaDDP(y, delta, x=NULL, prediction, prior, mcmc, state, 
+anovaDDP(y, delta, x=NULL, prediction, prior, mcmc, state, status=TRUE,
          data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL)
 }
 
@@ -39,7 +39,11 @@ anovaDDP(y, delta, x=NULL, prediction, prior, mcmc, state,
                      out).}   
 
     \item{state}{    a list giving the current value of the parameters. This list is used
-                     if the current analysis is the continuation of a previous analysis.}     
+                     if the current analysis is the continuation of a previous analysis.}
+                     
+    \item{status}{   a logical variable indicating whether this run is new (\code{TRUE}) or the continuation of 
+                     a previous analysis (\code{FALSE}). In the latter case the current value of the parameters 
+                     must be specified in the object state.}
 
     \item{data}{     data frame.}     
     
@@ -197,28 +201,23 @@ prediction = list(spred=s0, xpred=xpred);
 ###############################################################
 
 # Prior information
-prior = list(N = 10,
-             m0 = rep(0,p), 
-             S0 = diag(rep(1e5,p), nrow=p, ncol=p), 
-             Sig0 = diag(rep(1e5,p), nrow=p, ncol=p), 
-             k0 = 7,
-             nua = 2, nub = 1, 
-             a0 = 1, b0 = 1);
+prior = list(N = 10, 
+             a0 = 2, b0 = 2);
 
 # current state values
 state <- NULL
 
 # MCMC parameters
-nburn <- 1000
-nsave <- 500
-nskip <- 4
-ndisplay <- 100
+nburn <- 5000
+nsave <- 5000
+nskip <- 0
+ndisplay <- 500
 mcmc <- list(nburn=nburn,
              nsave=nsave,
              nskip=nskip,
              ndisplay=ndisplay)
 
-# Fit the model
+# Fit model
 res1 = anovaDDP( y = y,
               delta =delta, 
               x = x, 
@@ -245,6 +244,10 @@ LPML1 = sum(log(res1$cpo)); LPML1;
 ## MSPE
 mean((dpred$yTrue-apply(res1$Ypred, 1, median))^2); 
 
+## Proportions for number of clusters 
+gg=apply(res1$K, 2, function(x) length(table(x)));
+table(gg)/length(gg);
+
 ## plots
 par(mfrow = c(2,2))
 xnew = c(-1, 1)
@@ -268,6 +271,8 @@ plot(ygrid, 1-Fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 1),
 for(i in 1:nxpred){
   lines(ygrid, 1-Fi(ygrid, xnew[i]), lwd=2)
   lines(ygrid, Shat[,i], lty=2, lwd=2, col=4);
+  lines(ygrid, estimates$Shatup[,i], lty=2, lwd=1, col=4);
+  lines(ygrid, estimates$Shatlow[,i], lty=2, lwd=1, col=4);
 }
 ## density in t
 plot(tgrid, fi(ygrid, xnew[1])/tgrid, "l", lwd=2, ylim=c(0, 0.15), 
@@ -282,6 +287,8 @@ plot(tgrid, 1-Fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 1),
 for(i in 1:nxpred){
   lines(tgrid, 1-Fi(ygrid, xnew[i]), lwd=2)
   lines(tgrid, Shat[,i], lty=2, lwd=2, col=4);
+  lines(tgrid, estimates$Shatup[,i], lty=2, lwd=1, col=4);
+  lines(tgrid, estimates$Shatlow[,i], lty=2, lwd=1, col=4);
 }
 
 }

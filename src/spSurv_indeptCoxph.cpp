@@ -58,7 +58,7 @@ SEXP indeptCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int rejbeta = 0;
 
   // Make arma objects
-  arma::mat X(Xr.begin(), p, n, false);
+  arma::mat X(const_cast<NumericMatrix&>(Xr).begin(), p, n, false);
   arma::vec beta(beta_r.begin(), p, false);
   
   // things to save;
@@ -68,7 +68,7 @@ SEXP indeptCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   arma::mat beta_save(p, nsave);
   NumericMatrix Tpred(npred, nsave);
   
-  GetRNGstate();
+  RNGScope scope;
 	
 	// Set the Armadillo seed from R's 
 	//int seed = (int)Rf_runif(0.0, 10000.0);
@@ -146,7 +146,6 @@ SEXP indeptCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
                       Named("ratebeta")=ratebeta,
                       Named("cpo")=cpo,
                       Named("Tpred")=Tpred);
-	PutRNGstate();
 	END_RCPP
 }
 
@@ -210,7 +209,7 @@ SEXP indeptCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int rejbeta = 0;
 
   // Make arma objects
-  arma::mat X(Xr.begin(), p, n, false);
+  arma::mat X(const_cast<NumericMatrix&>(Xr).begin(), p, n, false);
   arma::vec beta(beta_r.begin(), p, false);
   
   // things to save;
@@ -221,7 +220,7 @@ SEXP indeptCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   arma::mat beta_save(p, nsave);
   NumericMatrix Tpred(npred, nsave);
   
-  GetRNGstate();
+  RNGScope scope;
 	
 	// Set the Armadillo seed from R's 
 	//int seed = (int)Rf_runif(0.0, 10000.0);
@@ -309,7 +308,6 @@ SEXP indeptCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
                       Named("ratehcen")=ratehcen,
                       Named("cpo")=cpo,
                       Named("Tpred")=Tpred);
-	PutRNGstate();
 	END_RCPP
 }
 

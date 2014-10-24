@@ -1,4 +1,4 @@
-"anovaDDP" <- function(y, delta, x=NULL, prediction, prior, mcmc, state, 
+"anovaDDP" <- function(y, delta, x=NULL, prediction, prior, mcmc, state, status=TRUE, 
                     data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL)
   UseMethod("anovaDDP")
 
@@ -10,6 +10,7 @@
             prior, 
             mcmc,
             state,
+            status=TRUE,
             data=sys.frame(sys.parent()),
             na.action=na.fail, 
             work.dir=NULL) {
@@ -23,8 +24,8 @@
     #########################################################################################
     y <- as.vector(y);
     n <- length(y);
-    X <- t(cbind(rep(1,n), x));
-    p <- nrow(X);
+    X <- cbind(rep(1,n), x);
+    p <- ncol(X);
     
     #########################################################################################
     # change working directory (if requested..)
@@ -51,36 +52,55 @@
     #########################################################################################
     # initial analysis and priors
     #########################################################################################
-    fit0 <- survival::survreg(formula = Surv(exp(y), delta) ~ t(X)-1, dist = "lognormal")
+    fit0 <- survival::survreg(formula = Surv(exp(y), delta) ~ x, dist = "lognormal");
+    #fit0=lm(y~x); sfit0=summary(fit0); sig2hat = sfit0$sigma^2; 
+    muhat = as.vector(fit0$coefficients);
+    sig2hat = fit0$scale^2
+    Sighat = as.matrix(fit0$var[(1:p),(1:p)]); Sigscale=100;
     N <- prior$N; if(is.null(N)) N <- 10;
-    m0 <- prior$m0; if(is.null(m0)) m0 <- rep(0,p);
-    S0 <- prior$S0; if(is.null(S0)) S0 <- diag(rep(1e5,p), nrow=p, ncol=p);
-    Sig0 <- prior$Sig0; if(is.null(Sig0)) Sig0 <- diag(rep(1e5,p), nrow=p, ncol=p);
-    k0 <- prior$k0; if(is.null(k0)) k0 <- 7;
+    m0 <- prior$m0; if(is.null(m0)) m0 <- muhat;
+    S0 <- prior$S0; if(is.null(S0)) S0 <- Sighat;
+    Sig0 <- prior$Sig0; if(is.null(Sig0)) Sig0 <- Sigscale*Sighat; #Sig0 <- diag(rep(1e4,p), nrow=p, ncol=p);
+    k0 <- prior$k0; if(is.null(k0)) k0 <- p+5;
     nua <-prior$nua; nub <- prior$nub;
-    if(is.null(nua)) nua=2; if(is.null(nub)) nub=1;
+    if(is.null(nua)) nua=2+1; #nua=2+sig2hat/4; 
+    if(is.null(nub)) nub=2*sig2hat; #nub=sig2hat/4*(nua-1);
     a0 <-prior$a0; b0 <- prior$b0;
-    if(is.null(a0)) a0=1; if(is.null(b0)) b0=1;
+    if(is.null(a0)) a0=2; if(is.null(b0)) b0=2;
     
     #########################################################################################
     # current state and mcmc specification
     #########################################################################################
-    mu <- state$mu; if(is.null(mu)) mu <- rep(0,p);
-    Sig <- state$Sig; if(is.null(Sig)) Sig <- diag(rep(1e5,p), nrow=p, ncol=p); 
-    beta<- state$beta; if(is.null(beta)) beta = matrix(coefficients(fit0), p, N);
-    sigma2<- state$sigma2; if(is.null(sigma2)) sigma2 = rep(fit0$scale,N);
-    alpha <- state$alpha; if(is.null(alpha)) alpha <- 1;
-    K = sample(1:N,n, replace=T);
-    V = rbeta(N, 1, alpha); V[N] =1;
-    w = V; 
-    for (k in 2:N){
-      w[k] = max( (1 - sum(w[1:(k-1)]))*V[k], 1e-20);
-    }
     nburn <- mcmc$nburn;
     nsave <- mcmc$nsave;
     nskip <- mcmc$nskip;
     ndisplay <- mcmc$ndisplay;
-    
+    if(status){
+      currenty = y;
+      mu <- state$mu; if(is.null(mu)) mu <- muhat;
+      Sig <- state$Sig; if(is.null(Sig)) Sig <- 25*Sighat;
+      beta<- state$beta; if(is.null(beta)) beta = matrix(muhat, p, N);
+      sigma2<- state$sigma2; if(is.null(sigma2)) sigma2 = rep(sig2hat/2,N);
+      alpha <- state$alpha; if(is.null(alpha)) alpha <- 2;
+      K = sample(1:N,n, replace=T);
+      V = rbeta(N, 1, alpha); V[N] =1;
+      w = V; 
+      for (k in 2:N){
+        w[k] = max(exp( sum(log(1-V[1:(k-1)]))+log(V[k]) ), 1e-320);
+        #w[k] = max( (1 - sum(w[1:(k-1)]))*V[k], 1e-320);
+      }
+    }else{
+      K = state$K;
+      currenty = state$y;
+      V = state$V;
+      w = as.vector(state$w);
+      beta = state$beta;
+      sigma2 = state$sigma2;
+      alpha = state$alpha;
+      mu = as.vector(state$mu);
+      Sig = state$Sig;
+    }
+
     #########################################################################################
     # calling the c++ code
     #########################################################################################
@@ -89,9 +109,9 @@
                  nsave_ = nsave, 
                  nskip_ = nskip, 
                  ndisplay_ = ndisplay,
-                 y_ = y,
+                 y_ = currenty,
                  delta_ = delta, 
-                 X_ = as.matrix(X), 
+                 X_ = as.matrix(t(X)), 
                  N_ = N,
                  beta_ = beta, 
                  tau2_ = 1.0/sigma2,
@@ -122,9 +142,10 @@
                    alpha = foo$alpha,
                    y = foo$y,
                    cpo = foo$cpo,
-                   Ypred = foo$Ypred);
-    
-    cat("\n\n")
+                   Ypred = foo$Ypred,
+                   V = foo$V,
+                   K = foo$K,
+                   state=foo$state);
     class(output) <- c("anovaDDP")
     output
   }

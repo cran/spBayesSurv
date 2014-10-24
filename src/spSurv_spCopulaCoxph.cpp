@@ -91,7 +91,7 @@ SEXP spCopulaCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   arma::mat z_save(n, nsave);
   NumericMatrix Zpred(npred, nsave);
   
-  GetRNGstate();
+  RNGScope scope;
   
 	// Set the Armadillo seed from R's 
 	// int seed = (int)Rf_runif(0.0, 10000.0);
@@ -211,7 +211,6 @@ SEXP spCopulaCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
                       Named("cpo")=cpo,
                       Named("Tpred")=Tpred,
                       Named("Zpred")=Zpred);
-	PutRNGstate();
 	END_RCPP
 	}
 
@@ -309,7 +308,7 @@ SEXP spCopulaCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   arma::mat z_save(n, nsave);
   NumericMatrix Zpred(npred, nsave);
   
-  GetRNGstate();
+  RNGScope scope;
   
 	// Set the Armadillo seed from R's 
 	// int seed = (int)Rf_runif(0.0, 10000.0);
@@ -439,7 +438,6 @@ SEXP spCopulaCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
                       Named("cpo")=cpo,
                       Named("Tpred")=Tpred,
                       Named("Zpred")=Zpred);
-	PutRNGstate();
 	END_RCPP
 }
 

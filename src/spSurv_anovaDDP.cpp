@@ -52,8 +52,8 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int npred = xpred.n_rows;
   
   // temp variables
-  double MinRes = Rcpp::min(yobs)-5.0;
-  double MaxRes = Rcpp::max(yobs)+5.0;
+  double MinRes = Rcpp::min(yobs)-3.0;
+  double MaxRes = Rcpp::max(yobs)+3.0;
   arma::mat Xbeta = X.t()*beta;
   NumericVector y(n);	for (int i=0; i<n; ++i) y[i] = yobs[i];
 	IntegerVector nK(N);
@@ -76,8 +76,10 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 	NumericVector alpha_save(nsave);
 	NumericMatrix y_save(n, nsave);
   NumericMatrix Ypred(npred, nsave);
+  arma::mat V_save(N, nsave);
+  IntegerMatrix K_save(n, nsave);
 	
-	GetRNGstate();
+	RNGScope scope;
   
 	// Set the Armadillo seed from R's 
 	//int seed = (int)Rf_runif(0.0, 10000.0);
@@ -91,7 +93,7 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 	////////////
 	for (int iscan=0; iscan<nscan; iscan++){
 	R_CheckUserInterrupt();
-    
+      
     //Sample K;
     DDP_sample_K(K, y, Xbeta, w, tau, n, N);
 
@@ -110,6 +112,16 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
         y[i] = trun_rnorm(Xbeta(i, K[i]-1), 1.0/tau[K[i]-1], yobs[i], R_PosInf);
       }
     }
+    
+    //Sample V;
+    vec nkk = as<vec>(nK);
+    for (int k=0; k<(N-1); ++k){
+      double alphak = alpha + arma::sum(nkk.subvec(k+1, N-1))+ESMALL;
+      double aa = nK[k] + 1.0;
+      V[k] = Rf_rbeta(aa, alphak);
+    }
+    // From V to w
+    DDP_Vtow(w, V, N);
 
     // Sample beta;
     anovaDDP_sample_beta(beta, y, X, tau2, nK, Kind, mu, Sig, invSig, N, p);
@@ -119,20 +131,14 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     anovaDDP_sample_sigma2(tau2, y, Xbeta, nK, Kind, nua, nub, N);
     tau = Rcpp::sqrt(tau2);
 
-    //Sample V;
-    vec nkk = as<vec>(nK);
-    for (int k=0; k<(N-1); ++k){
-      double alphak = alpha + arma::sum(nkk.subvec(k+1, N-1));
-      double aa = nK[k] + 1.0;
-      V[k] = Rf_rbeta(aa, alphak);
-    }
-    // From V to w
-    DDP_Vtow(w, V, N);
-  
     //Sample alpha;
     double a0star = a0+N-1;
     double b0star = b0-log(w[N-1]);
-    alpha = Rf_rgamma(a0star, 1/b0star);
+    if(b0star>(b0+740.0)){
+      // Rprintf( "b0star = %f\n", b0star );
+      b0star = b0+(N-1.0)/alpha;
+    }
+    alpha = Rf_rgamma(a0star, 1.0/b0star);
   
     //Sample mu;
     arma::mat S0star = inv_sympd( invS0 + (double)N*invSig );
@@ -158,10 +164,12 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
         // save samples
         alpha_save[isave] = alpha;
         y_save(_,isave) = y;
+        K_save(_,isave) = K;
         for (int k=0; k<N; ++k){
           (beta_save.slice(isave)).col(k) = beta.col(k);
           sigma2_save(k,isave) = 1.0/tau2[k];
           w_save(k,isave) = w[k];
+          V_save(k,isave) = V[k];
         }
         // prediction
         arma::mat xbeta = arma::trans( xpred*beta );
@@ -184,14 +192,22 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   arma::vec Linvmean = arma::mean(Linv, 1);
   arma::vec cpo = 1.0/Linvmean;
   
+  // save current values
+  List state; 
+  state["K"] = K; state["y"] = y; state["V"] = V;
+  state["w"] = w; state["beta"] = beta; state["sigma2"] = 1.0/tau2;
+  state["alpha"] = alpha; state["mu"] = mu; state["Sig"] = Sig;
+  
   return List::create(Named("beta")=beta_save,
                       Named("sigma2")=sigma2_save,
                       Named("w")=w_save,
                       Named("alpha")=alpha_save,
                       Named("y")=y_save,
                       Named("cpo")=cpo,
-                      Named("Ypred")=Ypred);
-	PutRNGstate();
+                      Named("Ypred")=Ypred,
+                      Named("V")=V_save,
+                      Named("K")=K_save,
+                      Named("state")=state);
 	END_RCPP
 	}
 
