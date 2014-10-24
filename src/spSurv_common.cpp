@@ -72,6 +72,20 @@ arma::vec mvrnorm(arma::vec mu, arma::mat sigma) {
   return( res );
 }
 
+// density of multivariate normal (mu, sigma)
+double mvdnorm(arma::vec x, arma::vec mu, arma::mat sigma, bool logd=true) { 
+  int xdim = x.size();
+  arma::mat rooti = arma::trans(arma::inv(arma::trimatu(arma::chol(sigma))));
+  double rootisum = arma::sum(arma::log(rooti.diag()));
+  double constants = -(double)(xdim)*0.5*std::log(2.0*M_PI);
+  arma::vec z = rooti*( x - mu) ;    
+  double res = constants - 0.5*arma::sum(z%z) + rootisum;     
+  if (logd == false) {
+    res = std::exp(res);
+  }
+  return(res);
+}
+
 // generate Wishart random matrices
 arma::mat rwish(arma::mat Sig, int n) {
   int ncols = Sig.n_cols;

@@ -44,7 +44,7 @@ SEXP indeptCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int npred = xpred.n_rows;
   
   // Temp variables
-  double Maxobs = Rcpp::max(tobs)*10; 
+  double Maxobs = Rcpp::max(tobs)*100; 
   arma::mat Snew(p,p); Snew.fill(0.0);
   arma::vec betabarnew(p); betabarnew.fill(0.0);
   NumericVector t(n); for (int i=0; i<n; ++i) t[i] = tobs[i];

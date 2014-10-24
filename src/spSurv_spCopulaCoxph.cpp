@@ -58,7 +58,7 @@ SEXP spCopulaCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int npred = xpred.n_rows;
   
   // Temp variables
-  double Maxobs = Rcpp::max(tobs)*5;
+  double Maxobs = Rcpp::max(tobs)*100;
   arma::vec Xbeta = X.t()*beta;
   arma::mat Snew(p,p); Snew.fill(0.0);
   arma::vec betabarnew(p); betabarnew.fill(0.0);

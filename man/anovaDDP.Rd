@@ -2,9 +2,9 @@
 \alias{anovaDDP}
 \alias{anovaDDP.default}
 
-\title{Bayesian Nonparametric Nonproportional Hazards Survival Modeling}
+\title{Fit Bayesian Nonparametric Survival Model}
 \description{
-    This function fits an ANOVA DDP model for survival analysis of right censored time-to-event data.
+This function fits a Bayesian Nonparametric model for non-spatial right censored time-to-event data.
 }
    
 \usage{
@@ -53,8 +53,7 @@ anovaDDP(y, delta, x=NULL, prediction, prior, mcmc, state,
 }
 
 \details{
-  This function fits an ANOVA DDP model (De Iorio et al., 2009) for survival analysis of right 
-  censored time-to-event data.
+This function fits a Bayesian Nonparametric model (De Iorio et al., 2009) for non-spatial right censored time-to-event data.
 }
 
 \value{
@@ -71,8 +70,7 @@ anovaDDP(y, delta, x=NULL, prediction, prior, mcmc, state,
 De Iorio, M., Johnson, W. O., Mueller, P., and Rosner, G. L. (2009). Bayesian nonparametric nonproportional hazards survival modeling. 
 Biometrics, 65(3), 762-771.
 
-Zhou, H., Hanson, T. and Knapp, R. (2014+). A Spatial Copula Approach to Fully Bayesian Nonparametric Survival Analysis. 
-In preparation for publication.
+Zhou, H., Hanson, T. and Knapp, R. (2014+). Marginal Bayesian nonparametric model for the time-to-extinction of the mountain yellow-legged frog. Biometrics. In revision. 
 }
 
 \author{

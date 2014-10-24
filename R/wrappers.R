@@ -11,3 +11,10 @@
   .Call("CoxPHplots", xpred_, tgrid_, beta_, h_, d_, probs_, PACKAGE = "spBayesSurv")
 }
 
+.frailtyGAFTplots <- function(tgrid_, xcepred_, xtfpred_, betace_, betatf_, v_, sigma2_, maxL_, probs_){
+  .Call("frailtyGAFTplots", tgrid_, xcepred_, xtfpred_, betace_, betatf_, v_, sigma2_, maxL_, probs_, PACKAGE = "spBayesSurv")
+}
+
+.BayesFactor <- function(betatf_, maxL_, a0_, b0_, gprior_, alpha_){
+  .Call("BayesFactor", betatf_, maxL_, a0_, b0_, gprior_, alpha_, PACKAGE = "spBayesSurv")
+}

@@ -15,6 +15,9 @@ double trun_rnorm(const double mu, const double s, double a, double b);
 // generate multivariate normal (mu, sigma)
 arma::vec mvrnorm(arma::vec mu, arma::mat sigma);
 
+// density of multivariate normal (mu, sigma)
+double mvdnorm(arma::vec x, arma::vec mu, arma::mat sigma, bool logd);
+
 // generate Wishart random matrices
 arma::mat rwish(arma::mat Sig, int n);
 

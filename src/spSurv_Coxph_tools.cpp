@@ -88,9 +88,9 @@ double Finvofu(double u, Rcpp::NumericVector h, Rcpp::NumericVector d, double xi
   if ( (Fl>0) | (std::abs(Fl)<err) ){
     return(lower);
   } else {
-    tr=tl+10; Fr = Foft(tr, h, d, xibeta) - u;
+    tr=tl+tstep; Fr = Foft(tr, h, d, xibeta) - u;
     while( Fr<=0 ){
-      if((std::abs(Fl)<err) | (tr>upper) ) return(tr);
+      if((std::abs(Fr)<err) | (tr>upper) ) return(tr);
       tl=tr; Fl=Fr;
       tr += tstep;
       Fr = Foft(tr, h, d, xibeta) - u;

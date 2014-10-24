@@ -67,10 +67,19 @@ double DDP_Finvofu(double u, arma::vec wma, arma::vec mu, arma::vec sig, double 
   double err = 10e-6;
   double yl = lower;
   double Fl = Fofy(yl, wma, mu, sig) - u;
-  if (Fl>=0) return(lower);
-  double yr = upper;
-  double Fr = Fofy(yr, wma, mu, sig) - u;
-  if (Fr<=0) return(upper);
+  double ystep = 3;
+  double yr, Fr;
+  if( (Fl>0)|(std::abs(Fl)<err) ){
+    return(lower);
+  }else{
+    yr = yl+ystep; Fr = Fofy(yr, wma, mu, sig) - u;
+    while(Fr<=0){
+      if( (std::abs(Fr)<err)|(yr>upper) ) return(yr);
+      yl=yr; Fl=Fr;
+      yr+=ystep; Fr = Fofy(yr, wma, mu, sig) - u;
+      R_CheckUserInterrupt();
+    }
+  }
   double ym = (yl+yr)*0.5;
   while( ((yr-yl)>err) ){
     R_CheckUserInterrupt();
@@ -549,6 +558,7 @@ SEXP PredMapsZ(SEXP ds0n_, SEXP dnn_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP th
   
   GetRNGstate();
   for(int i=0; i<nsave; ++i){
+    R_CheckUserInterrupt();
     GetCinv(n, theta1[i], theta2[i], dnn, Cinv, logdetC);
     arma::vec wei = w.col(i);
     arma::vec sig = arma::sqrt(sigma2.col(i));

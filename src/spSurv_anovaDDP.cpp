@@ -52,8 +52,8 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int npred = xpred.n_rows;
   
   // temp variables
-  double MinRes = Rcpp::min(yobs)-3.0;
-  double MaxRes = Rcpp::max(yobs)+3.0;
+  double MinRes = Rcpp::min(yobs)-5.0;
+  double MaxRes = Rcpp::max(yobs)+5.0;
   arma::mat Xbeta = X.t()*beta;
   NumericVector y(n);	for (int i=0; i<n; ++i) y[i] = yobs[i];
 	IntegerVector nK(N);

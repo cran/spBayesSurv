@@ -2,15 +2,15 @@
 \alias{spCopulaCoxph}
 \alias{spCopulaCoxph.default}
 
-\title{A Spatial Copula Approach to Cox Proportional Hazards Model}
+\title{Fit Marginal Bayesian Proportional Hazards Model}
 \description{
-    This function fits a spatial copula Cox PH model for survival analysis of 
-    point-referenced right censored time-to-event data.
+This function fits a marginal Bayesian proportional hazards model (Zhou, Hanson and Knapp, 2014+) for point-referenced right censored time-to-event data.
 }
    
 \usage{
-spCopulaCoxph(y, delta, x=NULL, s, prediction, prior, mcmc, state, RandomIntervals=F,
-      data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL)
+spCopulaCoxph(y, delta, x=NULL, s, prediction, prior, mcmc, state, 
+              RandomIntervals=F, data=sys.frame(sys.parent()), 
+              na.action=na.fail, work.dir=NULL)
 }
 
 \arguments{
@@ -57,8 +57,7 @@ spCopulaCoxph(y, delta, x=NULL, s, prediction, prior, mcmc, state, RandomInterva
 }
 
 \details{
-  This generic function fits a spatial copula Cox PH model (Zhou, Hanson and Knapp, 2014+),
-  for (potentially) point-referenced right-censored data. 
+This function fits a marginal Bayesian proportional hazards model (Zhou, Hanson and Knapp, 2014+) for point-referenced right censored time-to-event data.
 }
 
 \value{
@@ -72,8 +71,7 @@ spCopulaCoxph(y, delta, x=NULL, s, prediction, prior, mcmc, state, RandomInterva
 }
 
 \references{
-Zhou, H., Hanson, T. and Knapp, R. (2014+). A Spatial Copula Approach to Fully Bayesian Nonparametric Survival Analysis. 
-In preparation for publication.
+Zhou, H., Hanson, T. and Knapp, R. (2014+). Marginal Bayesian nonparametric model for the time-to-extinction of the mountain yellow-legged frog. Biometrics. In revision. 
 }
 
 

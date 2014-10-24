@@ -2,15 +2,15 @@
 \alias{spCopulaDDP}
 \alias{spCopulaDDP.default}
 
-\title{A Spatial Copula Approach to Fully Bayesian Nonparametric Survival Analysis}
+\title{Fit Marginal Bayesian Nonparametric Survival Model}
 \description{
-    This function fits a spatial copula survival model for 
-    survival analysis of point-referenced right censored time-to-event data.
+This function fits a marginal Bayesian Nonparametric model (Zhou, Hanson and Knapp, 2014+) for point-referenced right censored time-to-event data.
 }
    
 \usage{
-spCopulaDDP(y, delta, x=NULL, s, prediction, prior, mcmc, state, FSA = TRUE, knots,
-         data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL)
+spCopulaDDP(y, delta, x=NULL, s, prediction, prior, mcmc, state, 
+            FSA = TRUE, knots, data=sys.frame(sys.parent()), 
+            na.action=na.fail, work.dir=NULL)
 }
 
 \arguments{
@@ -65,8 +65,7 @@ spCopulaDDP(y, delta, x=NULL, s, prediction, prior, mcmc, state, FSA = TRUE, kno
 }
 
 \details{
-  This generic function fits a spatial copula survival model (Zhou, Hanson and Knapp, 2014+),
-  for (potentially) point-referenced right-censored data. 
+This function fits a marginal Bayesian Nonparametric model (Zhou, Hanson and Knapp, 2014+) for point-referenced right censored time-to-event data. 
 }
 
 \value{
@@ -80,8 +79,7 @@ spCopulaDDP(y, delta, x=NULL, s, prediction, prior, mcmc, state, FSA = TRUE, kno
 }
 
 \references{
-Zhou, H., Hanson, T. and Knapp, R. (2014+). A Spatial Copula Approach to Fully Bayesian Nonparametric Survival Analysis. 
-In preparation for publication.
+Zhou, H., Hanson, T. and Knapp, R. (2014+). Marginal Bayesian nonparametric model for the time-to-extinction of the mountain yellow-legged frog. Biometrics. In revision. 
 }
 
 
@@ -234,7 +232,7 @@ prediction = list(spred=s0, xpred=xpred, predid=dpred$id);
 # MCMC parameters
 nburn <- 1000
 nsave <- 500
-nskip <- 4
+nskip <- 1
 ndisplay <- 100
 mcmc <- list(nburn=nburn,
              nsave=nsave,

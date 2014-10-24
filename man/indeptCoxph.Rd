@@ -2,14 +2,15 @@
 \alias{indeptCoxph}
 \alias{indeptCoxph.default}
 
-\title{Bayesian Approach to Cox Proportional Hazard Model}
+\title{Fit Bayesian Proportional Hazards Model}
 \description{
-    This function fits a Cox proportional hazard model for right censored time-to-event data.
+This function fits a Bayesian proportional hazards model for non-spatial right censored time-to-event data.
 }
    
 \usage{
-indeptCoxph(y, delta, x=NULL, prediction, prior, mcmc, state, RandomIntervals=F, 
-         data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL)
+indeptCoxph(y, delta, x=NULL, prediction, prior, mcmc, state, 
+            RandomIntervals=F, data=sys.frame(sys.parent()), 
+            na.action=na.fail, work.dir=NULL)
 }
 
 \arguments{
@@ -53,8 +54,7 @@ indeptCoxph(y, delta, x=NULL, prediction, prior, mcmc, state, RandomIntervals=F,
 }
 
 \details{
-  This generic function fits an independent Cox PH model (Zhou, Hanson and Knapp, 2014+),
-  for right-censored data. 
+This function fits a Bayesian proportional hazards model (Zhou, Hanson and Knapp, 2014+) for non-spatial right censored time-to-event data.
 }
 
 \value{
@@ -68,8 +68,7 @@ indeptCoxph(y, delta, x=NULL, prediction, prior, mcmc, state, RandomIntervals=F,
 }
 
 \references{
-Zhou, H., Hanson, T. and Knapp, R. (2014+). A Spatial Copula Approach to Fully Bayesian Nonparametric Survival Analysis. 
-In preparation for publication.
+Zhou, H., Hanson, T. and Knapp, R. (2014+). Marginal Bayesian nonparametric model for the time-to-extinction of the mountain yellow-legged frog. Biometrics. In revision. 
 }
 
 \author{
