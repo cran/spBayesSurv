@@ -86,7 +86,7 @@ double Finvofu(double u, Rcpp::NumericVector h, Rcpp::NumericVector d, double xi
   double err = 10e-8;
   double tl = lower;
   double Fl = Foft(tl, h, d, xibeta) - u;
-  double tstep = 10;
+  double tstep = (upper-lower)*0.001;
   double tr, Fr;
   if ( (Fl>0) | (std::abs(Fl)<err) ){
     return(lower);
@@ -181,7 +181,7 @@ void sample_hcen(double& hcen, int& rejhcen, double& hSnew, double& hbarnew, Rcp
   double hbarold = hbarnew;
   hbarnew = (nn)/(nn+1.0)*hbarold + hcen/(nn+1.0);
   double hSold = hSnew;
-  hSnew = (nn-1.0)/nn*hSold + hadapter/nn*(nn*hbarold*hbarold - (nn+1.0)*hbarnew*hbarnew + hcen*hcen + 0.01 );
+  hSnew = (nn-1.0)/nn*hSold + hadapter/nn*(nn*hbarold*hbarold - (nn+1.0)*hbarnew*hbarnew + hcen*hcen + 0.001 );
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -212,7 +212,7 @@ void indept_sample_beta(arma::vec& beta, int& rejbeta, arma::mat& Snew, arma::ve
   arma::vec betabarold = betabarnew;
   betabarnew = (nn)/(nn+1.0)*betabarold + beta/(nn+1.0);
   arma::mat Sold = Snew;
-  Snew = (nn-1.0)/nn*Sold + adapter/nn*(nn*betabarold*betabarold.t() - (nn+1.0)*betabarnew*betabarnew.t() + beta*beta.t() + 0.05*Ip );
+  Snew = (nn-1.0)/nn*Sold + adapter/nn*(nn*betabarold*betabarold.t() - (nn+1.0)*betabarnew*betabarnew.t() + beta*beta.t() + 0.001*Ip );
 }
 
 // Calculate CPO for Independent Cox PH
@@ -270,7 +270,7 @@ void spCopula_sample_beta(arma::vec& beta, int& rejbeta, arma::mat& Snew, arma::
   arma::vec betabarold = betabarnew;
   betabarnew = (nn)/(nn+1.0)*betabarold + beta/(nn+1.0);
   arma::mat Sold = Snew;
-  Snew = (nn-1.0)/nn*Sold + adapter/nn*(nn*betabarold*betabarold.t() - (nn+1.0)*betabarnew*betabarnew.t() + beta*beta.t() + 0.05*eye(p,p) );
+  Snew = (nn-1.0)/nn*Sold + adapter/nn*(nn*betabarold*betabarold.t() - (nn+1.0)*betabarnew*betabarnew.t() + beta*beta.t() + 0.001*eye(p,p) );
 }
 
 // Calculate CPO for spatial Copula Cox PH

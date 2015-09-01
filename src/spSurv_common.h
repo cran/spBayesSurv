@@ -8,6 +8,7 @@
 #define SYSMIN 1e-305  /* small number */
 #define SYSMAX 1e+305 /* large number */
 #define LOGSYSMAX 702.28845336318397585 /* large number */
+#define LOGSYSMIN -702.28845336318397585 /* large number */
 typedef Rcpp::NumericMatrix::iterator mat_iterator;
 using namespace Rcpp;
 

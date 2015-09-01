@@ -102,8 +102,8 @@ void DDP_Vtow(arma::vec& w, Rcpp::NumericVector V, int N){
   w[0] = V[0];
   for (int k=1; k<N; ++k){
     temp += std::log(1.0-V[k-1]);
-    // w[k] = std:max(std::exp(temp+std::log(V[k])), 1e-320);
-    w[k] = std::exp(temp+std::log(V[k]));
+    w[k] = std::max(std::exp(temp+std::log(V[k])), 1e-320);
+    //w[k] = std::exp(temp+std::log(V[k]));
   }
 }
 

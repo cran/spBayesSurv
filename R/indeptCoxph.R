@@ -1,19 +1,5 @@
 "indeptCoxph" <- function(y, delta, x=NULL, prediction, prior, mcmc, state, RandomIntervals=F, 
-                            data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL)
-UseMethod("indeptCoxph")
-
-"indeptCoxph.default" <- 
-function (y, 
-          delta, 
-          x=NULL,  
-          prediction, 
-          prior, 
-          mcmc,
-          state,
-          RandomIntervals=F,
-          data=sys.frame(sys.parent()),
-          na.action=na.fail, 
-          work.dir=NULL) {
+                          data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL) {
   #########################################################################################
   # call parameters
   #########################################################################################
@@ -52,7 +38,15 @@ function (y,
   #########################################################################################
   # initial analysis and mcmc parameters
   #########################################################################################
-  fit0 = survival::survreg( Surv(y, delta) ~ t(X), dist="exponential" );
+  fit0 = survival::survreg( Surv(y, delta) ~ t(X), dist="weibull" );
+  thbetaShat0 = fit0$var[c(1,p+2,2:(1+p)),c(1,p+2,2:(1+p))];
+  Dtrans = diag(c(-1, -1, rep(-1/fit0$scale,p))); Dtrans[2,-(1:2)]=fit0$coefficients[-1]/fit0$scale;
+  thbetaShat = t(Dtrans)%*%thbetaShat0%*%Dtrans;
+  ## prior for beta
+  Shat = thbetaShat[-(1:2),-(1:2)];
+  multShat0 = diag(rep(1e5,p), nrow=p, ncol=p); 
+  multShat1 = as.matrix(0.5*Shat);
+  
   nburn <- mcmc$nburn;
   nsave <- mcmc$nsave;
   nskip <- mcmc$nskip;
@@ -61,27 +55,28 @@ function (y,
   #########################################################################################
   # priors
   #########################################################################################
-  r0 <- prior$r0; if(is.null(r0)) r0 = 0.05;
+  r0 <- prior$r0; if(is.null(r0)) r0 = 1;
   h0 <- prior$h0; if(is.null(h0)) h0 = as.vector( exp( -fit0$coefficients[1] ) );
   nu0 <- prior$nu0; if(is.null(nu0)) nu0 = 2;
   V0 <- prior$V0; if(is.null(V0)) V0 = nu0*as.vector( exp( -2*fit0$coefficients[1] )*fit0$var[1,1] );
   hl0 <- prior$hl0; if(is.null(hl0)) hl0 <- round(nburn/2);
-  hs0 <- prior$hs0; if(is.null(hs0)) hs0 <- sqrt( as.vector( exp( -2*fit0$coefficients[1] )*fit0$var[1,1] ) );
-  hadapter <- prior$hadapter; if(is.null(hadapter)) hadapter <- (2.4)^2;
-  M <- prior$M; if(is.null(M)) M <- 10;
+  hs0 <- prior$hs0; if(is.null(hs0)) hs0 <- 0.5*sqrt( as.vector( exp( -2*fit0$coefficients[1] )*fit0$var[1,1] ) );
+  hadapter <- prior$hadapter; if(is.null(hadapter)) hadapter <- (2.38)^2;
+  M <- prior$M; if(is.null(M)) M <- 20;
   M1<- M+1;
   d <- prior$d; 
   if(is.null(d)){
-    d <- rep(0,M);
-    for(i in 1:M) d[i] = -log(1-i/M)/h0;
+    d = as.vector(quantile(y, probs=seq(0,1,length=M1)));
+    d = d[-1];
+    d[M] = Inf;
   }
   d <- c(0, d);
   if(!(M1==length(d))) stop("error: M is not equal to length(d)");
-  mu0 <- prior$mu0; if(is.null(mu0)) mu0 <- as.vector( -fit0$coefficients[-1] );
-  Sig0 <- prior$Sig0; if(is.null(Sig0)) Sig0 <- diag(rep(1e5,p), nrow=p, ncol=p);
+  mu0 <- prior$mu0; if(is.null(mu0)) mu0 <- as.vector( -fit0$coefficients[-1]/fit0$scale );
+  Sig0 <- prior$Sig0; if(is.null(Sig0)) Sig0 <- multShat0;
   l0 <- prior$l0; if(is.null(l0)) l0 <- round(nburn/2);
-  S0 <- prior$S0; if(is.null(S0)) S0 <- as.matrix( fit0$var[-1,-1] );
-  adapter <- prior$adapter; if(is.null(adapter)) adapter <- (2.4)^2/p;
+  S0 <- prior$S0; if(is.null(S0)) S0 <- multShat1;
+  adapter <- prior$adapter; if(is.null(adapter)) adapter <- (2.38)^2/p;
   
   #########################################################################################
   # current state and mcmc specification

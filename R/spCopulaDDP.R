@@ -1,22 +1,5 @@
 "spCopulaDDP" <- function(y, delta, x=NULL, s, prediction, prior, mcmc, state, status=TRUE, FSA = TRUE, knots,
-                    data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL)
-UseMethod("spCopulaDDP")
-
-"spCopulaDDP.default" <- 
-function (y, 
-          delta, 
-          x=NULL, 
-          s, 
-          prediction, 
-          prior, 
-          mcmc,
-          state,
-          status=TRUE,
-          FSA = TRUE,
-          knots,
-          data=sys.frame(sys.parent()),
-          na.action=na.fail, 
-          work.dir=NULL) {
+                                  data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL) {
   #########################################################################################
   # call parameters
   #########################################################################################
@@ -102,20 +85,20 @@ function (y,
   #fit0=lm(y~x); sfit0=summary(fit0); sig2hat = sfit0$sigma^2; 
   muhat = as.vector(fit0$coefficients);
   sig2hat = fit0$scale^2
-  Sighat = as.matrix(fit0$var[(1:p),(1:p)]); Sigscale=100;
+  Sighat = as.matrix(fit0$var[(1:p),(1:p)]); Sigscale=30;
   N <- prior$N; if(is.null(N)) N <- 10;
   m0 <- prior$m0; if(is.null(m0)) m0 <- muhat;
   S0 <- prior$S0; if(is.null(S0)) S0 <- Sighat;
-  Sig0 <- prior$Sig0; if(is.null(Sig0)) Sig0 <- Sigscale*Sighat; #Sig0 <- diag(rep(1e4,p), nrow=p, ncol=p);
+  Sig0 <- prior$Sig0; if(is.null(Sig0)) Sig0 <- Sigscale*Sighat; #Sig0 <- diag(rep(1e5,p), nrow=p, ncol=p); #
   k0 <- prior$k0; if(is.null(k0)) k0 <- p+5;
   nua <-prior$nua; nub <- prior$nub;
-  if(is.null(nua)) nua=2+1; #nua=2+sig2hat/4; 
-  if(is.null(nub)) nub=2*sig2hat; #nub=sig2hat/4*(nua-1);
+  if(is.null(nua)) nua=2+1; #nua=2+sig2hat/4; #
+  if(is.null(nub)) nub=sig2hat; #nub=sig2hat/4*(nua-1); #
   a0 <-prior$a0; b0 <- prior$b0;
   if(is.null(a0)) a0=2; if(is.null(b0)) b0=2;
-  theta0 <- prior$theta0; if(is.null(theta0)) theta0 <- c(5.0, 1.0, 1.0, 5.0);
+  theta0 <- prior$theta0; if(is.null(theta0)) theta0 <- c(1.0, 1.0, 1.0, 1.0);
   spl0 <- prior$spl0; if(is.null(spl0)) spl0 <- round(nburn/2);
-  spS0 <- prior$spS0; if(is.null(spS0)) spS0 <- diag(c(0.25,0.1));
+  spS0 <- prior$spS0; if(is.null(spS0)) spS0 <- diag(c(0.5, 0.1));
   spadapter <- prior$spadapter; if(is.null(spadapter)) spadapter <- (2.38)^2/2;
 
   #########################################################################################
@@ -135,7 +118,7 @@ function (y,
       w[k] = max(exp( sum(log(1-V[1:(k-1)]))+log(V[k]) ), 1e-320);
       #w[k] = max( (1 - sum(w[1:(k-1)]))*V[k], 1e-320);
     }
-    theta = state$theta; if(is.null(theta)) theta <- c(0.98, 0.1);
+    theta = state$theta; if(is.null(theta)) theta <- c(0.98, 0.2);
   }else{
     K = state$K;
     currenty = state$y;

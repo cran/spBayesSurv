@@ -65,10 +65,4 @@ void updatelrcoefldtfpss(int kk, int ii, int jj, int n1, int n2, const Rcpp::Int
 arma::vec spldtfp_Linv(const Rcpp::NumericMatrix& tobs, const Rcpp::IntegerVector& type, const arma::vec& xbetav, 
       const arma::mat& xbetatf, double sigma2, int maxL);
 
-// Get density or survival Plots for frailty LDTFP AFT
-RcppExport SEXP frailtyGAFTplots(SEXP tgrid_, SEXP xcepred_, SEXP xtfpred_, SEXP betace_, SEXP betatf_, SEXP v_, SEXP sigma2_, SEXP maxL_, SEXP probs_);
-
-// BayesFactors 
-RcppExport SEXP BayesFactor(SEXP betatf_, SEXP maxL_, SEXP a0_, SEXP b0_, SEXP gprior_, SEXP alpha_);
-
 #endif

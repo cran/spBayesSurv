@@ -620,14 +620,14 @@ arma::vec spldtfp_Linv(const Rcpp::NumericMatrix& tobs, const Rcpp::IntegerVecto
   for(int i=0; i<nrec; ++i){
     double y1 = std::log(tobs(i,0));
     double y2 = std::log(tobs(i,1));
-    if(type[i]==1){
+    if(type[i]==2){
       cdfldtfp(y2, xbetav[i], xbetatf.col(i), sigma2, tmp1, maxL);
       res(i) = 1.0/tmp1;
-    } else if (type[i]==2){
+    } else if (type[i]==3){
       cdfldtfp(y1, xbetav[i], xbetatf.col(i), sigma2, tmp1, maxL);
       cdfldtfp(y2, xbetav[i], xbetatf.col(i), sigma2, tmp2, maxL);
       res(i) = 1.0/(tmp2-tmp1);
-    } else if (type[i]==3){
+    } else if (type[i]==0){
       cdfldtfp(y1, xbetav[i], xbetatf.col(i), sigma2, tmp1, maxL);
       res(i) = 1.0/(1.0-tmp1);
     } else {
@@ -639,7 +639,7 @@ arma::vec spldtfp_Linv(const Rcpp::NumericMatrix& tobs, const Rcpp::IntegerVecto
 }
 
 // Get density or survival Plots for frailty LDTFP AFT
-SEXP frailtyGAFTplots(SEXP ygrid_, SEXP xcepred_, SEXP xtfpred_, SEXP betace_, SEXP betatf_, SEXP v_, SEXP sigma2_, SEXP maxL_, SEXP probs_){
+RcppExport SEXP frailtyGAFTplots(SEXP ygrid_, SEXP xcepred_, SEXP xtfpred_, SEXP betace_, SEXP betatf_, SEXP sigma2_, SEXP maxL_, SEXP CI_){
   BEGIN_RCPP
   // Transfer R variables into C++;
   arma::vec ygrid = as<vec>(ygrid_);
@@ -649,16 +649,16 @@ SEXP frailtyGAFTplots(SEXP ygrid_, SEXP xcepred_, SEXP xtfpred_, SEXP betace_, S
   Rcpp::NumericVector vecArray(betatf_);
   Rcpp::IntegerVector arrayDims = vecArray.attr("dim");
   arma::cube betatf(vecArray.begin(), arrayDims[0], arrayDims[1], arrayDims[2], false);
-  arma::mat v = as<mat>(v_); // npred by nsave;
+  //arma::mat v = as<mat>(v_); // npred by nsave;
   Rcpp::NumericVector sigma2(sigma2_); // nsave by 1;
   
-  Rcpp::NumericVector probs(probs_);
+  double CI = as<double>(CI_);
   int maxL = as<int>(maxL_);
   int nsave = sigma2.size();
   int ngrid = ygrid.size();
   int npred = xcepred.n_rows;
-  int low = nsave*probs[0]-1;
-  int up = nsave*probs[1]-1;
+  int low = nsave*(1.0-CI)*0.5 - 1;
+  int up = nsave*(CI+(1.0-CI)*0.5) - 1;
   
   // Temp variables
   Rcpp::NumericVector estfArray(nsave*ngrid*npred);
@@ -684,7 +684,7 @@ SEXP frailtyGAFTplots(SEXP ygrid_, SEXP xcepred_, SEXP xtfpred_, SEXP betace_, S
   double tmp2=0;
   
   for(int i=0; i<nsave; ++i){
-    arma::vec xibetav = xcepred*betace.col(i) + v.col(i);
+    arma::vec xibetav = xcepred*betace.col(i);
     arma::mat xibetatf = arma::trans( xtfpred*betatf.slice(i) );
     for(int j=0; j<npred; ++j){
       for(int k=0; k<ngrid; ++k){
@@ -723,120 +723,61 @@ SEXP frailtyGAFTplots(SEXP ygrid_, SEXP xcepred_, SEXP xtfpred_, SEXP betace_, S
 }
 
 // BayesFactors 
-SEXP BayesFactor(SEXP betatf_, SEXP maxL_, SEXP a0_, SEXP b0_, SEXP gprior_, SEXP alpha_){
+RcppExport SEXP BayesFactor(SEXP betatf_, SEXP maxL_, SEXP gprior_, SEXP alpha_){
   BEGIN_RCPP
   // Transfer R variables into C++;
-  Rcpp::NumericVector vecArray(betatf_);
-  Rcpp::IntegerVector arrayDims = vecArray.attr("dim");
-  arma::cube betatf(vecArray.begin(), arrayDims[0], arrayDims[1], arrayDims[2], false);
-  int ptf = arrayDims[0];
-  int ntlr = arrayDims[1];
-  int nsave = arrayDims[2];
-  int maxL = as<int>(maxL_);
-  double a0 = as<double>(a0_); 
-  double b0 = as<double>(b0_);
-  arma::mat gprior = as<mat>(gprior_);
+  const arma::mat betatf = as<mat>(betatf_); // (2**maxL-2)*ptf by nsave;
+  const int maxL = as<int>(maxL_);
+  const arma::mat gprior = as<mat>(gprior_);
   const double alpha = as<double>(alpha_);
+  int ntf = std::pow(2, maxL)-2;
+  int nbetatf = betatf.n_rows;
+  int ptf = nbetatf/ntf;
+  int nsave = betatf.n_cols;
+  
   
   // Temp variables
-  // double newL = std::pow(2, maxL-1)-1;
-  int itf=0;
-  Rcpp::NumericVector BF1(ptf);
-  Rcpp::NumericVector BF0(ptf);
-  arma::vec veczero(ntlr-1); veczero.fill(0.0);
+  double tmp2=0;
+  Rcpp::NumericVector BF1(ptf, 0.0);
+  Rcpp::NumericVector BF0(ptf, 0.0);
   
-  GetRNGstate();
   // Test for individual covariate effect
   for(int i=0; i<ptf; ++i){
-    itf=0;
-    arma::mat gammai(nsave, ntlr-1);
-    for(int j=2; j<=maxL; ++j){
-      int kj = std::pow(2, j-1);
-      for(int k=1; k<=kj; ++k){
-        ++itf;
-        for(int isave=0; isave<nsave; ++isave){
-          gammai(isave,itf-1) = betatf(i, itf, isave);
-        }
-      }
+    arma::mat gammai(ntf, nsave);
+    arma::vec veczero(ntf); veczero.fill(0.0);
+    for(int j=0; j<ntf; ++j){
+      gammai.row(j) = betatf.row(i+j*ptf);
     }
-    arma::vec mean1 = arma::trans( arma::mean(gammai, 0) );
-    arma::mat cov1 = arma::cov(gammai);
+    arma::vec mean1 = arma::mean(gammai, 1);
+    arma::mat cov1 = arma::cov(gammai.t());
     BF1[i] = mvdnorm(veczero, mean1, cov1, false);
   }
-  double tmp2; tmp2=b0;
-  if(a0>0){
-    // double tmp1 = Rf_lgammafn(a0+newL) - Rf_lgammafn(a0) - newL*std::log(M_2PI*b0);
-    for(int i=0; i<ptf; ++i){
-      tmp2=0;
-      for(int j=2; j<=maxL; ++j){
-        int kj = std::pow(2, j-1);
-        for(int k=1; k<=kj; ++k){
-          // tmp2 += std::log ( std::sqrt( gprior(i,i) )/(j+0.0) );
-          tmp2 += Rf_dnorm4(0, 0, std::sqrt( gprior(i,i)/alpha )/(j+0.0), true);
-        }
-      }
-      // BF0[i] = std::exp(tmp1-tmp2);
-      BF0[i] = std::exp(tmp2);
+  for(int i=0; i<ptf; ++i){
+    tmp2=0;
+    for(int j=0; j<ntf; ++j){
+      tmp2 += Rf_dnorm4(0, 0, std::sqrt( gprior(i,i)/alpha )/((int)(log(j+2)/log(2))+1.0), true);
     }
-  }else{
-    for(int i=0; i<ptf; ++i){
-      tmp2=0;
-      for(int j=2; j<=maxL; ++j){
-        int kj = std::pow(2, j-1);
-        for(int k=1; k<=kj; ++k){
-          tmp2 += Rf_dnorm4(0, 0, std::sqrt( gprior(i,i)/alpha )/(j+0.0), true);
-        }
-      }
-      BF0[i] = std::exp(tmp2);
-    }
+    BF0[i] = std::exp(tmp2);
   }
   NumericVector BFindividual = BF0/BF1;
   
   // overall test for covariates dependency of LDTFP (i.e. all coeffs=0 execpt intercept)
   double BF1overall, BF0overall;
   if(ptf>1){
-    // posterior
-    arma::mat gammai(nsave, (ntlr-1)*(ptf-1));
-    itf=0;
-    for(int j=2; j<=maxL; ++j){
-      int kj = std::pow(2, j-1);
-      for(int k=1; k<=kj; ++k){
-        ++itf;
-        for(int isave=0; isave<nsave; ++isave){
-          for(int i=1; i<ptf; ++i){
-            int ind = (itf-1)*(ptf-1) + i-1;
-            gammai(isave,ind) = betatf(i, itf, isave);
-          }
-        }
-      }
+    arma::mat gammai(ntf*(ptf-1), nsave);
+    arma::vec zero1(ntf*(ptf-1)); zero1.fill(0.0);
+    for(int j=0; j<ntf; ++j){
+      gammai.rows(j*(ptf-1), (j+1)*(ptf-1)-1) = betatf.rows(j*ptf+1, (j+1)*ptf-1);
     }
-    arma::vec mean1 = arma::trans( arma::mean(gammai, 0) );
-    arma::mat cov1 = arma::cov(gammai);
-    arma::vec zero1((ntlr-1)*(ptf-1)); zero1.fill(0.0);
+    arma::vec mean1 = arma::mean(gammai, 1);
+    arma::mat cov1 = arma::cov(gammai.t());
     BF1overall = mvdnorm(zero1, mean1, cov1, false);
-    // prior
     arma::vec zero0(ptf-1); zero0.fill(0.0);
-    if(a0>0){
-      tmp2=0;
-      for(int j=2; j<=maxL; ++j){
-        int kj = std::pow(2, j-1);
-        for(int k=1; k<=kj; ++k){
-    	    arma::mat cov0 = gprior.submat(1, 1, ptf-1, ptf-1)/(alpha*std::pow(j+0.0,2));
-          tmp2 += mvdnorm(zero0, zero0, cov0, true);
-    	  }
-      }
-      BF0overall = std::exp(tmp2);
-    }else{
-      tmp2=0;
-      for(int j=2; j<=maxL; ++j){
-    	  int kj = std::pow(2, j-1);
-    	  for(int k=1; k<=kj; ++k){
-    	    arma::mat cov0 = gprior.submat(1, 1, ptf-1, ptf-1)/(alpha*std::pow(j+0.0,2));
-          tmp2 += mvdnorm(zero0, zero0, cov0, true);
-    	  }
-      }
-      BF0overall = std::exp(tmp2);
+    tmp2=0;
+    for(int j=0; j<ntf; ++j){
+      tmp2 += mvdnorm(zero0, zero0, gprior.submat(1,1,ptf-1,ptf-1)/(alpha*std::pow(((int)(log(j+2)/log(2))+1.0),2)), true);
     }
+    BF0overall = std::exp(tmp2);
   }else{
     BF1overall = -1;
     BF0overall = 100;
@@ -845,48 +786,16 @@ SEXP BayesFactor(SEXP betatf_, SEXP maxL_, SEXP a0_, SEXP b0_, SEXP gprior_, SEX
   
   // overall test for Normality of LDTFP (i.e. all coeffs=0)
   if(ptf>0){
-    // posterior
-    arma::mat gammai(nsave, (ntlr-1)*(ptf));
-    itf=0;
-    for(int j=2; j<=maxL; ++j){
-      int kj = std::pow(2, j-1);
-      for(int k=1; k<=kj; ++k){
-        ++itf;
-        for(int isave=0; isave<nsave; ++isave){
-          for(int i=0; i<ptf; ++i){
-            int ind = (itf-1)*(ptf) + i;
-            gammai(isave,ind) = betatf(i, itf, isave);
-          }
-        }
-      }
-    }
-    arma::vec mean1 = arma::trans( arma::mean(gammai, 0) );
-    arma::mat cov1 = arma::cov(gammai);
-    arma::vec zero1((ntlr-1)*(ptf)); zero1.fill(0.0);
+    arma::vec zero1(nbetatf); zero1.fill(0.0);
+    arma::vec mean1 = arma::mean(betatf, 1);
+    arma::mat cov1 = arma::cov(betatf.t());
     BF1overall = mvdnorm(zero1, mean1, cov1, false);
-    // prior
     arma::vec zero0(ptf); zero0.fill(0.0);
-    if(a0>0){
-      tmp2=0;
-      for(int j=2; j<=maxL; ++j){
-        int kj = std::pow(2, j-1);
-        for(int k=1; k<=kj; ++k){
-          arma::mat cov0 = gprior/(alpha*std::pow(j+0.0,2));
-          tmp2 += mvdnorm(zero0, zero0, cov0, true);
-    	  }
-      }
-      BF0overall = std::exp(tmp2);
-    }else{
-      tmp2=0;
-      for(int j=2; j<=maxL; ++j){
-    	  int kj = std::pow(2, j-1);
-    	  for(int k=1; k<=kj; ++k){
-    	    arma::mat cov0 = gprior/(alpha*std::pow(j+0.0,2));
-          tmp2 += mvdnorm(zero0, zero0, cov0, true);
-    	  }
-      }
-      BF0overall = std::exp(tmp2);
+    tmp2=0;
+    for(int j=0; j<ntf; ++j){
+      tmp2 += mvdnorm(zero0, zero0, gprior/(alpha*std::pow(((int)(log(j+2)/log(2))+1.0),2)), true);
     }
+    BF0overall = std::exp(tmp2);
   }else{
     BF1overall = -1;
     BF0overall = 100;
@@ -896,6 +805,5 @@ SEXP BayesFactor(SEXP betatf_, SEXP maxL_, SEXP a0_, SEXP b0_, SEXP gprior_, SEX
   return List::create(Named("BFindividual")=BFindividual, 
                       Named("BFoverallLDTFP")=BFoverallLDTFP,
                       Named("BFoverallParam")=BFoverallParam);
-  PutRNGstate();
   END_RCPP
 }

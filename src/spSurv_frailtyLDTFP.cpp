@@ -142,11 +142,11 @@ SEXP frailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     //////////////////////////////////////////////
     for(int i=0; i<nrec; ++i){
       R_CheckUserInterrupt();
-      if(type[i]!=4) {
-        if(type[i]==1) {
+      if(type[i]!=1) {
+        if(type[i]==2) {
           liminf=-999.0;
           limsup=std::log(tobs(i,1));
-        } else if(type[i]==3) {
+        } else if(type[i]==0) {
           liminf=std::log(tobs(i,0)); 
           limsup=999.0;
         } else {

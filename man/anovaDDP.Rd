@@ -1,6 +1,5 @@
 \name{anovaDDP}
 \alias{anovaDDP}
-\alias{anovaDDP.default}
 
 \title{Fit Bayesian Nonparametric Survival Model}
 \description{
@@ -27,7 +26,7 @@ anovaDDP(y, delta, x=NULL, prediction, prior, mcmc, state, status=TRUE,
     \item{prior}{    a list giving the prior information. The list includes the following
                      parameter: \code{N} an integer giving the truncation of the Dirichlet 
                      process, \code{a0} and \code{b0} giving the hyperparameters for
-                     prior distribution of the precision parameter \code{alpha}. See Zhou, Hanson and Knapp (2014+) 
+                     prior distribution of the precision parameter \code{alpha}. See Zhou, Hanson and Knapp (2015) 
                      for more detailed hyperprior specifications.}
 
     \item{mcmc}{     a list giving the MCMC parameters. The list must include
@@ -62,7 +61,7 @@ This function fits a Bayesian Nonparametric model (De Iorio et al., 2009) for no
 
 \value{
   The results include the MCMC chains for the parameters discussed in De Iorio et al. (2009) and 
-  Zhou, Hanson and Knapp (2014+). Use \code{names} to find out what they are.
+  Zhou, Hanson and Knapp (2015). Use \code{names} to find out what they are.
 
 }
 
@@ -71,14 +70,13 @@ This function fits a Bayesian Nonparametric model (De Iorio et al., 2009) for no
 }
 
 \references{
-De Iorio, M., Johnson, W. O., Mueller, P., and Rosner, G. L. (2009). Bayesian nonparametric nonproportional hazards survival modeling. 
-Biometrics, 65(3), 762-771.
+De Iorio, M., Johnson, W. O., Mueller, P., and Rosner, G. L. (2009). Bayesian nonparametric nonproportional hazards survival modeling. \emph{Biometrics}, 65(3): 762-771. 
 
-Zhou, H., Hanson, T. and Knapp, R. (2014+). Marginal Bayesian nonparametric model for the time-to-extinction of the mountain yellow-legged frog. Biometrics. In revision. 
+Zhou, H., Hanson, T. and Knapp, R. (2015). Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations. \emph{Biometrics}, accepted. 
 }
 
 \author{
-Haiming Zhou \email{<zhouh@email.sc.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
 }
 
 \keyword{ANOVA DDP}
@@ -141,8 +139,8 @@ fi = function(y, xi, w=wT){
 }
 ## true plot
 xx = seq(-2, 7, 0.01)
-plot(xx, fi(xx, -1), "l", lwd=2, col=2)
-lines(xx, fi(xx, 1), "l", lwd=2, col=3)
+#plot(xx, fi(xx, -1), "l", lwd=2, col=2)
+#lines(xx, fi(xx, 1), "l", lwd=2, col=3)
 ## The CDF of Ti:
 Fi = function(y, xi, w=wT){
   nw = length(w);
@@ -209,7 +207,7 @@ state <- NULL
 
 # MCMC parameters
 nburn <- 5000
-nsave <- 5000
+nsave <- 3000
 nskip <- 0
 ndisplay <- 500
 mcmc <- list(nburn=nburn,
@@ -244,9 +242,8 @@ LPML1 = sum(log(res1$cpo)); LPML1;
 ## MSPE
 mean((dpred$yTrue-apply(res1$Ypred, 1, median))^2); 
 
-## Proportions for number of clusters 
-gg=apply(res1$K, 2, function(x) length(table(x)));
-table(gg)/length(gg);
+## number of non-negligible components
+quantile(colSums(res1$w>0.05))
 
 ## plots
 par(mfrow = c(2,2))
@@ -264,6 +261,8 @@ plot(ygrid, fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 0.8),
 for(i in 1:nxpred){
   lines(ygrid, fi(ygrid, xnew[i]), lwd=2)
   lines(ygrid, fhat[,i], lty=2, lwd=2, col=4);
+  lines(ygrid, estimates$fhatup[,i], lty=2, lwd=1, col=4);
+  lines(ygrid, estimates$fhatlow[,i], lty=2, lwd=1, col=4);
 }
 ## survival in y
 plot(ygrid, 1-Fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 1), 
@@ -280,6 +279,8 @@ plot(tgrid, fi(ygrid, xnew[1])/tgrid, "l", lwd=2, ylim=c(0, 0.15),
 for(i in 1:nxpred){
   lines(tgrid, fi(ygrid, xnew[i])/tgrid, lwd=2)
   lines(tgrid, fhat[,i]/tgrid, lty=2, lwd=2, col=4);
+  lines(tgrid, estimates$fhatup[,i]/tgrid, lty=2, lwd=1, col=4);
+  lines(tgrid, estimates$fhatlow[,i]/tgrid, lty=2, lwd=1, col=4);
 }
 ## survival in t
 plot(tgrid, 1-Fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 1), 

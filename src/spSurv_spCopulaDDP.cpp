@@ -180,7 +180,7 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     double b0star = b0-log(w[N-1]);
     if(b0star>(b0+740.0)){
       // Rprintf( "b0star = %f\n", b0star );
-      b0star = b0+(N-1.0)/alpha;
+      b0star = b0+1e5; // b0star = b0+(N-1.0)/alpha;
     }
     alpha = Rf_rgamma(a0star, 1.0/b0star);
   
@@ -460,7 +460,7 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     double b0star = b0-log(w[N-1]);
     if(b0star>(b0+740.0)){
       // Rprintf( "b0star = %f\n", b0star );
-      b0star = b0+(N-1.0)/alpha;
+      b0star = b0+1e5; // b0star = b0+(N-1.0)/alpha;
     }
     alpha = Rf_rgamma(a0star, 1.0/b0star);
 

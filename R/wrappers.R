@@ -11,10 +11,15 @@
   .Call("CoxPHplots", xpred_, tgrid_, beta_, h_, d_, probs_, PACKAGE = "spBayesSurv")
 }
 
-.frailtyGAFTplots <- function(tgrid_, xcepred_, xtfpred_, betace_, betatf_, v_, sigma2_, maxL_, probs_){
-  .Call("frailtyGAFTplots", tgrid_, xcepred_, xtfpred_, betace_, betatf_, v_, sigma2_, maxL_, probs_, PACKAGE = "spBayesSurv")
-}
-
-.BayesFactor <- function(betatf_, maxL_, a0_, b0_, gprior_, alpha_){
-  .Call("BayesFactor", betatf_, maxL_, a0_, b0_, gprior_, alpha_, PACKAGE = "spBayesSurv")
+baseline = function (...) 
+{
+  words <- as.character((match.call())[-1]);
+  allf <- cbind(...);
+  nterms <- ncol(allf);
+  if (is.null(names(allf))){
+    argname <- words[1:nterms]
+  }else{
+    argname <- ifelse(names(allf)=="", words[1:nterms], names(allf));
+  }
+  allf
 }

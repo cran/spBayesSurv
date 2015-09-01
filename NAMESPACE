@@ -1,3 +1,16 @@
 useDynLib(spBayesSurv)
 importFrom(Rcpp, evalCpp)
+importFrom("graphics", "lines", "par", "plot", "polygon")
+importFrom("methods", "is")
+importFrom("stats", ".getXlevels", "median", "model.extract",
+           "model.matrix", "na.fail", "quantile", "rbeta", "sd",
+           "terms")
+S3method(print, survregbayes)
+S3method(print, summary.survregbayes)
+S3method(plot, survregbayes)
+S3method(summary, survregbayes)
+S3method(print, frailtyGAFT)
+S3method(print, summary.frailtyGAFT)
+S3method(plot, frailtyGAFT)
+S3method(summary, frailtyGAFT)
 exportPattern("^[[:alpha:]]+")

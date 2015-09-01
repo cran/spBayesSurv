@@ -1,6 +1,5 @@
 \name{indeptCoxph}
 \alias{indeptCoxph}
-\alias{indeptCoxph.default}
 
 \title{Fit Bayesian Proportional Hazards Model}
 \description{
@@ -27,7 +26,7 @@ indeptCoxph(y, delta, x=NULL, prediction, prior, mcmc, state,
     
     \item{prior}{    a list giving the prior information. The list includes the following
                      parameter: \code{M} an integer giving the total number of cut points for 
-                     baseline hazard. See Zhou, Hanson and Knapp (2014+) 
+                     baseline hazard. See Zhou, Hanson and Knapp (2015) 
                      for more detailed hyperprior specifications.}
 
     \item{mcmc}{     a list giving the MCMC parameters. The list must include
@@ -54,11 +53,11 @@ indeptCoxph(y, delta, x=NULL, prediction, prior, mcmc, state,
 }
 
 \details{
-This function fits a Bayesian proportional hazards model (Zhou, Hanson and Knapp, 2014+) for non-spatial right censored time-to-event data.
+This function fits a Bayesian proportional hazards model (Zhou, Hanson and Knapp, 2015) for non-spatial right censored time-to-event data.
 }
 
 \value{
-  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Knapp (2014+). 
+  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Knapp (2015). 
   Use \code{names} to find out what they are.
 
 }
@@ -68,11 +67,11 @@ This function fits a Bayesian proportional hazards model (Zhou, Hanson and Knapp
 }
 
 \references{
-Zhou, H., Hanson, T. and Knapp, R. (2014+). Marginal Bayesian nonparametric model for the time-to-extinction of the mountain yellow-legged frog. Biometrics. In revision. 
+Zhou, H., Hanson, T. and Knapp, R. (2015). Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations. \emph{Biometrics}, accepted. 
 }
 
 \author{
-Haiming Zhou \email{<zhouh@email.sc.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
 
 }
 
@@ -117,23 +116,23 @@ for (i in 1:(ntot-1)){
 x = runif(ntot,-1.5,1.5);
 ## Generate transformed log of survival times
 z = mvrnorm(1, rep(0, ntot), corT);
-## The CDF of Ti: Lambda(t) = t^2;
+## The CDF of Ti: Lambda(t) = t;
 Fi = function(t, xi){
-  res = 1-exp(-t^3*exp(sum(xi*betaT)));
+  res = 1-exp(-t*exp(sum(xi*betaT)));
   res[which(t<0)] = 0;
   res
 }
 ## The pdf of Ti:
 fi = function(t, xi){
-  res=(1-Fi(t,xi))*3*t^2*exp(sum(xi*betaT));
+  res=(1-Fi(t,xi))*exp(sum(xi*betaT));
   res[which(t<0)] = 0;
   res
 }
 #integrate(function(x) fi(x, 0), -Inf, Inf) 
 ## true plot
 xx = seq(0, 10, 0.1)
-plot(xx, fi(xx, -1), "l", lwd=2, col=2)
-lines(xx, fi(xx, 1), "l", lwd=2, col=3)
+#plot(xx, fi(xx, -1), "l", lwd=2, col=2)
+#lines(xx, fi(xx, 1), "l", lwd=2, col=3)
 
 ## The inverse for CDF of Ti
 Finvsingle = function(u, xi) {
@@ -151,7 +150,7 @@ tTrue = t; #plot(x,t);
 
 ## Censoring scheme
 Centime = runif(ntot, 1, 3);
-#Centime = 10000;
+Centime = 10000;
 delta = (t<=Centime) +0 ;
 sum(delta)/ntot;
 cen = which(delta==0);
@@ -184,31 +183,21 @@ p = ncol(X); # number of covariates
 delta =d$delta;
 
 # Initial Exp Cox PH
-fit0 = survreg( Surv(t, delta) ~ x, dist="exponential", data=d );
+fit0 = survreg( Surv(t, delta) ~ x, dist="weibull", data=d );
 h0 = as.vector( exp( -fit0$coefficients[1] ) );
-beta = as.vector( -fit0$coefficients[-1] );
-S0 = as.matrix( fit0$var[-1,-1] );
+beta = as.vector( -fit0$coefficients[-1]/fit0$scale ); beta;
 
 # Prior information
-prior = list(M = 10,
-             h0 = h0,
-             r0 = 1,
-             V0 = 2*as.vector( exp( -2*fit0$coefficients[1] )*fit0$var[1,1] ),
-             mu0 = as.vector( -fit0$coefficients[-1] ),
-             Sig0 = diag(rep(1e5,p), nrow=p, ncol=p),
-             adapter = (2.4)^2/p,
-             hadapter = (2.4)^2,
-             spadapter = (2.4)^2/2, 
-             theta0=c(1.0, 1.0, 0.5, 0.2));
+prior = list(M = 10);
 
 # current state values
-state <- list(theta = c(0.9, 1));
+state <- NULL;
 
 # MCMC parameters
-nburn <- 1000
-nsave <- 500
-nskip <- 4
-ndisplay <- 100
+nburn <- 5000
+nsave <- 3000
+nskip <- 0
+ndisplay <- 1000
 mcmc <- list(nburn=nburn,
              nsave=nsave,
              nskip=nskip,
@@ -218,14 +207,13 @@ mcmc <- list(nburn=nburn,
 res1 = indeptCoxph( y = t,
                     delta =delta, 
                     x = x, 
-                    RandomIntervals=T,
+                    RandomIntervals=FALSE,
                     prediction=prediction, 
                     prior=prior, 
                     mcmc=mcmc,
                     state=state);
 par(mfrow = c(2,1))
-h.save = res1$h; rowMeans(h.save);
-traceplot(mcmc(h.save[2,]), main="h")
+#traceplot(mcmc(res1$hcen), main="hcen")
 beta.save = res1$beta; rowMeans(beta.save);
 traceplot(mcmc(beta.save[1,]), main="beta")
 res1$ratebeta;
@@ -255,6 +243,8 @@ plot(tgrid, 1-Fi(tgrid, xnew[1]), "l", lwd=2, xlim=c(0,6), main="survival in y")
 for(i in 1:nxpred){
   lines(tgrid, 1-Fi(tgrid, xnew[i]), lwd=2)
   lines(tgrid, Shat[,i], lty=2, lwd=2, col=4);
+  lines(tgrid, estimates$Shatup[,i], lty=2, lwd=1, col=4);
+  lines(tgrid, estimates$Shatlow[,i], lty=2, lwd=1, col=4);
 }
 
 }

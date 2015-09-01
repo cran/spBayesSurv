@@ -1,0 +1,26 @@
+\name{baseline}
+\alias{baseline}
+
+\title{Stratification effects on baseline functions}
+\description{
+This function allows one to add a simple baseline stratification term to the generalized AFT model.
+}
+   
+\usage{
+baseline(...)
+}
+
+\arguments{
+   \item{...}{stratification variables to be entered; see the example in \code{\link{frailtyGAFT}}.}
+}
+
+\references{
+Zhou, H., Hanson, T. and Zhang, J. (2015). Generalized accelerated failure time spatial frailty model for arbitrarily censored data. \emph{Lifetime Data Analysis}. Revision submitted.
+}
+
+
+\author{
+Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+}
+
+

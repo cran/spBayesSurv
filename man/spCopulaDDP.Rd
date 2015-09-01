@@ -4,7 +4,7 @@
 
 \title{Fit Marginal Bayesian Nonparametric Survival Model}
 \description{
-This function fits a marginal Bayesian Nonparametric model (Zhou, Hanson and Knapp, 2014+) for point-referenced right censored time-to-event data.
+This function fits a marginal Bayesian Nonparametric model (Zhou, Hanson and Knapp, 2015) for point-referenced right censored time-to-event data.
 }
    
 \usage{
@@ -32,7 +32,7 @@ spCopulaDDP(y, delta, x=NULL, s, prediction, prior, mcmc, state, status=TRUE,
     \item{prior}{    a list giving the prior information. The list includes the following
                      parameter: \code{N} an integer giving the truncation of the Dirichlet 
                      process, \code{a0} and \code{b0} giving the hyperparameters for
-                     prior distribution of the precision parameter \code{alpha}. See Zhou, Hanson and Knapp (2014+) 
+                     prior distribution of the precision parameter \code{alpha}. See Zhou, Hanson and Knapp (2015) 
                      for more detailed hyperprior specifications.}
 
     \item{mcmc}{     a list giving the MCMC parameters. The list must include
@@ -69,11 +69,11 @@ spCopulaDDP(y, delta, x=NULL, s, prediction, prior, mcmc, state, status=TRUE,
 }
 
 \details{
-This function fits a marginal Bayesian Nonparametric model (Zhou, Hanson and Knapp, 2014+) for point-referenced right censored time-to-event data. 
+This function fits a marginal Bayesian Nonparametric model (Zhou, Hanson and Knapp, 2015) for point-referenced right censored time-to-event data. 
 }
 
 \value{
-  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Knapp (2014+). 
+  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Knapp (2015). 
   Use \code{names} to find out what they are.
 
 }
@@ -83,12 +83,12 @@ This function fits a marginal Bayesian Nonparametric model (Zhou, Hanson and Kna
 }
 
 \references{
-Zhou, H., Hanson, T. and Knapp, R. (2014+). Marginal Bayesian nonparametric model for the time-to-extinction of the mountain yellow-legged frog. Biometrics. In revision. 
+Zhou, H., Hanson, T. and Knapp, R. (2015). Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations. \emph{Biometrics}, accepted. 
 }
 
 
 \author{
-Haiming Zhou \email{<zhouh@email.sc.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
 }
 
 \keyword{Spatial copula}
@@ -172,8 +172,8 @@ fi = function(y, xi, w=wT){
 }
 ## true plot
 xx = seq(-2, 7, 0.01)
-plot(xx, fi(xx, -1), "l", lwd=2, col=2)
-lines(xx, fi(xx, 1), "l", lwd=2, col=3)
+#plot(xx, fi(xx, -1), "l", lwd=2, col=2)
+#lines(xx, fi(xx, 1), "l", lwd=2, col=3)
 ## The CDF of Ti:
 Fi = function(y, xi, w=wT){
   nw = length(w);
@@ -235,8 +235,8 @@ prediction = list(spred=s0, xpred=xpred, predid=dpred$id);
 # spatial copula DDP 
 ###############################################################
 # MCMC parameters
-nburn <- 5000
-nsave <- 5000
+nburn <- 1000
+nsave <- 3000
 nskip <- 0
 ndisplay <- 500
 mcmc <- list(nburn=nburn,
@@ -283,9 +283,8 @@ LPML2 = sum(log(res$cpo)); LPML2;
 ## MSPE
 mean((dpred$yTrue-apply(res$Ypred, 1, median))^2); 
 
-## Proportions for number of clusters 
-gg=apply(res$K, 2, function(x) length(table(x)));
-table(gg)/length(gg);
+## number of non-negligible components
+quantile(colSums(res$w>0.05))
 
 ## plots
 par(mfrow = c(2,2));
@@ -303,6 +302,8 @@ plot(ygrid, fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 0.8),
 for(i in 1:nxpred){
   lines(ygrid, fi(ygrid, xnew[i]), lwd=2)
   lines(ygrid, fhat[,i], lty=2, lwd=2, col=4);
+  lines(ygrid, estimates$fhatup[,i], lty=2, lwd=1, col=4);
+  lines(ygrid, estimates$fhatlow[,i], lty=2, lwd=1, col=4);
 }
 ## survival in y
 plot(ygrid, 1-Fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 1), 
@@ -319,6 +320,8 @@ plot(tgrid, fi(ygrid, xnew[1])/tgrid, "l", lwd=2, ylim=c(0, 0.15),
 for(i in 1:nxpred){
   lines(tgrid, fi(ygrid, xnew[i])/tgrid, lwd=2)
   lines(tgrid, fhat[,i]/tgrid, lty=2, lwd=2, col=4);
+  lines(tgrid, estimates$fhatup[,i]/tgrid, lty=2, lwd=1, col=4);
+  lines(tgrid, estimates$fhatlow[,i]/tgrid, lty=2, lwd=1, col=4);
 }
 ## survival in t
 plot(tgrid, 1-Fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 1), 

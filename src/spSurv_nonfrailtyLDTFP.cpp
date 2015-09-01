@@ -121,7 +121,7 @@ SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 	////////////////////////////////////////////////////////////////////////
 	// Start MCMC
 	////////////////////////////////////////////////////////////////////////
-  win=0.25; mm=10;
+  win=1; mm=10;
 	for (int iscan=0; iscan<nscan; iscan++){
   	R_CheckUserInterrupt();
     //Rprintf( "iscan = %d\n", iscan );
@@ -131,11 +131,11 @@ SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     //////////////////////////////////////////////
     for(int i=0; i<nrec; ++i){
       R_CheckUserInterrupt();
-      if(type[i]!=4) {
-        if(type[i]==1) {
+      if(type[i]!=1) {
+        if(type[i]==2) {
           liminf=-999.0;
           limsup=std::log(tobs(i,1));
-        } else if(type[i]==3) {
+        } else if(type[i]==0) {
           liminf=std::log(tobs(i,0)); 
           limsup=999.0;
         } else {

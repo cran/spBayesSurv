@@ -1,19 +1,5 @@
 "anovaDDP" <- function(y, delta, x=NULL, prediction, prior, mcmc, state, status=TRUE, 
-                    data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL)
-  UseMethod("anovaDDP")
-
-"anovaDDP.default" <- 
-  function (y, 
-            delta, 
-            x=NULL,  
-            prediction, 
-            prior, 
-            mcmc,
-            state,
-            status=TRUE,
-            data=sys.frame(sys.parent()),
-            na.action=na.fail, 
-            work.dir=NULL) {
+                       data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL) {
     #########################################################################################
     # call parameters
     #########################################################################################
@@ -56,15 +42,15 @@
     #fit0=lm(y~x); sfit0=summary(fit0); sig2hat = sfit0$sigma^2; 
     muhat = as.vector(fit0$coefficients);
     sig2hat = fit0$scale^2
-    Sighat = as.matrix(fit0$var[(1:p),(1:p)]); Sigscale=100;
+    Sighat = as.matrix(fit0$var[(1:p),(1:p)]); Sigscale=30
     N <- prior$N; if(is.null(N)) N <- 10;
     m0 <- prior$m0; if(is.null(m0)) m0 <- muhat;
     S0 <- prior$S0; if(is.null(S0)) S0 <- Sighat;
-    Sig0 <- prior$Sig0; if(is.null(Sig0)) Sig0 <- Sigscale*Sighat; #Sig0 <- diag(rep(1e4,p), nrow=p, ncol=p);
+    Sig0 <- prior$Sig0; if(is.null(Sig0)) Sig0 <- Sigscale*Sighat; #Sig0 <- diag(rep(1e5,p), nrow=p, ncol=p); 
     k0 <- prior$k0; if(is.null(k0)) k0 <- p+5;
     nua <-prior$nua; nub <- prior$nub;
-    if(is.null(nua)) nua=2+1; #nua=2+sig2hat/4; 
-    if(is.null(nub)) nub=2*sig2hat; #nub=sig2hat/4*(nua-1);
+    if(is.null(nua)) nua=2+1; #nua=2+sig2hat/4; #
+    if(is.null(nub)) nub=sig2hat; #nub=sig2hat/4*(nua-1); #
     a0 <-prior$a0; b0 <- prior$b0;
     if(is.null(a0)) a0=2; if(is.null(b0)) b0=2;
     

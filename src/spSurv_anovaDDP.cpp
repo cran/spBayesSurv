@@ -134,9 +134,11 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     //Sample alpha;
     double a0star = a0+N-1;
     double b0star = b0-log(w[N-1]);
+    //Rprintf( "alpha = %f\n", alpha );
+    //Rprintf( "b0star = %f\n", b0star );
     if(b0star>(b0+740.0)){
-      // Rprintf( "b0star = %f\n", b0star );
-      b0star = b0+(N-1.0)/alpha;
+      Rprintf( "b0star = %f\n", b0star );
+      b0star = b0+1e5; // b0star = b0+(N-1.0)/alpha;
     }
     alpha = Rf_rgamma(a0star, 1.0/b0star);
   
