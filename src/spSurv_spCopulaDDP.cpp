@@ -1,4 +1,3 @@
-#include "spSurv_spCopulaDDP.h"
 #include "spSurv_DDP_tools.h"
 #include <RcppArmadillo.h>
 #include <Rcpp.h>
@@ -7,7 +6,7 @@ using namespace arma;
 using namespace Rcpp;
 using namespace std;
 
-SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
+RcppExport SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     SEXP y_, SEXP delta_, SEXP X_, SEXP N_, SEXP beta_, SEXP tau2_,
   	SEXP K_, SEXP V_, SEXP w_, SEXP alpha_, SEXP mu_, SEXP Sig_,
 		SEXP m0_, SEXP S0_, SEXP Sig0_, SEXP k0_, SEXP a0_, SEXP b0_, 
@@ -66,8 +65,6 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int npred = xpred.n_rows;
   
   // Temp variables
-  double MinRes = Rcpp::min(yobs)-3.0;
-  double MaxRes = Rcpp::max(yobs)+3.0;
   arma::mat Xbeta = X.t()*beta;
   NumericVector y(n);  for (int i=0; i<n; ++i) y[i] = yobs[i];
   IntegerVector nK(N);
@@ -227,7 +224,7 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
           double znew = Rf_rnorm(mus0, sigs0);
           double u = Rf_pnorm5(znew, 0, 1.0, true, false);
           Zpred(j, isave) = znew;
-          Ypred(j, isave) = DDP_Finvofu(u, w, xbeta.col(j), sig, MinRes, MaxRes);
+          Ypred(j, isave) = DDP_Finvofu(u, w, xbeta.col(j), sig, log(ESMALL), log(ELARGE));
         }    
         
         ++isave;
@@ -281,7 +278,7 @@ SEXP spCopulaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 /////////////////////////////////////////////////////////////////////////////////////
 ///////////////// spatial Copula DDP using FSA /////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////
-SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
+RcppExport SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     SEXP y_, SEXP delta_, SEXP X_, SEXP N_, SEXP beta_, SEXP tau2_,
     SEXP K_, SEXP V_, SEXP w_, SEXP alpha_, SEXP mu_, SEXP Sig_,
 		SEXP m0_, SEXP S0_, SEXP Sig0_, SEXP k0_, SEXP a0_, SEXP b0_, 
@@ -346,8 +343,6 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int npred = xpred.n_rows;
   
   // Temp variables
-  double MinRes = Rcpp::min(yobs)-3.0;
-  double MaxRes = Rcpp::max(yobs)+3.0;
   arma::mat Xbeta = X.t()*beta;
   NumericVector y(n);  for (int i=0; i<n; ++i) y[i] = yobs[i];
   IntegerVector nK(N);
@@ -511,7 +506,7 @@ SEXP spCopulaDDP_FSA( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
           double znew = Rf_rnorm(mus0, sigs0);
           double u = Rf_pnorm5(znew, 0, 1.0, true, false);
           Zpred(j, isave) = znew;
-          Ypred(j, isave) = DDP_Finvofu(u, w, xbeta.col(j), sig, MinRes, MaxRes);
+          Ypred(j, isave) = DDP_Finvofu(u, w, xbeta.col(j), sig, log(ESMALL), log(ELARGE));
         }
         
         ++isave;

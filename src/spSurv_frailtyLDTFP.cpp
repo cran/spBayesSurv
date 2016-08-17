@@ -1,4 +1,3 @@
-#include "spSurv_frailtyLDTFP.h"
 #include "spSurv_LDTFP_tools.h"
 
 #include <RcppArmadillo.h>
@@ -8,7 +7,7 @@ using namespace arma;
 using namespace Rcpp;
 using namespace std;
 
-SEXP frailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
+RcppExport SEXP frailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 		SEXP tobs_, SEXP type_, SEXP xce_, SEXP xtf_, SEXP alpha_, SEXP betace_, 
     SEXP betatf_, SEXP sigma2_, SEXP y_, SEXP v_, SEXP blocki_, SEXP tau2_, SEXP W_, SEXP D_, SEXP maxL_,
     SEXP a0_, SEXP b0_, SEXP m0_, SEXP S0inv_, SEXP gprior_, SEXP a0sig_, SEXP b0sig_, 
@@ -40,6 +39,8 @@ SEXP frailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   const arma::mat W = as<mat>(W_); // m by m;
   const arma::vec D = as<vec>(D_); // m by 1;
   const int m = v.size();  
+  int frailty=1;
+  if (arma::sum(D)==0.0) frailty=2;
   
 	// hyperparameters
   const int maxL = as<int>(maxL_);
@@ -141,7 +142,6 @@ SEXP frailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     // imputing censored data
     //////////////////////////////////////////////
     for(int i=0; i<nrec; ++i){
-      R_CheckUserInterrupt();
       if(type[i]!=1) {
         if(type[i]==2) {
           liminf=-999.0;
@@ -213,70 +213,132 @@ SEXP frailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     ///////////////////////////////////////////////
     // frailties v
     //////////////////////////////////////////////
-    int indm1 = blocki[m-1];
-    int indm2 = blocki[m]-1;
-    double vm = 0;
-    for(int i=0; i<m-1; ++i){
-      double wistar = D[i] + D[m-1] + 2.0*W(m-1, i);
-      double wi1 = arma::as_scalar(W.row(i)*v)-v[m-1]*W(i,m-1);
-      double wi2 = (D[m-1]+W(m-1,i))*(arma::sum(v)-v[i]-v[m-1]);
-      double wi3 = arma::as_scalar(W.row(m-1)*v)-v[i]*W(m-1,i);
-      double meanvi = ( wi1-wi2-wi3 )/wistar;
-      double sdvi = tau2/wistar;
-      int ind1 = blocki[i];
-      int ind2 = blocki[i+1]-1;
-      evali=1; 
-      xx0 = v[i]; vm = v[m-1];
-      loglikldtfpvi(xx0, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx0, maxL, vm, indm1, indm2);
-      logy = gxx0-exp_rand();
-      uwork=unif_rand();
-      llim=xx0-win*uwork;
-      rlim=llim+win;
-      uwork=unif_rand();
-      JJ = (int)(mm*uwork);
-      KK = (mm-1)-JJ;
-      ++evali; vm = v[m-1] + (xx0-llim);
-      loglikldtfpvi(llim, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, gllim, maxL, vm, indm1, indm2);
-      ++evali; vm = v[m-1] + (xx0-rlim);
-      loglikldtfpvi(rlim, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, grlim, maxL, vm, indm1, indm2);
-      while((JJ>0)&(gllim>logy)){
-        llim -= win;
-        JJ -= 1;
+    if(frailty==1){
+      int indm1 = blocki[m-1];
+      int indm2 = blocki[m]-1;
+      double vm = 0;
+      for(int i=0; i<m-1; ++i){
+        double wistar = D[i] + D[m-1] + 2.0*W(m-1, i);
+        double wi1 = arma::as_scalar(W.row(i)*v)-v[m-1]*W(i,m-1);
+        double wi2 = (D[m-1]+W(m-1,i))*(arma::sum(v)-v[i]-v[m-1]);
+        double wi3 = arma::as_scalar(W.row(m-1)*v)-v[i]*W(m-1,i);
+        double meanvi = ( wi1-wi2-wi3 )/wistar;
+        double sdvi = tau2/wistar;
+        int ind1 = blocki[i];
+        int ind2 = blocki[i+1]-1;
+        evali=1; 
+        xx0 = v[i]; vm = v[m-1];
+        loglikldtfpvi(xx0, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx0, maxL, vm, indm1, indm2);
+        logy = gxx0-exp_rand();
+        uwork=unif_rand();
+        llim=xx0-win*uwork;
+        rlim=llim+win;
+        uwork=unif_rand();
+        JJ = (int)(mm*uwork);
+        KK = (mm-1)-JJ;
         ++evali; vm = v[m-1] + (xx0-llim);
         loglikldtfpvi(llim, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, gllim, maxL, vm, indm1, indm2);
-      }
-      while((KK>0)&(grlim>logy)){
-        rlim += win;
-        KK -= 1;
         ++evali; vm = v[m-1] + (xx0-rlim);
         loglikldtfpvi(rlim, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, grlim, maxL, vm, indm1, indm2);
-      }
-      xx1 = llim +(rlim-llim)*unif_rand();
-      ++evali; vm = v[m-1] + (xx0-xx1);
-      loglikldtfpvi(xx1, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx1, maxL, vm, indm1, indm2);
-      while(gxx1<logy){
-        if(xx1>xx0) rlim=xx1;
-        if(xx1<xx0) llim=xx1;
+        while((JJ>0)&(gllim>logy)){
+          llim -= win;
+          JJ -= 1;
+          ++evali; vm = v[m-1] + (xx0-llim);
+          loglikldtfpvi(llim, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, gllim, maxL, vm, indm1, indm2);
+        }
+        while((KK>0)&(grlim>logy)){
+          rlim += win;
+          KK -= 1;
+          ++evali; vm = v[m-1] + (xx0-rlim);
+          loglikldtfpvi(rlim, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, grlim, maxL, vm, indm1, indm2);
+        }
         xx1 = llim +(rlim-llim)*unif_rand();
         ++evali; vm = v[m-1] + (xx0-xx1);
         loglikldtfpvi(xx1, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx1, maxL, vm, indm1, indm2);
+        while(gxx1<logy){
+          if(xx1>xx0) rlim=xx1;
+          if(xx1<xx0) llim=xx1;
+          xx1 = llim +(rlim-llim)*unif_rand();
+          ++evali; vm = v[m-1] + (xx0-xx1);
+          loglikldtfpvi(xx1, meanvi, sdvi, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx1, maxL, vm, indm1, indm2);
+        }
+        v[i]=xx1; v[m-1]=vm;
       }
-      v[i]=xx1; v[m-1]=vm;
+      // transfter from v to vn
+      for(int i=0; i<m; ++i){
+        int ind1 = blocki[i];
+        int ind2 = blocki[i+1]-1;
+        (vn.subvec(ind1, ind2)).fill(v[i]);
+      }
+      // tau2
+      double a0taustar = a0tau+0.5*(m-1.0);
+      double b0taustar = b0tau+0.5*(arma::dot(v,D%v)-arma::dot(v,W*v)); 
+      tau2 = 1.0/Rf_rgamma( a0taustar, 1.0/b0taustar ); 
+    }else{
+      for(int i=0; i<m; ++i){
+        int ind1 = blocki[i];
+        int ind2 = blocki[i+1]-1;
+        evali=1; 
+        xx0 = v[i];
+        loglikldtfpvi2(xx0, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx0, maxL);
+        gxx0 += -0.5*std::pow(xx0, 2)/tau2;
+        logy = gxx0-exp_rand();
+        uwork=unif_rand();
+        llim=xx0-win*uwork;
+        rlim=llim+win;
+        uwork=unif_rand();
+        JJ = (int)(mm*uwork);
+        KK = (mm-1)-JJ;
+        ++evali;
+        loglikldtfpvi2(llim, ind1, ind2, y, xbetace, xbetatf, sigma2, gllim, maxL);
+        gllim += -0.5*std::pow(llim, 2)/tau2;
+        ++evali; 
+        loglikldtfpvi2(rlim, ind1, ind2, y, xbetace, xbetatf, sigma2, grlim, maxL);
+        grlim += -0.5*std::pow(rlim, 2)/tau2;
+        while((JJ>0)&(gllim>logy)){
+          llim -= win;
+          JJ -= 1;
+          ++evali; 
+          loglikldtfpvi2(llim, ind1, ind2, y, xbetace, xbetatf, sigma2, gllim, maxL);
+          gllim += -0.5*std::pow(llim, 2)/tau2;
+        }
+        while((KK>0)&(grlim>logy)){
+          rlim += win;
+          KK -= 1;
+          ++evali; 
+          loglikldtfpvi2(rlim, ind1, ind2, y, xbetace, xbetatf, sigma2, grlim, maxL);
+          grlim += -0.5*std::pow(rlim, 2)/tau2;
+        }
+        xx1 = llim +(rlim-llim)*unif_rand();
+        ++evali; 
+        loglikldtfpvi2(xx1, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx1, maxL);
+        gxx1 += -0.5*std::pow(xx1, 2)/tau2;
+        while(gxx1<logy){
+          if(xx1>xx0) rlim=xx1;
+          if(xx1<xx0) llim=xx1;
+          xx1 = llim +(rlim-llim)*unif_rand();
+          ++evali; 
+          loglikldtfpvi2(xx1, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx1, maxL);
+          gxx1 += -0.5*std::pow(xx1, 2)/tau2;
+        }
+        v[i]=xx1;
+      }
+      // transfter from v to vn
+      for(int i=0; i<m; ++i){
+        int ind1 = blocki[i];
+        int ind2 = blocki[i+1]-1;
+        (vn.subvec(ind1, ind2)).fill(v[i]);
+      }
+      // tau2
+      double a0taustar = a0tau+0.5*(m+0.0);
+      double b0taustar = b0tau+0.5*(arma::dot(v,v)); 
+      tau2 = 1.0/Rf_rgamma( a0taustar, 1.0/b0taustar ); 
     }
-    // center frailties
-    //v = v - arma::mean(v);
-    // transfter from v to vn
-    for(int i=0; i<m; ++i){
-      int ind1 = blocki[i];
-      int ind2 = blocki[i+1]-1;
-      (vn.subvec(ind1, ind2)).fill(v[i]);
-    }    
     
     ///////////////////////////////////////////////
     // baseline reg coefficients
     //////////////////////////////////////////////
     for(int i=0; i<pce; ++i){
-      R_CheckUserInterrupt();
       evali=1;
       xx0=betace[i];
       logposldtfp(betace, betatf, y, xce, vn, xtf, sigma2, m0, S0inv, nobsbc, obsbc, gxx0, maxL);
@@ -375,20 +437,12 @@ SEXP frailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     sigma2 = xx1;
     
     ///////////////////////////////////////////////
-    // tau2
-    //////////////////////////////////////////////
-    double a0taustar = a0tau+0.5*(m-1.0);
-    double b0taustar = b0tau+0.5*(arma::dot(v,D%v)-arma::dot(v,W*v)); 
-    tau2 = 1.0/Rf_rgamma( a0taustar, 1.0/b0taustar ); 
-    
-    ///////////////////////////////////////////////
     // tf logistic regressions
     //////////////////////////////////////////////
     i1=1;
     for(int i=2; i<=maxL; ++i){
       int j1=std::pow(2,i-1);
       for(int j=1; j<=j1; ++j){
-        R_CheckUserInterrupt();
         int k1=i1+j;
         arma::mat c0=gprior/(alpha*(std::pow(i,2)+0.0));
         arma::mat invc0 = arma::inv_sympd(c0);
@@ -418,7 +472,6 @@ SEXP frailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     if(a0>0){
       arma::mat xtx = arma::inv_sympd(gprior);
       arma::mat c0(ptf, ptf);
-      R_CheckUserInterrupt();
       i1=1;
       double tmp1=0.0;
       for(int i=2; i<=maxL; ++i){

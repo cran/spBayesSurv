@@ -86,32 +86,22 @@ double Finvofu(double u, Rcpp::NumericVector h, Rcpp::NumericVector d, double xi
   double err = 10e-8;
   double tl = lower;
   double Fl = Foft(tl, h, d, xibeta) - u;
-  double tstep = (upper-lower)*0.001;
-  double tr, Fr;
-  if ( (Fl>0) | (std::abs(Fl)<err) ){
-    return(lower);
-  } else {
-    tr=tl+tstep; Fr = Foft(tr, h, d, xibeta) - u;
-    while( Fr<=0 ){
-      if((std::abs(Fr)<err) | (tr>upper) ) return(tr);
-      tl=tr; Fl=Fr;
-      tr += tstep;
-      Fr = Foft(tr, h, d, xibeta) - u;
-      R_CheckUserInterrupt();
-    }
-  }
+  double tr = upper;
+  double Fr = Foft(tr, h, d, xibeta) - u;
+  if (Fl>=0) return(lower);
+  if (Fr<=0) return(upper);
   double tm = (tl+tr)*0.5;
-  while( (tr-tl)>err ){
+  double Fm = Foft(tm, h, d, xibeta) - u;
+  while( std::abs(Fm)>err ){
     R_CheckUserInterrupt();
-    tm = (tl + tr)*0.5;
-    double Fm = Foft(tm, h, d, xibeta) - u;
-    //if (std::abs(Fm)<err) break;
     if (Fl*Fm>0){
       tl = tm;
       Fl = Fm;
     } else {
       tr = tm;
     }
+    tm = (tl + tr)*0.5;
+    Fm = Foft(tm, h, d, xibeta) - u;
   }
   return(tm);
 }

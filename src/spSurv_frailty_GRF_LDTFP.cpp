@@ -7,10 +7,12 @@ using namespace arma;
 using namespace Rcpp;
 using namespace std;
 
-RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
+RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 		SEXP tobs_, SEXP type_, SEXP xce_, SEXP xtf_, SEXP alpha_, SEXP betace_, 
-    SEXP betatf_, SEXP sigma2_, SEXP y_, SEXP maxL_,
-    SEXP a0_, SEXP b0_, SEXP m0_, SEXP S0inv_, SEXP gprior_, SEXP a0sig_, SEXP b0sig_) {
+    SEXP betatf_, SEXP sigma2_, SEXP y_, SEXP v_, SEXP blocki_, SEXP tau2_, SEXP sill_,
+    SEXP DisMat_, SEXP maxL_, SEXP a0_, SEXP b0_, SEXP m0_, SEXP S0inv_, SEXP gprior_, 
+    SEXP a0sig_, SEXP b0sig_, SEXP a0tau_, SEXP b0tau_, SEXP a0sill_, SEXP b0sill_,
+    SEXP nu_, SEXP phi_, SEXP a0phi_, SEXP b0phi_) {
 	BEGIN_RCPP
   
 	// Transfer R variables into C++;
@@ -22,6 +24,8 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
   const IntegerVector type(type_);// nrec by 1;
   const arma::mat xce = as<mat>(xce_); // pce by nrec;
   const arma::mat xtf = as<mat>(xtf_); // ptf by nrec;
+  const arma::mat DisMat = as<mat>(DisMat_); // m by m;
+  const double nu = as<double>(nu_);
   const int pce = xce.n_rows;
   const int ptf = xtf.n_rows;
   const int nrec = xce.n_cols;
@@ -32,6 +36,12 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
   arma::mat betatf = as<mat>(betatf_); // ptf by ntlr;
   double sigma2 = as<double>(sigma2_); 
   Rcpp::NumericVector y(y_); // nrec by 1;
+  arma::vec v = as<vec>(v_); // m by 1;
+  Rcpp::IntegerVector blocki(blocki_); // m+1 by 1;
+  double tau2 = as<double>(tau2_);
+  double sill = as<double>(sill_);
+  double phi = as<double>(phi_);
+  const int m = v.size();  
   
 	// hyperparameters
   const int maxL = as<int>(maxL_);
@@ -43,23 +53,30 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
 	const arma::mat S0inv = as<mat>(S0inv_); // pce by pce
   // prior of betatf
   const arma::mat gprior = as<mat>(gprior_); // ptf by ptf;
-  // prior of sigma2^{-1}
+  // prior of sigma2
   const double a0sig = as<double>(a0sig_);
   const double b0sig = as<double>(b0sig_);
+  // gamma prior of tau2^{-1}
+  const double a0tau = as<double>(a0tau_);
+  const double b0tau = as<double>(b0tau_);
+  // beta prior for sill
+  const double a0sill = as<double>(a0sill_);
+  const double b0sill = as<double>(b0sill_);
+  // gamma prior for phi
+  const double a0phi = as<double>(a0phi_);
+  const double b0phi = as<double>(b0phi_);
 	
-  // adaptive M-H variables for betace
-  //const int adpl0 = 10000;
-  //const double adapter = 0.05;
-  //const arma::mat adpS0 = arma::inv_sympd(xce*xce.t())*0.1;
-  //arma::mat Snew(pce,pce); Snew.fill(0.0);
-  //arma::vec betabarnew(pce); betabarnew.fill(0.0);
-  
   // temp variables
   const int maxL1 = maxL+1;
 	const int nscan = nburn + (nskip+1)*nsave;
   const int ntprob = std::pow(2,maxL1)-2;
   const int ntlr = ntprob/2;
-  arma::vec vn(nrec); vn.fill(0.0);
+  arma::vec vn(nrec);
+  for(int i=0; i<m; ++i){
+    int ind1 = blocki[i];
+    int ind2 = blocki[i+1]-1;
+    (vn.subvec(ind1, ind2)).fill(v[i]);
+  }
   arma::vec xbetace = xce.t()*betace; // nrec by 1
   arma::mat xbetatf = betatf.t()*xtf; // ntlr by nrec
   Rcpp::IntegerVector nobsbc(ntprob);
@@ -76,14 +93,14 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
 	NumericVector sigma2_save(nsave);
 	NumericVector alpha_save(nsave);
 	NumericMatrix y_save(nrec, nsave);
+  arma::mat v_save(m, nsave);
+  NumericVector tau2_save(nsave);
+  NumericVector sill_save(nsave);
+  NumericVector phi_save(nsave);
   NumericVector rejbetatf(ntlr);
   double rejbetace=0;
 	
 	RNGScope scope;
-  
-	// Set the Armadillo seed from R's 
-	//int seed = (int)Rf_runif(0.0, 10000.0);
-	//std::srand(seed);
 	
   // Working temp variables
   double logliko;
@@ -93,11 +110,35 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
   int i1, evali;
   int JJ, KK, mm;
   double rej;
+  arma::mat Rspat=arma::zeros<arma::mat>(m,m);
+  arma::mat Im = arma::eye(m,m);
+  for(int i=0; i<m; ++i){
+    for(int j=0; j<m; ++j){
+      Rspat(i,j) = pow_exp(DisMat(i,j), phi, nu);
+    }
+  }
+  arma::mat Rspatinv = arma::inv_sympd(sill*Rspat+(1.0-sill)*Im);
+  arma::mat Rspatinvold(m,m);
+  // update for theta=(log(sill/(1-sill)), log(phi));
+  arma::vec theta(2); 
+  theta[0]=log(sill/(1.0-sill)); theta[1]=log(phi);
+  arma::vec thetaold(2); 
+  arma::vec thBarold(2);
+  arma::vec thBarnew=arma::zeros<arma::vec>(2);
+  arma::mat thSnew=arma::zeros<arma::mat>(2,2);
+  arma::mat I2 = ESMALL*arma::eye(2,2);
+  arma::mat thShat=arma::zeros<arma::mat>(2,2);
+  thShat(0,0) = 0.5; thShat(1,1)=0.1;
+  double llold, llnew;
+  double ratio, uu, nn;
+  int l0 = (int)(std::min(1000,nsave/2));
+  double adapter = 5.6644;
+  double rejtheta=0;
   
 	////////////////////////////////////////////////////////////////////////
   // Initial State
 	////////////////////////////////////////////////////////////////////////
-  loglikldtfp(y, xbetace, xbetatf, sigma2, nobsbc, obsbc, logliko, maxL);
+  loglikldtfp(y, xbetace+vn, xbetatf, sigma2, nobsbc, obsbc, logliko, maxL);
   i1=1;
   for(int i=2; i<maxL1; ++i){
     int j1 = std::pow(2,i-1);
@@ -109,13 +150,13 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
       int n1=nobsbc[ii-1];
       int n2=nobsbc[jj-1];
       if((n1>0)&(n2>0)){
-        startlrcoefldtfp(10, k1-1, ii-1, jj-1, n1, n2, obsbc, betatf, xtf, c0);
+        startlrcoefldtfp(5, k1-1, ii-1, jj-1, n1, n2, obsbc, betatf, xtf, c0);
       }
     }
     i1 += j1;
   }
   xbetatf = betatf.t()*xtf;
-  loglikldtfp(y, xbetace, xbetatf, sigma2, nobsbc, obsbc, logliko, maxL);
+  loglikldtfp(y, xbetace+vn, xbetatf, sigma2, nobsbc, obsbc, logliko, maxL);
   
 	////////////////////////////////////////////////////////////////////////
 	// Start MCMC
@@ -140,7 +181,7 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
           liminf=std::log(tobs(i,0)); 
           limsup=std::log(tobs(i,1));
         }
-        double xbetavi = xbetace[i];
+        double xbetavi = xbetace[i] + vn[i];
         arma::vec xbetatfi = xbetatf.col(i);
         evali=1;
         xx0=y[i];
@@ -198,13 +239,66 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
     }
     
     ///////////////////////////////////////////////
+    // frailties v
+    //////////////////////////////////////////////
+    for(int i=0; i<m; ++i){
+      int ind1 = blocki[i];
+      int ind2 = blocki[i+1]-1;
+      evali=1; 
+      xx0 = v[i];
+      loglikldtfpvi2(xx0, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx0, maxL);
+      v[i]=xx0; gxx0 += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      logy = gxx0-exp_rand();
+      uwork=unif_rand();
+      llim=xx0-win*uwork;
+      rlim=llim+win;
+      uwork=unif_rand();
+      JJ = (int)(mm*uwork);
+      KK = (mm-1)-JJ;
+      ++evali;
+      loglikldtfpvi2(llim, ind1, ind2, y, xbetace, xbetatf, sigma2, gllim, maxL);
+      v[i]=llim; gllim += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      ++evali; 
+      loglikldtfpvi2(rlim, ind1, ind2, y, xbetace, xbetatf, sigma2, grlim, maxL);
+      v[i]=rlim; grlim += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      while((JJ>0)&(gllim>logy)){
+        llim -= win;
+        JJ -= 1;
+        ++evali; 
+        loglikldtfpvi2(llim, ind1, ind2, y, xbetace, xbetatf, sigma2, gllim, maxL);
+        v[i]=llim; gllim += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      }
+      while((KK>0)&(grlim>logy)){
+        rlim += win;
+        KK -= 1;
+        ++evali; 
+        loglikldtfpvi2(rlim, ind1, ind2, y, xbetace, xbetatf, sigma2, grlim, maxL);
+        v[i]=rlim; grlim += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      }
+      xx1 = llim +(rlim-llim)*unif_rand();
+      ++evali; 
+      loglikldtfpvi2(xx1, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx1, maxL);
+      v[i]=xx1; gxx1 += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      while(gxx1<logy){
+        if(xx1>xx0) rlim=xx1;
+        if(xx1<xx0) llim=xx1;
+        xx1 = llim +(rlim-llim)*unif_rand();
+        ++evali; 
+        loglikldtfpvi2(xx1, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx1, maxL);
+        v[i]=xx1; gxx1 += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      }
+      v[i]=xx1;
+    }
+    // transfter from v to vn
+    for(int i=0; i<m; ++i){
+      int ind1 = blocki[i];
+      int ind2 = blocki[i+1]-1;
+      (vn.subvec(ind1, ind2)).fill(v[i]);
+    }    
+    
+    ///////////////////////////////////////////////
     // baseline reg coefficients
     //////////////////////////////////////////////
-    //rej=0;
-    //update_regcoeff_adaptiveMH(betace, betatf, y, xce, vn, xtf, sigma2, m0, S0inv, nobsbc, obsbc, maxL, rej, 
-    //                          Snew, betabarnew, pce, adpl0, adpS0, adapter, iscan);
-    //update_regcoeff_iwls(betace, betatf, y, xce, vn, xtf, sigma2, m0, S0inv, nobsbc, obsbc, maxL, rej);
-    //if(iscan>=nburn) rejbetace += rej;
     for(int i=0; i<pce; ++i){
       evali=1;
       xx0=betace[i];
@@ -251,6 +345,7 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
       }
       betace(i)=xx1;
     }
+    //if(iscan>=nburn) rejbetace += rej;
     xbetace = xce.t()*betace;
     
     ///////////////////////////////////////////////
@@ -258,7 +353,7 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
     //////////////////////////////////////////////
     evali=1;
     xx0 = sigma2;
-    loglikldtfpsig(y, xbetace, xbetatf, xx0, nobsbc, obsbc, gxx0, maxL, a0sig, b0sig);
+    loglikldtfpsig(y, xbetace+vn, xbetatf, xx0, nobsbc, obsbc, gxx0, maxL, a0sig, b0sig);
     logy = gxx0-exp_rand();
     uwork=unif_rand();
     llim=xx0-win*uwork;
@@ -269,9 +364,9 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
     // repeat
     if(llim<1e-5) llim=1e-5;
     ++evali;
-    loglikldtfpsig(y, xbetace, xbetatf, llim, nobsbc, obsbc, gllim, maxL, a0sig, b0sig);
+    loglikldtfpsig(y, xbetace+vn, xbetatf, llim, nobsbc, obsbc, gllim, maxL, a0sig, b0sig);
     ++evali;
-    loglikldtfpsig(y, xbetace, xbetatf, rlim, nobsbc, obsbc, grlim, maxL, a0sig, b0sig);
+    loglikldtfpsig(y, xbetace+vn, xbetatf, rlim, nobsbc, obsbc, grlim, maxL, a0sig, b0sig);
     while( (JJ>0)&(gllim>logy) ){
       llim -= win;
       JJ -= 1;
@@ -280,27 +375,74 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
         gllim=logy-1.0;
       } else{
         ++evali;
-        loglikldtfpsig(y, xbetace, xbetatf, llim, nobsbc, obsbc, gllim, maxL, a0sig, b0sig);
+        loglikldtfpsig(y, xbetace+vn, xbetatf, llim, nobsbc, obsbc, gllim, maxL, a0sig, b0sig);
       }
     }
     while( (KK>0)&(grlim>logy) ){
       rlim += win;
       KK -= 1;
       ++evali;
-      loglikldtfpsig(y, xbetace, xbetatf, rlim, nobsbc, obsbc, grlim, maxL, a0sig, b0sig);
+      loglikldtfpsig(y, xbetace+vn, xbetatf, rlim, nobsbc, obsbc, grlim, maxL, a0sig, b0sig);
     }
     xx1 = llim +(rlim-llim)*unif_rand();
     ++evali;
-    loglikldtfpsig(y, xbetace, xbetatf, xx1, nobsbc, obsbc, gxx1, maxL, a0sig, b0sig);
+    loglikldtfpsig(y, xbetace+vn, xbetatf, xx1, nobsbc, obsbc, gxx1, maxL, a0sig, b0sig);
     while(gxx1<logy){
       if(xx1>xx0) rlim=xx1;
       if(xx1<xx0) llim=xx1;
       if(llim<1e-5) llim=1e-5;
       xx1 = llim +(rlim-llim)*unif_rand();
       ++evali;
-      loglikldtfpsig(y, xbetace, xbetatf, xx1, nobsbc, obsbc, gxx1, maxL, a0sig, b0sig);
+      loglikldtfpsig(y, xbetace+vn, xbetatf, xx1, nobsbc, obsbc, gxx1, maxL, a0sig, b0sig);
     }
     sigma2 = xx1;
+    
+    ///////////////////////////////////////////////
+    // tau2
+    //////////////////////////////////////////////
+    double a0taustar = a0tau+0.5*(m+0.0);
+    double b0taustar = b0tau+0.5*(arma::dot(v,Rspatinv*v)); 
+    tau2 = 1.0/Rf_rgamma( a0taustar, 1.0/b0taustar ); 
+    
+    ///////////////////////////////////////////////
+    // sill, phi
+    //////////////////////////////////////////////
+    double logdetRinv, sign0;
+    arma::log_det(logdetRinv, sign0, Rspatinv);
+    llold = 0.5*logdetRinv -0.5*arma::dot(v, Rspatinv*v)/tau2;
+    llold += (a0sill-1.0)*log(sill) + (b0sill-1.0)*log(1.0-sill) +2.0*log(sill)- theta[0];
+    llold += (a0phi-1.0)*log(phi) - b0phi*phi + theta[1];
+    thetaold = theta; Rspatinvold = Rspatinv;
+    if(iscan>l0){
+      theta = mvrnorm(thetaold, thSnew);
+    }else{
+      theta = mvrnorm(thetaold, thShat);
+    }
+    sill = 1.0/(1.0+exp(-theta[0]));
+    phi = exp(theta[1]);
+    for(int i=0; i<m; ++i){
+      for(int j=0; j<m; ++j){
+        Rspat(i,j) = pow_exp(DisMat(i,j), phi, nu);
+      }
+    }
+    Rspatinv = arma::inv_sympd(sill*Rspat+(1.0-sill)*Im);
+    arma::log_det(logdetRinv, sign0, Rspatinv);
+    llnew = 0.5*logdetRinv -0.5*arma::dot(v, Rspatinv*v)/tau2;
+    llnew += (a0sill-1.0)*log(sill) + (b0sill-1.0)*log(1.0-sill) +2.0*log(sill)- theta[0];
+    llnew += (a0phi-1.0)*log(phi) - b0phi*phi + theta[1];
+    ratio = exp(llnew-llold);
+    uu = unif_rand();
+    if(uu>ratio){
+      theta=thetaold; Rspatinv=Rspatinvold;
+      sill = 1.0/(1.0+exp(-theta[0]));
+      phi = exp(theta[1]);
+      if(iscan>=nburn) rejtheta+=1.0;
+    }
+    nn = iscan+1;
+    thBarold = thBarnew;
+    thBarnew = (nn)/(nn+1.0)*thBarold + theta/(nn+1.0);
+    thSnew = (nn-1.0)/nn*thSnew + adapter/(2.0)/nn*(nn*thBarold*thBarold.t() 
+                                                      - (nn+1.0)*thBarnew*thBarnew.t() + theta*theta.t() + I2 );
     
     ///////////////////////////////////////////////
     // tf logistic regressions
@@ -359,7 +501,7 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
   	  ++skiptally;
   	  if(skiptally>nskip){
         // calculate Linv
-        Linv.col(isave) = spldtfp_Linv(tobs, type, xbetace, xbetatf, sigma2, maxL);
+        Linv.col(isave) = spldtfp_Linv(tobs, type, xbetace+vn, xbetatf, sigma2, maxL);
     		// save regression coefficient
         beta_save.col(isave) = betace;
         // centering variance
@@ -368,10 +510,14 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
     		alpha_save[isave] = alpha;
         // imputed log survival times
     		y_save(_,isave) = y;
+        // frailties
+        v_save.col(isave) = v;
+        tau2_save[isave] = tau2;
+        sill_save[isave] = sill;
+        phi_save[isave] = phi;
+        // tf parameters
         betatf_save.slice(isave) = betatf;
-    		// Rprintf( "sigma2 = %f\n", sigma2 );
-        //Rprintf( "accepbeta = %f\n", 1.0-rejbetace/(iscan-nburn+0.0));
-        
+    				
     		++isave;
     		++distally;
     		if(distally>=ndisplay){
@@ -385,6 +531,7 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
   
   NumericVector ratebetatf = 1.0- rejbetatf/(nscan-nburn+0.0);
   double ratebetace = 1.0- rejbetace/(nscan-nburn+0.0);
+  double ratetheta = 1.0 - rejtheta/(nscan-nburn+0.0);
   
   // get CPO
   arma::vec Linvmean = arma::mean(Linv, 1);
@@ -395,9 +542,14 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
                       Named("alpha")=alpha_save,
                       Named("betatf")=betatf_save,
                       Named("y")=y_save,
+                      Named("v")=v_save,
+                      Named("tau2")=tau2_save,
+                      Named("sill")=sill_save,
+                      Named("phi")=phi_save,
                       Named("cpo")=cpo,
                       Named("ratebetatf")=ratebetatf,
-                      Named("ratebetace")=ratebetace);
+                      Named("ratebetace")=ratebetace,
+                      Named("ratetheta")=ratetheta);
 	END_RCPP
 }
 

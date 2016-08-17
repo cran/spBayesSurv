@@ -1,4 +1,3 @@
-#include "spSurv_anovaDDP.h"
 #include "spSurv_DDP_tools.h"
 
 #include <RcppArmadillo.h>
@@ -8,7 +7,7 @@ using namespace arma;
 using namespace Rcpp;
 using namespace std;
 
-SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
+RcppExport SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 		SEXP y_, SEXP delta_, SEXP X_, SEXP N_, SEXP beta_, SEXP tau2_,
 		SEXP K_, SEXP V_, SEXP w_, SEXP alpha_, SEXP mu_, SEXP Sig_,
 		SEXP m0_, SEXP S0_, SEXP Sig0_, SEXP k0_, SEXP a0_, SEXP b0_, 
@@ -52,8 +51,6 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int npred = xpred.n_rows;
   
   // temp variables
-  double MinRes = Rcpp::min(yobs)-3.0;
-  double MaxRes = Rcpp::max(yobs)+3.0;
   arma::mat Xbeta = X.t()*beta;
   NumericVector y(n);	for (int i=0; i<n; ++i) y[i] = yobs[i];
 	IntegerVector nK(N);
@@ -177,7 +174,7 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
         arma::mat xbeta = arma::trans( xpred*beta );
         for(int j=0; j<npred; ++j){
           double u = unif_rand();
-          Ypred(j, isave) = DDP_Finvofu(u, w, xbeta.col(j), sig, MinRes, MaxRes);
+          Ypred(j, isave) = DDP_Finvofu(u, w, xbeta.col(j), sig, log(ESMALL), log(ELARGE));
         }
         
         ++isave;
@@ -211,7 +208,7 @@ SEXP anovaDDP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
                       Named("K")=K_save,
                       Named("state")=state);
 	END_RCPP
-	}
+}
 
 
 

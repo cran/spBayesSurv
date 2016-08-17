@@ -3,8 +3,8 @@
 
 #include <RcppArmadillo.h>
 
-#define ESMALL 1e-20  /* small number */
-#define ELARGE 1e+20 /* large number */
+#define ESMALL 1e-10  /* small number */
+#define ELARGE 1e+10 /* large number */
 #define SYSMIN 1e-305  /* small number */
 #define SYSMAX 1e+305 /* large number */
 #define LOGSYSMAX 702.28845336318397585 /* large number */
@@ -28,43 +28,19 @@ arma::mat rwish(arma::mat Sig, int n);
 // sample(Nseq, prob=w), where Nseq is n-dim vector, and w.siz()=n
 int sample(Rcpp::IntegerVector Nseq, Rcpp::NumericVector w);
 
-// Get distance matrix for s1 s2 ... sn and s1 s2 ... sm, where s1 is column vector with coordinates
-Rcpp::NumericMatrix Dist(Rcpp::NumericMatrix si, Rcpp::NumericMatrix sj);
-
 // calculate qnorm(x) for a vector of x
 arma::vec qnormvec(arma::vec x);
 
 // calculate pnorm(x) for a vector of x
 arma::vec pnormvec(arma::vec x);
 
-//////////////////////////////////////////////////////////////////////
-// spatial Copula things
-/////////////////////////////////////////////////////////////////////
-// Preprocess C^{-1} to get Cinv using FSA
-void GetCinv_FSA(int n, double theta1, double theta2, const arma::mat& dnn, const arma::mat& dnm, const arma::mat& dmm, 
-                const Rcpp::IntegerVector& blocki, arma::mat& Cinv, double& logdetC);
+// Matern correlation function
+double rho_Matern(double dis, double nu, double phi);
 
-// Preprocess C^{-1} to get Cinv directly
-void GetCinv(int n, double theta1, double theta2, const arma::mat& dnn, arma::mat& Cinv, double& logdetC);
+// process convolution bivariate Gaussian kernel
+double kernel_G(double dis, double phi);
 
-// make transformation on theta: log(theta1/(1.0-theta1)); log(theta2);
-arma::vec trans_theta(arma::vec theta);
-
-// transform back to get theta;
-arma::vec trans_theta_inv(arma::vec trans);
-
-//Sample theta using adaptive M-H for spatial Copula Model;
-void spCopula_sample_theta(arma::vec& theta, int& rejtheta, arma::mat& spSnew, arma::vec& thetabarnew, arma::mat& Cinv, double& logdetC, 
-                 double theta1a, double theta1b, double theta2a, double theta2b, double spl0, arma::mat spS0, const arma::mat& dnn, 
-                 double spadapter, int iscan, const arma::vec& z, int n);
-
-//Sample theta using adaptive M-H for spatial Copula Model using FSA;
-void spCopula_sample_theta_FSA(arma::vec& theta, int& rejtheta, arma::mat& spSnew, arma::vec& thetabarnew, arma::mat& Cinv, double& logdetC, 
-                 double theta1a, double theta1b, double theta2a, double theta2b, double spl0, arma::mat spS0, const arma::mat& dnn, 
-                 double spadapter, int iscan, const arma::vec& z, int n, const arma::mat& dnm, const arma::mat& dmm, 
-                const Rcpp::IntegerVector& blocki);
-
-// Get distance matrix for s1 s2 ... sn and s1 s2 ... sm, where s1 is column vector with coordinates
-RcppExport SEXP DistMat(SEXP si_, SEXP sj_);
+// Powered Exponential
+double pow_exp(double dis, double phi, double nu);
 
 #endif

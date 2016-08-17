@@ -15,7 +15,7 @@ baseline(...)
 }
 
 \references{
-Zhou, H., Hanson, T. and Zhang, J. (2015). Generalized accelerated failure time spatial frailty model for arbitrarily censored data. \emph{Lifetime Data Analysis}. Revision submitted.
+Zhou, H., Hanson, T., and Zhang, J. (2016). Generalized accelerated failure time spatial frailty model for arbitrarily censored data. \emph{Lifetime Data Analysis}, in press.
 }
 
 

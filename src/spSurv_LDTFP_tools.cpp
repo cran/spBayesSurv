@@ -12,9 +12,6 @@ void ldensldtfp(double y, double xbetavi, const arma::vec& xbetatfi, double sigm
   //temp variables
   int maxL1 = maxL+1;
   Rcpp::IntegerVector K(maxL1);
-  
-  R_CheckUserInterrupt();
-  
   // find where the data point is located at each level
   double sigma = std::sqrt(sigma2);
   double tmp2 = xbetavi;
@@ -51,7 +48,7 @@ void ldensldtfp(double y, double xbetavi, const arma::vec& xbetatfi, double sigm
 
 // conditional cdf of y given xij, vi
 void cdfldtfp(double y, double xbetavi, const arma::vec& xbetatfi, double sigma2, double& cdfval, int maxL){
-  R_CheckUserInterrupt();
+  //R_CheckUserInterrupt();
   //temp variables
   int maxL1 = maxL+1;
   int nsets1 = std::pow(2, maxL)+1;
@@ -124,7 +121,7 @@ void loglikldtfpvi(double vi, double meanvi, double varvi, int ind1, int ind2, c
   
   // find where the data point is located at each level
   for(int i=ind1; i<=ind2; ++i){
-    R_CheckUserInterrupt();
+    //R_CheckUserInterrupt();
     tmp1 = Xbeta[i] + vi;
     tmp3 = (y[i]-tmp1)/sigma;
     loglik += Rf_dnorm4(y[i], tmp1, sigma, true);
@@ -158,7 +155,6 @@ void loglikldtfpvi(double vi, double meanvi, double varvi, int ind1, int ind2, c
     loglik += (maxL1-1.0)*std::log(2.0);
   }
   for(int i=indm1; i<=indm2; ++i){
-    R_CheckUserInterrupt();
     tmp1 = Xbeta[i] + vm;
     tmp3 = (y[i]-tmp1)/sigma;
     loglik += Rf_dnorm4(y[i], tmp1, sigma, true);
@@ -194,6 +190,53 @@ void loglikldtfpvi(double vi, double meanvi, double varvi, int ind1, int ind2, c
   loglik += -0.5*std::pow((vi-meanvi), 2)/varvi;
 }
 
+// log likelihood of for v_i
+void loglikldtfpvi2(double vi, int ind1, int ind2, const Rcpp::NumericVector& y, 
+                   const arma::vec& Xbeta, const arma::mat& xbetatf, double sigma2, 
+                   double& loglik, int maxL){
+  // temp variables
+  int maxL1 = maxL+1;
+  Rcpp::IntegerVector K(maxL1);
+  double sigma = std::sqrt(sigma2);
+  double tmp1, tmp2, tmp3;
+  loglik=0;
+  
+  // find where the data point is located at each level
+  for(int i=ind1; i<=ind2; ++i){
+    tmp1 = Xbeta[i] + vi;
+    tmp3 = (y[i]-tmp1)/sigma;
+    loglik += Rf_dnorm4(y[i], tmp1, sigma, true);
+    if (tmp3>4.0) {
+      tmp2 = 0.999968;
+    } else if(tmp3<-4.0) {
+      tmp2 = 0.000032;
+    } else {
+      tmp2 = Rf_pnorm5(y[i], tmp1, sigma, true, false);
+    }
+    for(int j1=0; j1<maxL1; ++j1){
+      K[j1] = (int)(std::pow(2,j1)*tmp2)+1;
+    }
+    
+    // ldtfp part
+    int j=0; int m=0; 
+    for(int j1=1; j1<maxL1; ++j1){
+      int k2 = m + K[j1-1];
+      j = j + std::pow(2,j1);
+      m = m + std::pow(2,j1-1);
+      int ll = (K[j1-1]-1)*2 +1;
+      tmp2 = xbetatf(k2-1,i);
+      tmp3 = std::exp(tmp2)/(1.0+std::exp(tmp2));
+      if(K[j1]==ll) {
+        loglik += std::log(tmp3);
+      } else {
+        tmp3 = 1.0 - tmp3; 
+        loglik += std::log(tmp3);
+      }
+    }
+    loglik += (maxL1-1.0)*std::log(2.0);
+  }
+}
+
 // log likelihood given data, frailties and parameters 
 void loglikldtfp(const Rcpp::NumericVector& y, const arma::vec& Xbetav, const arma::mat& xbetatf, double sigma2, 
       Rcpp::IntegerVector& nobsbc, Rcpp::IntegerMatrix& obsbc, double& loglik, int maxL){
@@ -209,7 +252,7 @@ void loglikldtfp(const Rcpp::NumericVector& y, const arma::vec& Xbetav, const ar
   
   // find where the data point is located at each level
   for(int i=0; i<nrec; ++i){
-    R_CheckUserInterrupt();
+    //R_CheckUserInterrupt();
     tmp1 = Xbetav[i];
     tmp3 = (y[i]-tmp1)/sigma;
     loglik += Rf_dnorm4(y[i], tmp1, sigma, true);
@@ -265,7 +308,7 @@ void startlrcoefldtfp(int nri, int kk, int ii, int jj, int n1, int n2, const Rcp
     if(n1>0){
       for(int i=0; i<n1; ++i){
         int ll = obsbc(ii,i);
-        R_CheckUserInterrupt();
+        //R_CheckUserInterrupt();
         arma::vec xtfll = xtf.col(ll);
         double eta = arma::dot(xtfll, beta);
         double mu = std::exp(eta)/(1+std::exp(eta));
@@ -278,7 +321,7 @@ void startlrcoefldtfp(int nri, int kk, int ii, int jj, int n1, int n2, const Rcp
     if(n2>0){
       for(int i=0; i<n2; ++i){
         int ll = obsbc(jj,i);
-        R_CheckUserInterrupt();
+        //R_CheckUserInterrupt();
         arma::vec xtfll = xtf.col(ll);
         double eta = arma::dot(xtfll, beta);
         double mu = std::exp(eta)/(1+std::exp(eta));
@@ -307,7 +350,7 @@ void logposldtfp(const arma::vec& betace, const arma::mat& betatf, const Rcpp::N
   for(int i=0; i<nobsbc.size(); ++i) nobsbc(i) = 0;
   double loglikn = 0;
   for(int i=0; i<nrec; ++i){
-    R_CheckUserInterrupt();
+    //R_CheckUserInterrupt();
     tmp1=arma::dot(xce.col(i),betace) + vn[i];
     tmp3=(y[i]-tmp1)/sigma;
     loglikn += Rf_dnorm4(y[i], tmp1, sigma, true);
@@ -417,7 +460,7 @@ void loglikldtfpsig(const Rcpp::NumericVector& y, const arma::vec& Xbetav, const
   
   // find where the data point is located at each level
   for(int i=0; i<nrec; ++i){
-    R_CheckUserInterrupt();
+    //R_CheckUserInterrupt();
     tmp1 = Xbetav[i];
     tmp3 = (y[i]-tmp1)/sigma;
     loglikn += Rf_dnorm4(y[i], tmp1, sigma, true);
@@ -469,7 +512,7 @@ void compullldtfp(int ii, int jj, int n1, int n2, const Rcpp::IntegerMatrix& obs
   if(n1>0){
     for(int i=0; i<n1; ++i){
       int ll = obsbc(ii,i);
-      R_CheckUserInterrupt();
+      //R_CheckUserInterrupt();
       double eta = arma::dot(xtf.col(ll), gamma);
       loglikn += eta-std::log(1.0+std::exp(eta));
     }
@@ -477,7 +520,7 @@ void compullldtfp(int ii, int jj, int n1, int n2, const Rcpp::IntegerMatrix& obs
   if(n2>0){
     for(int i=0; i<n2; ++i){
       int ll = obsbc(jj,i);
-      R_CheckUserInterrupt();
+      //R_CheckUserInterrupt();
       double eta = arma::dot(xtf.col(ll), gamma);
       loglikn += -std::log(1.0+std::exp(eta));
     }
@@ -497,7 +540,7 @@ void tfcoeffproposal(int ii, int jj, int n1, int n2, const Rcpp::IntegerMatrix& 
 	if(n1>0){
 	  for(int i=0; i<n1; ++i){
   		int ll = obsbc(ii,i);
-  		R_CheckUserInterrupt();
+  		//R_CheckUserInterrupt();
   		arma::vec xtfll = xtf.col(ll);
   		double eta = arma::dot(xtfll, betatfkk);
   		double mu = std::exp(eta)/(1.0+std::exp(eta));
@@ -510,7 +553,7 @@ void tfcoeffproposal(int ii, int jj, int n1, int n2, const Rcpp::IntegerMatrix& 
 	if(n2>0){
 	  for(int i=0; i<n2; ++i){
 		int ll = obsbc(jj,i);
-		R_CheckUserInterrupt();
+		//R_CheckUserInterrupt();
 		arma::vec xtfll = xtf.col(ll);
 		double eta = arma::dot(xtfll, betatfkk);
 		double mu = std::exp(eta)/(1.0+std::exp(eta));
@@ -563,7 +606,7 @@ void updatelrcoefldtfpss(int kk, int ii, int jj, int n1, int n2, const Rcpp::Int
   arma::vec beta = betatf.col(kk);
   
   for(int i=0; i<ptf; ++i){
-    R_CheckUserInterrupt();
+    //R_CheckUserInterrupt();
     int evali=1;
     xx0 = beta(i);
     compullldtfp(ii, jj, n1, n2, obsbc, beta, xtx, xtf, gxx0);

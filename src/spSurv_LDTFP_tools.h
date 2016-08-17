@@ -16,6 +16,11 @@ void loglikldtfpvi(double vi, double meanvi, double varvi, int ind1, int ind2, c
       const arma::vec& Xbeta, const arma::mat& xbetatf, double sigma2, double& loglik, int maxL, 
       double vm, int indm1, int indm2);
 
+// log likelihood of for v_i
+void loglikldtfpvi2(double vi, int ind1, int ind2, const Rcpp::NumericVector& y, 
+                    const arma::vec& Xbeta, const arma::mat& xbetatf, double sigma2, 
+                    double& loglik, int maxL);
+
 // log likelihood given data, frailties and parameters 
 void loglikldtfp(const Rcpp::NumericVector& y, const arma::vec& Xbetav, const arma::mat& Xbetatf, double sigma2, 
       Rcpp::IntegerVector& nobsbc, Rcpp::IntegerMatrix& obsbc, double& loglik, int maxL);

@@ -83,7 +83,7 @@ This function fits a marginal Bayesian Nonparametric model (Zhou, Hanson and Kna
 }
 
 \references{
-Zhou, H., Hanson, T. and Knapp, R. (2015). Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations. \emph{Biometrics}, accepted. 
+Zhou, H., Hanson, T., and Knapp, R. (2015). Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations. \emph{Biometrics}, 71(4): 1101-1110. 
 }
 
 

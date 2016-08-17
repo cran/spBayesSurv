@@ -23,3 +23,9 @@ baseline = function (...)
   }
   allf
 }
+
+frailtyprior = function (prior="car", ...) {
+  x = cbind(...);
+  colnames(x)=rep(prior,ncol(x));
+  x
+}

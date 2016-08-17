@@ -1,7 +1,7 @@
-"survregbayes" <- function (formula, data, na.action, survmodel="PH", dist="weibull", 
+"survregbayes2" <- function (formula, data, na.action, survmodel="PH", dist="weibull", 
                             mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
                             prior=NULL, state=NULL, selection=FALSE, Proximity=NULL, 
-                            truncation_time=NULL, InitParamMCMC=TRUE) {
+                            truncation_time=NULL, Knots=NULL, InitParamMCMC=TRUE) {
   #########################################################################################
   # call parameters
   #########################################################################################
@@ -119,10 +119,17 @@
   frail.prior = colnames(frail.terms)[1];
   
   #########################################################################################
-  # check frailty
+  # general setup based on frailty priors
   #########################################################################################
+  if(is.null(Knots)){
+    nknots = prior$nknots; if(is.null(nknots)) nknots=min(50,n);
+  }else{
+    nknots = nrow(Knots);
+  }
+  if(nknots>n) stop("the number of knots needs to be smaller than n");
+  phi = state$phi; if(is.null(phi)) phi=1;
   if(!is.null(frail.prior)){
-    if(frail.prior=="car"){
+    if(frail.prior=="car") {
       frailtyCode = 1;
       ID = frail.terms[,1];
       orderindex = order(ID);
@@ -132,23 +139,46 @@
       W = Proximity;
       D = rowSums(W);
       if (any(D==0)) stop("it seems that some region does not have any neighbers, which is not allowed, pelase check");
-    }else if (frail.prior=="iid") {
+      Dnm = matrix(0, n, nrow(W));
+    } else if (frail.prior=="iid"){
       frailtyCode = 2;
       ID = frail.terms[,1];
       orderindex = order(ID);
       if(!(sum(orderindex==(1:n))==n)) stop("please sort the data by ID");
       blocki = c(0, cumsum(as.vector(table(ID))));
       W = matrix(0, length(blocki)-1, length(blocki)-1);
-      D = rowSums(W);
-    }else {
-      stop("This function only supports non-frailty, CAR frailty and IID frailty models.")
+      Dnm = matrix(0, n, nrow(W));
+    } else if (frail.prior=="kriging") {
+      frailtyCode = 3;
+      ID=NULL;
+      ni = c(rep(1,nknots-1), n-nknots+1);
+      blocki = c(0, cumsum(ni));
+      W = matrix(0, length(blocki)-1, length(blocki)-1);
+      ss = frail.terms;
+      if(is.null(Knots)){
+        s0 = as.matrix(fields::cover.design(ss, nd=nknots)$design);
+      }else{
+        s0 = Knots;
+      }
+      Dnm = .Call("DistMat", t(ss), t(s0), PACKAGE = "spBayesSurv");
+      Dmm = .Call("DistMat", t(s0), t(s0), PACKAGE = "spBayesSurv");
+      if(is.null(state$phi)){
+        phi = min(Dmm[row(Dmm)!=col(Dmm)]);
+        phi = 1;
+        if (phi==0) stop("At least two locations in Knots are the same, which is not allowed.")
+      }else{
+        phi = state$phi;
+        if (phi<=0) stop("phi in state arguement should be greater than 0.")
+      }
+    } else {
+      stop("This function only supports non-frailty, CAR frailty, IID and kriging GRF frailty models.")
     }
   } else {
     ID = NULL;
     frailtyCode = 0;
     blocki = c(0, n);
     W = matrix(1, length(blocki)-1, length(blocki)-1);
-    D = rowSums(W);
+    Dnm = matrix(0, n, nrow(W));
   }
   if(is.null(state$frail)) {
     v <- rep(0, length(blocki)-1);
@@ -185,34 +215,53 @@
   if(InitParamMCMC){
     message("Starting initial MCMC based on parametric model:")
     nburn0=5000; nsave0=5000;
+    frailtyCode0 = frailtyCode;
+    blocki0=blocki; W0=W; v0=v;
+    Dnm0=Dnm;
+    truncation_time0 = truncation_time;
+    t10 = t1; t20=t2; delta0=delta; X.scaled0=X.scaled;
+    if(!is.null(frail.prior)){
+      if(frail.prior=="kriging") {
+        frailtyCode0=2;
+        id = apply(Dnm, 1, which.min);
+        orderindex0 = order(id);
+        truncation_time0=truncation_time[orderindex0];
+        t10 = t1[orderindex0]; t20=t2[orderindex0];
+        delta0 = delta[orderindex0]; X.scaled0=cbind(X.scaled[orderindex0,]);
+        blocki0 = c(0, cumsum(as.vector(table(id))));
+        W0 = matrix(0, length(blocki0)-1, length(blocki0)-1);
+        Dnm0 = matrix(0, n, nrow(W0));
+        v0=rep(0, length(blocki0)-1);
+      }
+    }
     scaleV = 10; scaleS = 100000;
     if(sum(as.numeric(names(table(delta))))==2){ ## if current status data
       scaleV= 1; scaleS = 100000;
     }
     if(survmodel=="AFT"){
-      fit0<- .Call("AFT_MPT", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time,
-                   t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta0, beta_=beta0, cpar_=Inf, 
-                   Ys_=rep(0.5, 2^4-1), maxL_=4, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), 
-                   Vhat_=Vhat0, beta0_=beta_prior, S0inv_=solve(scaleS*Shat0),  Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
-                   gamma_=rep(1, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode, v_=v, 
-                   blocki_=blocki, W_=W, lambda_=1, a0lambda_=1, b0lambda_=1, 
-                   dist_=distcode, PACKAGE = "spBayesSurv");
-    }else if(survmodel=="PH"){
-      fit0<- .Call("PH_MPT", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time,
-                   t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta0, beta_=beta0, cpar_=Inf, 
-                   Ys_=rep(0.5, 2^4-1), maxL_=4, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), 
-                   Vhat_=Vhat0, beta0_=beta_prior, S0inv_=solve(scaleS*Shat0),  Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
-                   gamma_=rep(1, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode, v_=v, 
-                   blocki_=blocki, W_=W, lambda_=1, a0lambda_=1, b0lambda_=1, 
-                   dist_=distcode, PACKAGE = "spBayesSurv");
+      fit0<- .Call("AFT_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0,
+                   t1_=t10, t2_=t20, type_=delta0, X_=X.scaled0, theta_=theta0, beta_=beta0, weight_=c(1), 
+                   cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
+                   beta0_=beta_prior, S0inv_=solve(scaleS*Shat0), Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   gamma_=rep(1.0, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode0, v_=v0, 
+                   blocki_=blocki0, W_=W0, Dnm_=Dnm0, phi_=phi, a0phi_=1, b0phi_=1, 
+                   lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(survmodel=="PO"){
-      fit0<- .Call("PO_MPT", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time,
-                   t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta0, beta_=beta0, cpar_=Inf, 
-                   Ys_=rep(0.5, 2^4-1), maxL_=4, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), 
-                   Vhat_=Vhat0, beta0_=beta_prior, S0inv_=solve(scaleS*Shat0),  Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
-                   gamma_=rep(1, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode, v_=v, 
-                   blocki_=blocki, W_=W, lambda_=1, a0lambda_=1, b0lambda_=1, 
-                   dist_=distcode, PACKAGE = "spBayesSurv");
+      fit0<- .Call("PO_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0,
+                   t1_=t10, t2_=t20, type_=delta0, X_=X.scaled0, theta_=theta0, beta_=beta0, weight_=c(1), 
+                   cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
+                   beta0_=beta_prior, S0inv_=solve(scaleS*Shat0), Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   gamma_=rep(1.0, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode0, v_=v0, 
+                   blocki_=blocki0, W_=W0, Dnm_=Dnm0, phi_=phi, a0phi_=1, b0phi_=1, 
+                   lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
+    }else if(survmodel=="PH"){
+      fit0<- .Call("PH_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0,
+                   t1_=t10, t2_=t20, type_=delta0, X_=X.scaled0, theta_=theta0, beta_=beta0, weight_=c(1), 
+                   cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
+                   beta0_=beta_prior, S0inv_=solve(scaleS*Shat0), Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   gamma_=rep(1.0, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode0, v_=v0, 
+                   blocki_=blocki0, W_=W0, Dnm_=Dnm0, phi_=phi, a0phi_=1, b0phi_=1, 
+                   lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
     }else{
       stop("This function only supports PH, PO or AFT");
     }
@@ -226,6 +275,11 @@
     if(!is.null(frail.prior)){
       if((frail.prior=="car")|(frail.prior=="iid")){
         if(is.null(state$frail)) v = rowMeans(fit0$v);
+      }else if (frail.prior=="kriging"){
+        if(is.null(state$frail)){
+          v = rep(0, nknots);
+          v[as.numeric(names(table(id)))] = rowMeans(fit0$v);
+        }
       }
     }
     message("Starting the MCMC for the semiparametric model:")
@@ -238,13 +292,14 @@
   # note the priors should be based on scaled data.
   #########################################################################################
   cpar=state$cpar; if(is.null(cpar)) cpar=1;
-  tau2 = state$tau2; if(is.null(tau2)) tau2=1/lambda; lambda=1/tau2; 
+  tau2 = state$tau2; if(is.null(tau2)) tau2=1/lambda; lambda=1/tau2;
   nburn <- mcmc$nburn;
   nsave <- mcmc$nsave;
   nskip <- mcmc$nskip;
   ndisplay <- mcmc$ndisplay;
-  maxL <- prior$maxL; if(is.null(maxL)) maxL<-4;
-  Ys = rep(0.5, 2^maxL-1);
+  maxL <- prior$maxL; if(is.null(maxL)) maxL<-15;
+  #if (cpar==Inf) maxL=1;
+  weight = rep(1/maxL, maxL);
   a0=prior$a0; if(is.null(a0)) a0=1;
   b0=prior$b0; if(is.null(b0)) b0=1;
   V0_prior = 10*Vhat0;
@@ -285,11 +340,16 @@
   gamma0 = rep(1.0, p);
   taua0 = prior$taua0; if(is.null(taua0)) taua0=1;
   taub0 = prior$taub0; if(is.null(taub0)) taub0=1;
+  phia0 = prior$phia0; if(is.null(phia0)) phia0=1;
+  phib0 = prior$phib0; if(is.null(phib0)) phib0=1;
   mcmc = list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=ndisplay)
   if(!is.null(frail.prior)){
     initial.values = list(beta=beta, theta=theta, tau2=1/lambda, frail=v);
     prior = list(maxL=maxL, a0=a0, b0=b0, theta0=theta0, V0=V0, beta0=beta0, S0=S0,
                  Shat=Shat, Vhat=Vhat, taua0=taua0, taub0=taub0);
+    if(frail.prior=="kriging"){
+      prior$nknots=nknots; prior$phia0=phia0; prior$phib0=phib0;
+    }
   }else{
     initial.values = list(beta=beta, theta=theta);
     prior = list(maxL=maxL, a0=a0, b0=b0, theta0=theta0, V0=V0, beta0=beta0, S0=S0,
@@ -304,31 +364,38 @@
   #########################################################################################
   if(survmodel=="AFT"){
     model.name <- "Accelerated failure time model:";
-    foo <- .Call("AFT_MPT", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
-                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=cpar, Ys_=Ys, maxL_=maxL,
-                 a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, 
-                 Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
-                 frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, lambda_=lambda, a0lambda_=taua0, b0lambda_=taub0, 
-                 dist_=distcode, PACKAGE = "spBayesSurv");
+    foo <- .Call("AFT_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
+                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, weight_=weight, 
+                 cpar_=cpar, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
+                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
+                 gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
+                 frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, Dnm_=Dnm, phi_=phi, 
+                 a0phi_=phia0, b0phi_=phib0, lambda_=lambda, 
+                 a0lambda_=taua0, b0lambda_=taub0, dist_=distcode, PACKAGE = "spBayesSurv");
   }else if(survmodel=="PO"){
     model.name <- "Proportional Odds model:";
-    foo <- .Call("PO_MPT", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
-                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=cpar, Ys_=Ys, maxL_=maxL,
-                 a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, 
-                 Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
-                 frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, lambda_=lambda, a0lambda_=taua0, b0lambda_=taub0, 
-                 dist_=distcode, PACKAGE = "spBayesSurv");
+    foo <- .Call("PO_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
+                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, weight_=weight, 
+                 cpar_=cpar, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
+                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
+                 gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
+                 frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, Dnm_=Dnm, phi_=phi, 
+                 a0phi_=phia0, b0phi_=phib0, lambda_=lambda, 
+                 a0lambda_=taua0, b0lambda_=taub0, dist_=distcode, PACKAGE = "spBayesSurv");
   }else if(survmodel=="PH"){
     model.name <- "Proportional hazards model:";
-    foo <- .Call("PH_MPT", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
-                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=cpar, Ys_=Ys, maxL_=maxL,
-                 a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, 
-                 Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
-                 frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, lambda_=lambda, a0lambda_=taua0, b0lambda_=taub0, 
-                 dist_=distcode, PACKAGE = "spBayesSurv");
+    foo <- .Call("PH_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
+                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, weight_=weight, 
+                 cpar_=cpar, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
+                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
+                 gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
+                 frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, Dnm_=Dnm, phi_=phi, 
+                 a0phi_=phia0, b0phi_=phib0, lambda_=lambda, 
+                 a0lambda_=taua0, b0lambda_=taub0, dist_=distcode, PACKAGE = "spBayesSurv");
   }else{
     stop("This function only supports PH, PO or AFT");
   }
+  
   #########################################################################################
   # save state
   #########################################################################################
@@ -362,7 +429,7 @@
                  beta.scaled = beta.scaled,
                  cpar = foo$cpar,
                  maxL = maxL,
-                 Ys = foo$Ys,
+                 weight = foo$weight,
                  cpo = foo$cpo,
                  pD = foo$pD, 
                  DIC = foo$DIC,
@@ -378,16 +445,22 @@
     output$ratev = foo$ratev;
     output$tau2 = 1/foo$lambda;
     output$IDnames = names(table(ID));
+    if(frail.prior=="kriging"){
+      output$vn = foo$vn;
+      output$ratephi = foo$ratephi;
+      output$phi = foo$phi;
+      output$Knots = s0;
+    }
   }
   if(selection){
     output$gamma = foo$gamma;
   }
-  class(output) <- c("survregbayes")
+  class(output) <- c("survregbayes2")
   output
 }
 
 #### print, summary, plot
-"print.survregbayes" <- function (x, digits = max(3, getOption("digits") - 3), ...) 
+"print.survregbayes2" <- function (x, digits = max(3, getOption("digits") - 3), ...) 
 {
   cat(x$modelname,"\nCall:\n", sep = "")
   print(x$call)
@@ -418,8 +491,8 @@
   invisible(x)
 }
 
-"plot.survregbayes" <- function (x, xpred=NULL, tgrid=NULL, CI=0.95, PLOT=FALSE, ...) {
-  if(is(x,"survregbayes")){
+"plot.survregbayes2" <- function (x, xpred=NULL, tgrid=NULL, CI=0.95, PLOT=FALSE, ...) {
+  if(is(x,"survregbayes2")){
     if(is.null(tgrid)) tgrid = seq(0.01, max(x$Surv[,2], na.rm=T), length.out=200);
     if(is.null(xpred)) {
       stop("please specify xpred")
@@ -438,13 +511,13 @@
       betafitted = x$beta.scaled*x$gamma;
     }
     if(x$survmodel=="AFT"){
-      estimates <- .Call("AFT_MPT_plots", tgrid, xpred, x$theta.scaled, betafitted, x$Ys, x$maxL, CI, 
+      estimates <- .Call("AFT_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, x$weight, CI, 
                          dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(x$survmodel=="PO"){
-      estimates <- .Call("PO_MPT_plots", tgrid, xpred, x$theta.scaled, betafitted, x$Ys, x$maxL, CI, 
+      estimates <- .Call("PO_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, x$weight, CI, 
                          dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(x$survmodel=="PH"){
-      estimates <- .Call("PH_MPT_plots", tgrid, xpred, x$theta.scaled, betafitted, x$Ys, x$maxL, CI, 
+      estimates <- .Call("PH_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, x$weight, CI, 
                          dist_=distcode, PACKAGE = "spBayesSurv");
     }else{
       stop("This function only supports PH, PO or AFT");
@@ -466,7 +539,7 @@
   invisible(estimates)
 }
 
-"summary.survregbayes" <- function(object, CI.level=0.95, ...) {
+"summary.survregbayes2" <- function(object, CI.level=0.95, ...) {
   ans <- c(object[c("call", "modelname")])
   
   ### CPO
@@ -539,6 +612,21 @@
                                                   paste(CI.level*100, "%CI-Low", sep=""),
                                                   paste(CI.level*100, "%CI-Upp", sep="")))
     ans$frailvar <- coef.table;
+    if(object$frail.prior=="kriging"){
+      mat <- object$phi
+      coef.p <- mean(mat); names(coef.p)="kernel range";
+      coef.m <- median(mat)    
+      coef.sd <- sd(mat)
+      limm <- as.vector(quantile(mat, probs=c((1-CI.level)/2, 1-(1-CI.level)/2)))
+      coef.l <- limm[1]
+      coef.u <- limm[2]
+      
+      coef.table <- cbind(coef.p, coef.m, coef.sd, coef.l , coef.u)
+      dimnames(coef.table) <- list(names(coef.p), c("Mean", "Median", "Std. Dev.", 
+                                                    paste(CI.level*100, "%CI-Low", sep=""),
+                                                    paste(CI.level*100, "%CI-Upp", sep="")))
+      ans$phivar <- coef.table;
+    }
   }
   
   ## LPML and DIC
@@ -558,12 +646,12 @@
   }
   ans$cpar = object$cpar;
   
-  class(ans) <- "summary.survregbayes"
+  class(ans) <- "summary.survregbayes2"
   return(ans)
 }
 
 
-"print.summary.survregbayes"<-function (x, digits = max(3, getOption("digits") - 3), ...) 
+"print.summary.survregbayes2"<-function (x, digits = max(3, getOption("digits") - 3), ...) 
 {
   cat(x$modelname,"\nCall:\n", sep = "")
   print(x$call)
@@ -599,6 +687,14 @@
     }else if(x$frail.prior=="iid"){
       cat("\nPosterior inference of frailty variance\n")
       print.default(format(x$frailvar, digits = digits), print.gap = 2, 
+                    quote = FALSE)
+    } else if(x$frail.prior=="kriging"){
+      cat("\nPosterior inference of latent process variance\n")
+      print.default(format(x$frailvar, digits = digits), print.gap = 2, 
+                    quote = FALSE)
+      
+      cat("\nPosterior inference of kernel range phi \n")
+      print.default(format(x$phivar, digits = digits), print.gap = 2, 
                     quote = FALSE)
     }
   }

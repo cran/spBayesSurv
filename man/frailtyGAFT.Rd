@@ -11,13 +11,13 @@ This function fits a generalized accelerated failure time frailty model for clus
 }
    
 \usage{
-frailtyGAFT(formula, data, na.action,
-            mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500),
-            prior=NULL, state=NULL, frailty=NULL, ID=NULL, Proximity=NULL)
+frailtyGAFT(formula, data, na.action, 
+            mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
+            prior=NULL, state=NULL, Proximity=NULL, Coordinates=NULL)
 }
 
 \arguments{
-   \item{formula}{a formula expression with the response returned by the \code{Surv} function in the \code{survival} package. It supports right-censoring, left-censoring, interval-censoring, and mixtures of them.}
+   \item{formula}{a formula expression with the response returned by the \code{Surv} function in the \code{survival} package. It supports right-censoring, left-censoring, interval-censoring, and mixtures of them. To include CAR frailties, add \code{frailtyprior("car",ID)} to the formula, where \code{ID} is an n dimensional vector of cluster ID numbers. Furthermore, use \code{frailtyprior("iid",ID)} for Gaussian exchangeable frailties, use \code{frailtyprior("grf",ID)} for Gaussian random fields (GRF) frailties, and exclude the term \code{frailtyprior()} for non-frailty models. Note: the data need to be sorted by ID. }
    
    \item{data}{a data frame in which to interpret the variables named in the \code{formula} argument.}
    
@@ -29,29 +29,27 @@ frailtyGAFT(formula, data, na.action,
    
    \item{state}{a list giving the current value of the parameters. This list is used if the current analysis is the continuation of a previous analysis.} 
    
-   \item{frailty}{a charater string with \code{NULL} fitting a non-frailty model, \code{CAR} fitting a CAR frailty model and \code{IID} fitting a independent Gaussian frailty model}
+   \item{Proximity}{an m by m symetric adjacency matrix, where m is the number of clusters/regions. If CAR frailty model is specified in the formula, \code{Proximity} is required; otherwise it is ignored. Note: this matrix should be specified according to the data that have been sorted by ID. }
    
-   \item{ID}{an n dimensional vector of cluster ID numbers. If \code{frailty=NULL}, \code{ID} is ignored; otherwise, \code{ID} is required. }
-   
-   \item{Proximity}{an m by m symetric adjacency matrix, where m is the number of clusters. If \code{frailty=CAR}, \code{Proximity} is required; otherwise it is ignored.}
+   \item{Coordinates}{an m by d coordinates matrix, where m is the number of clusters/regions, d is the dimension of coordiantes. If GRF frailty model is specified in the formula, \code{Coordinates} is required; otherwise it is ignored. Note: this matrix should be specified according to the data that have been sorted by ID.}
 }
 
 \details{
-This function fits a a generalized accelerated failure time frailty model (Zhou, Hanson and Zhang, 2015) for clustered and/or areal-level time-to-event data.
+This function fits a a generalized accelerated failure time frailty model (Zhou, Hanson and Zhang, 2016) for clustered and/or areal-level time-to-event data.
 }
 
 \value{
-  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Zhang (2015). 
+  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Zhang (2016). 
   Use \code{names} to find out what they are.
 
 }
 
 \seealso{
-\code{\link{survregbayes}}
+\code{\link{baseline}}, \code{\link{frailtyprior}}
 }
 
 \references{
-Zhou, H., Hanson, T. and Zhang, J. (2015). Generalized accelerated failure time spatial frailty model for arbitrarily censored data. \emph{Lifetime Data Analysis}. Revision submitted.
+Zhou, H., Hanson, T., and Zhang, J. (2016). Generalized accelerated failure time spatial frailty model for arbitrarily censored data. \emph{Lifetime Data Analysis}, in press.
 }
 
 
@@ -150,19 +148,13 @@ d = dtotal[order(dtotal$ID),];
 
 # Prior information and MCMC
 fit0 <- survival::survreg(Surv(tleft, censor)~x1+x2, dist="lognormal", data=d);
-sig2hat <- (fit0$scale)^2;
-sig2var <- 25*fit0$var[pce+1, pce+1]*4*sig2hat^2;
-siga0 = 2+sig2hat^2/sig2var;
-sigb0 = sig2hat*(siga0-1);
-
-prior = list(maxL = 4, a0 = 5, b0 = 1, m0=fit0$coefficients, 
-             S0=diag(rep(1e5,pce)), siga0=siga0, sigb0=sigb0);
+prior = list(maxL = 4, a0 = 5, b0 = 1);
 mcmc=list(nburn=100, nsave=500, nskip=1, ndisplay=100)
 
 # Fit the model
-res = frailtyGAFT(Surv(tleft, tright, type="interval2")~x1+x2+baseline(x1, x2), 
-                  data=d, mcmc=mcmc, prior=prior, 
-                  frailty="CAR", ID=d$ID, Proximity=W);
+res = frailtyGAFT(Surv(tleft, tright, type="interval2")~x1+x2+baseline(x1, x2)+
+                    frailtyprior(prior="car", ID),  data=d, mcmc=mcmc, prior=prior, 
+                  Proximity=W);
 summary(res);
 
 

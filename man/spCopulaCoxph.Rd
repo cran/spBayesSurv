@@ -3,7 +3,7 @@
 
 \title{Fit Marginal Bayesian Proportional Hazards Model}
 \description{
-This function fits a marginal Bayesian proportional hazards model (Zhou, Hanson and Knapp, 2015) for point-referenced right censored time-to-event data.
+This function fits a marginal Bayesian proportional hazards model for point-referenced right censored time-to-event data.
 }
    
 \usage{
@@ -69,7 +69,7 @@ This function fits a marginal Bayesian proportional hazards model (Zhou, Hanson 
 }
 
 \references{
-Zhou, H., Hanson, T. and Knapp, R. (2015). Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations. \emph{Biometrics}, accepted. 
+Zhou, H., Hanson, T., and Knapp, R. (2015). Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations. \emph{Biometrics}, 71(4): 1101-1110. 
 }
 
 

@@ -1,4 +1,3 @@
-#include "spSurv_spCopulaCoxph.h"
 #include "spSurv_Coxph_tools.h"
 #include <RcppArmadillo.h>
 #include <Rcpp.h>
@@ -8,7 +7,7 @@ using namespace Rcpp;
 using namespace std;
 
 ///////////////////////////// Fixed cutpoints //////////////////////////////////
-SEXP spCopulaCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
+RcppExport SEXP spCopulaCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 		SEXP t_, SEXP delta_, SEXP X_, SEXP d_, SEXP h_, SEXP r0_, SEXP h0_, 
     SEXP beta_, SEXP mu0_, SEXP Sig0_, SEXP l0_, SEXP S0_, SEXP adapter_,
 		SEXP xpred_, SEXP ds0n_, SEXP dnn_, SEXP theta_, SEXP theta0_, 
@@ -58,7 +57,6 @@ SEXP spCopulaCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int npred = xpred.n_rows;
   
   // Temp variables
-  double Maxobs = std::max(Rcpp::max(tobs)*5, 1200.0);
   arma::vec Xbeta = X.t()*beta;
   arma::mat Snew(p,p); Snew.fill(0.0);
   arma::vec betabarnew(p); betabarnew.fill(0.0);
@@ -117,7 +115,7 @@ SEXP spCopulaCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
         double mui = -s2i*( arma::dot(Cinv.col(i), z) - Cii*z[i] );
         double zi = trun_rnorm(mui, std::sqrt(s2i), zobsi, R_PosInf); 
         double ui = Rf_pnorm5(zi, 0, 1, true, false);
-        t[i] = Finvofu(ui, h, d, Xbeta[i], tobs[i], Maxobs);
+        t[i] = Finvofu(ui, h, d, Xbeta[i], tobs[i], ELARGE);
         z[i] = Rf_qnorm5( Foft(t[i], h, d, Xbeta[i]), 0, 1, true, false);
       }
     }
@@ -177,7 +175,7 @@ SEXP spCopulaCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
           double znew = Rf_rnorm(mus0, sigs0);
           double u = Rf_pnorm5(znew, 0, 1.0, true, false);
           Zpred(j, isave) = znew;
-          Tpred(j, isave) = Finvofu(u, h, d, xbeta[j], ESMALL, Maxobs);
+          Tpred(j, isave) = Finvofu(u, h, d, xbeta[j], ESMALL, ELARGE);
         }
         
         ++isave;
@@ -215,7 +213,7 @@ SEXP spCopulaCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 	}
 
 ///////////////////////////// Random cutpoints //////////////////////////////////
-SEXP spCopulaCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
+RcppExport SEXP spCopulaCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   	SEXP t_, SEXP delta_, SEXP X_, SEXP d_, SEXP h_, SEXP r0_, SEXP h0_, SEXP V0_, 
     SEXP hl0_, SEXP hs0_, SEXP hadapter_, 
     SEXP beta_, SEXP mu0_, SEXP Sig0_, SEXP l0_, SEXP S0_, SEXP adapter_,
@@ -274,7 +272,6 @@ SEXP spCopulaCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   double hSnew = 0;
   double hbarnew = 0;
   int rejhcen = 0;
-  double Maxobs = std::max(Rcpp::max(tobs)*5, 1200.0);
   arma::vec Xbeta = X.t()*beta;
   arma::mat Snew(p,p); Snew.fill(0.0);
   arma::vec betabarnew(p); betabarnew.fill(0.0);
@@ -339,7 +336,7 @@ SEXP spCopulaCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
         double mui = -s2i*( arma::dot(Cinv.col(i), z) - Cii*z[i] );
         double zi = trun_rnorm(mui, std::sqrt(s2i), zobsi, R_PosInf); 
         double ui = Rf_pnorm5(zi, 0, 1.0, true, false);
-        t[i] = Finvofu(ui, h, d, Xbeta[i], tobs[i], Maxobs);
+        t[i] = Finvofu(ui, h, d, Xbeta[i], tobs[i], ELARGE);
         z[i] = Rf_qnorm5( Foft(t[i], h, d, Xbeta[i]), 0, 1, true, false);
       }
     }
@@ -401,7 +398,7 @@ SEXP spCopulaCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
           double znew = Rf_rnorm(mus0, sigs0);
           double u = Rf_pnorm5(znew, 0, 1.0, true, false);
           Zpred(j, isave) = znew;
-          Tpred(j, isave) = Finvofu(u, h, d, xbeta[j], ESMALL, Maxobs);
+          Tpred(j, isave) = Finvofu(u, h, d, xbeta[j], ESMALL, ELARGE);
         }
         
         ++isave;

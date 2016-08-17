@@ -4,6 +4,7 @@
 #include <RcppArmadillo.h>
 #include <Rcpp.h>
 #include "spSurv_common.h"
+#include "spSurv_spatialtools.h"
 
 //////////////////////////////////////////////////////////////////////
 // Cox PH common

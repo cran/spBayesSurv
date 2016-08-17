@@ -67,31 +67,22 @@ double DDP_Finvofu(double u, arma::vec wma, arma::vec mu, arma::vec sig, double 
   double err = 10e-6;
   double yl = lower;
   double Fl = Fofy(yl, wma, mu, sig) - u;
-  double ystep = 3;
-  double yr, Fr;
-  if( (Fl>0)|(std::abs(Fl)<err) ){
-    return(lower);
-  }else{
-    yr = yl+ystep; Fr = Fofy(yr, wma, mu, sig) - u;
-    while(Fr<=0){
-      if( (std::abs(Fr)<err)|(yr>upper) ) return(yr);
-      yl=yr; Fl=Fr;
-      yr+=ystep; Fr = Fofy(yr, wma, mu, sig) - u;
-      R_CheckUserInterrupt();
-    }
-  }
+  double yr = upper;
+  double Fr = Fofy(yr, wma, mu, sig) - u;
+  if (Fl>=0) return(lower);
+  if (Fr<=0) return(upper);
   double ym = (yl+yr)*0.5;
-  while( ((yr-yl)>err) ){
+  double Fm = Fofy(ym, wma, mu, sig) - u;
+  while( std::abs(Fm)>err ){
     R_CheckUserInterrupt();
-    ym = (yl + yr)*0.5;
-    double Fm = Fofy(ym, wma, mu, sig) - u;
-    // if (std::abs(Fm)<err) break;
     if (Fl*Fm>0){
       yl = ym;
       Fl = Fm;
     } else {
       yr = ym;
     }
+    ym = (yl + yr)*0.5;
+    Fm = Fofy(ym, wma, mu, sig) - u;
   }
   return(ym);
 }

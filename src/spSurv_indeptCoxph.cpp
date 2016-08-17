@@ -1,4 +1,3 @@
-#include "spSurv_indeptCoxph.h"
 #include "spSurv_Coxph_tools.h"
 #include <RcppArmadillo.h>
 #include <Rcpp.h>
@@ -8,7 +7,7 @@ using namespace Rcpp;
 using namespace std;
 
 ///////////////////////////// Fixed cutpoints //////////////////////////////////
-SEXP indeptCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
+RcppExport SEXP indeptCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 		SEXP t_, SEXP delta_, SEXP X_, SEXP d_, SEXP h_, SEXP r0_, SEXP h0_, 
     SEXP beta_, SEXP mu0_, SEXP Sig0_, SEXP l0_, SEXP S0_, SEXP adapter_,
 		SEXP xpred_) {
@@ -44,7 +43,6 @@ SEXP indeptCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   int npred = xpred.n_rows;
   
   // Temp variables
-  double Maxobs = std::max(Rcpp::max(tobs)*5, 1200.0); 
   arma::mat Snew(p,p); Snew.fill(0.0);
   arma::vec betabarnew(p); betabarnew.fill(0.0);
   NumericVector t(n); for (int i=0; i<n; ++i) t[i] = tobs[i];
@@ -86,7 +84,7 @@ SEXP indeptCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     for (int i=0; i<n; ++i){
       if(delta[i]==0){
         double ui = Rf_runif( Foft(tobs[i], h, d, Xbeta[i]), 1.0 );
-        t[i] = Finvofu(ui, h, d, Xbeta[i], tobs[i], Maxobs);
+        t[i] = Finvofu(ui, h, d, Xbeta[i], tobs[i], ELARGE);
       }
     }
     
@@ -120,7 +118,7 @@ SEXP indeptCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
         arma::vec xbeta = xpred*beta;
         for(int j=0; j<npred; ++j){
           double u = unif_rand();
-          Tpred(j, isave) = Finvofu(u, h, d, xbeta[j], ESMALL, Maxobs);
+          Tpred(j, isave) = Finvofu(u, h, d, xbeta[j], ESMALL, ELARGE);
         }
         
         ++isave;
@@ -150,7 +148,7 @@ SEXP indeptCoxph( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 }
 
 ///////////////////////////// Random cutpoints //////////////////////////////////
-SEXP indeptCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
+RcppExport SEXP indeptCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   	SEXP t_, SEXP delta_, SEXP X_, SEXP d_, SEXP h_, SEXP r0_, SEXP h0_, SEXP V0_,
     SEXP hl0_, SEXP hs0_, SEXP hadapter_,
     SEXP beta_, SEXP mu0_, SEXP Sig0_, SEXP l0_, SEXP S0_, SEXP adapter_,
@@ -195,7 +193,6 @@ SEXP indeptCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   double hSnew = 0;
   double hbarnew = 0;
   int rejhcen = 0;
-  double Maxobs = std::max(Rcpp::max(tobs)*5, 1200.0);
   arma::mat Snew(p,p); Snew.fill(0.0);
   arma::vec betabarnew(p); betabarnew.fill(0.0);
   NumericVector t(n); for (int i=0; i<n; ++i) t[i] = tobs[i];
@@ -243,7 +240,7 @@ SEXP indeptCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     for (int i=0; i<n; ++i){
       if(delta[i]==0){
         double ui = Rf_runif( Foft(tobs[i], h, d, Xbeta[i]), 1.0 );
-        t[i] = Finvofu(ui, h, d, Xbeta[i], tobs[i], Maxobs);
+        t[i] = Finvofu(ui, h, d, Xbeta[i], tobs[i], ELARGE);
       }
     }
 
@@ -279,7 +276,7 @@ SEXP indeptCoxphR( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
         arma::vec xbeta = xpred*beta;
         for(int j=0; j<npred; ++j){
           double u = unif_rand();
-          Tpred(j, isave) = Finvofu(u, h, d, xbeta[j], ESMALL, Maxobs);
+          Tpred(j, isave) = Finvofu(u, h, d, xbeta[j], ESMALL, ELARGE);
         }
         
         ++isave;

@@ -1,46 +1,46 @@
 "frailtyGAFT" <- function (formula, data, na.action, 
-                                   mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
-                                   prior=NULL, state=NULL, frailty=NULL, ID=NULL, Proximity=NULL){
+                           mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
+                           prior=NULL, state=NULL, Proximity=NULL, Coordinates=NULL){
   #########################################################################################
   # call parameters
   #########################################################################################
   Call <- match.call(); # save a copy of the call 
-  indx <- match(c("formula", "data", "na.action"),
+  indx <- match(c("formula", "data", "na.action", "truncation_time"),
                 names(Call), nomatch=0) 
   if (indx[1] ==0) stop("A formula argument is required");
   temp <- Call[c(1,indx)]  # only keep the arguments we wanted
   temp[[1]] <- as.name('model.frame')  # change the function called
   
-  special <- c("baseline", "cluster")
+  special <- c("baseline", "frailtyprior", "truncation_time")
   temp$formula <- if(missing(data)) terms(formula, special)
   else              terms(formula, special, data=data)
   if (is.R()) m <- eval(temp, parent.frame())
   else        m <- eval(temp, sys.parent())
   
+  if(any(names(m)=="(truncation_time)")){
+    truncation_time = m[,"(truncation_time)"]
+  }else{
+    truncation_time = NULL
+  }
+  
   Terms <- attr(m, 'terms')
   Y <- model.extract(m, "response")
   if (!inherits(Y, "Surv")) stop("Response must be a survival object")
   
-  strats <- attr(Terms, "specials")$baseline
-  cluster<- attr(Terms, "specials")$cluster
+  baseline0 <- attr(Terms, "specials")$baseline
+  frailtyprior0<- attr(Terms, "specials")$frailtyprior
   dropx <- NULL
-  if (length(cluster)) {
-    if (missing(robust)) robust <- TRUE
-    tempc <- survival::untangle.specials(Terms, 'cluster', 1:10)
-    ord <- attr(Terms, 'order')[tempc$terms]
-    if (any(ord>1)) stop ("Cluster can not be used in an interaction")
-    cluster <- baseline(m[,tempc$vars], shortlabel=TRUE)  #allow multiples
-    dropx <- tempc$terms
+  if (length(frailtyprior0)) {
+    temp <- survival::untangle.specials(Terms, 'frailtyprior', 1)
+    dropx <- c(dropx, temp$terms)
+    frail.terms <- m[[temp$vars]]
+  }else{
+    frail.terms <- NULL;
   }
-  if (length(strats)) {
+  if (length(baseline0)) {
     temp <- survival::untangle.specials(Terms, 'baseline', 1)
     dropx <- c(dropx, temp$terms)
-    if (length(temp$vars)==1){
-      baseline.keep <- m[[temp$vars]]
-    }else{
-      baseline.keep <- baseline(m[,temp$vars], shortlabel=TRUE)
-    }
-    Xtf <- baseline.keep;
+    Xtf <- m[[temp$vars]]
   }else{
     Xtf <- NULL;
   }
@@ -82,7 +82,6 @@
   Xtf1=cbind(rep(1, n), Xtf); colnames(Xtf1)[1]="intercept";
   ptf = ncol(Xtf1);
   
-  
   #########################################################################################
   # data structure
   #########################################################################################
@@ -107,6 +106,9 @@
   } else {
     if (type=='left') delta <- 2- delta;
   }
+  if(is.null(truncation_time)) truncation_time=rep(0, n);
+  frail.prior = colnames(frail.terms)[1];
+  ID = frail.terms[,1];
   
   ##############################################
   ### Currently it only supports AFT ###########
@@ -137,187 +139,179 @@
   #########################################################################################
   # check frailty
   #########################################################################################
-  if(!is.null(frailty)) {
+  if(!is.null(frail.prior)) {
     if(is.null(ID)) stop("please specify ID");
     orderindex = order(ID); 
     if(!(sum(orderindex==(1:n))==n)) stop("please sort the data by ID");
     blocki = c(0, cumsum(as.vector(table(ID))));
-    if(frailty=="CAR") {
+    if(frail.prior=="car") {
       if(is.null(Proximity)) stop("please specify prxoimity matrix");
       W = Proximity;
       D = rowSums(W);
       if (any(D==0)) stop("it seems that some region does not have any neighbers, which is not allowed, pelase check")
-    }else{
+    }else if(frail.prior=="iid"){
       W = matrix(0, length(blocki)-1, length(blocki)-1);
-      D = rep(1, length(blocki)-1);
+      D = rep(0, length(blocki)-1);
+    }else if(frail.prior=="grf"){
+      if(is.null(Coordinates)) stop("please specify coordinates for the centroid of each ID");
+      if(nrow(Coordinates)!=(length(blocki)-1)) stop("the number of coordinates should be equal to the number of ID")
+      DisMat = .Call("DistMat", t(Coordinates), t(Coordinates), PACKAGE = "spBayesSurv");
+      if(min(DisMat[row(DisMat)!=col(DisMat)])<=0) stop("each ID should have different centroids");
+    }else{
+      stop("This function only supports non-frailty, car frailty, iid and grf frailty models.")
     }
-    
-    #########################################################################################
-    # priors
-    # note the priors should be based on scaled data.
-    #########################################################################################
     if(is.null(state$frail)) {
       v <- rep(0, length(blocki)-1);
+      if(frail.prior=="grf"){
+        #print("check");
+        foo <- .Call("frailtyLDTFP", nburn_ = 5000, nsave_ = 5000, nskip_ = 0, ndisplay_ = 10000,
+                     tobs_ = cbind(t1, t2), type_ = delta, xce_ = t(X1), xtf_ = t(Xtf1), alpha_ = 5, 
+                     betace_ = betace, betatf_ = matrix(0,nrow=ptf,ncol=2^4-1),  sigma2_ = sigma2, 
+                     y_ = y, v_ = v, blocki_ = blocki, tau2_ = 0.5, 
+                     W_ = matrix(0, length(blocki)-1, length(blocki)-1), D_ = rep(0, length(blocki)-1), 
+                     maxL_ = 4, a0_ = 5, b0_ = 1,  m0_ = betace,  S0inv_ = solve(betaShat0), 
+                     gprior_ = 2*n*solve(t(Xtf1)%*%Xtf1), a0sig_ = sig2a0, b0sig_ = sig2b0, 
+                     a0tau_ = 1, b0tau_ = 1, PACKAGE = "spBayesSurv");
+        v = rowMeans(foo$v);
+        tau2_grf = mean(foo$tau2);
+        dd = data.frame(frail=v, s1=Coordinates[,1], s2=Coordinates[,2]);
+        sp::coordinates(dd) =~ s1+s2;
+        vfit0=automap::autofitVariogram(v ~ 1, dd, model=c("Exp", "Gau"));
+        cov.select = as.vector(vfit0$var_model$model[2])
+        if(cov.select=="Exp"){
+          nu_grf=1;
+        }else {
+          nu_grf=2;
+        }
+        sill_grf = min(0.95, vfit0$var_model$psill[2]/sum(vfit0$var_model$psill));
+        phi_grf = vfit0$var_model$range[2];
+      }
     } else {
       v <- state$frail; if(length(v)!=(length(blocki)-1)) stop("check the length of frail");
     }
-    nburn <- mcmc$nburn;
-    nsave <- mcmc$nsave;
-    nskip <- mcmc$nskip;
-    ndisplay <- mcmc$ndisplay;
-    maxL <- prior$maxL; if(is.null(maxL)) maxL<-4;
-    ntprob <- 2^(maxL+1)-2; 
-    ntlr <- 2^maxL-1;
-    betatf <- matrix(0,nrow=ptf,ncol=ntlr);
-    a0=prior$a0; if(is.null(a0)) a0=5;
-    b0=prior$b0; if(is.null(b0)) b0=1;
-    if(a0<=0){
-      a0=-1;alpha=state$alpha; 
-      if(is.null(alpha)) stop("please specify state$alpha if prior$a0 is not positive");
-    }
-    m0 <- prior$m0; if(is.null(m0)) m0 <- betace;
-    S0 <- prior$S0; if(is.null(S0)) S0 <- betaShat0;
-    S0inv <- solve(S0);
-    siga0=prior$siga0; if(is.null(siga0)) siga0=sig2a0;
-    sigb0=prior$sigb0; if(is.null(sigb0)) sigb0=sig2b0;
-    gprior <- prior$gprior; if(is.null(gprior)) gprior <- 2*n*solve(t(Xtf1)%*%Xtf1);
-    taua0 = prior$taua0; if(is.null(taua0)) taua0=0.1;
-    taub0 = prior$taub0; if(is.null(taub0)) taub0=0.1;
-    
-    mcmc = list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=ndisplay)
-    prior = list(maxL=maxL, a0=a0, b0=b0, siga0=siga0, sigb0=sigb0, m0=m0, S0=S0,
-                 taua0=taua0, taub0=taub0);
-    
-    #########################################################################################
-    # current state
-    #########################################################################################
-    alpha=state$alpha; if(is.null(alpha)) alpha=5;
-    tau2 = state$tau2; if(is.null(tau2)) tau2=0.1;
-    
-    #########################################################################################
-    # calling the c++ code and # output
-    #########################################################################################
-    foo <- .Call("frailtyLDTFP", nburn_ = nburn, nsave_ = nsave, nskip_ = nskip, ndisplay_ = ndisplay,
-                 tobs_ = cbind(t1, t2), type_ = delta, xce_ = t(X1), xtf_ = t(Xtf1), alpha_ = alpha, 
-                 betace_ = betace, betatf_ = betatf,  sigma2_ = sigma2, y_ = y, v_ = v, blocki_ = blocki,
-                 tau2_ = tau2, W_ = W, D_ = D, maxL_ = maxL, a0_ = a0, b0_ = b0,  m0_ = m0,  S0inv_ = S0inv, 
-                 gprior_ = gprior, a0sig_ = siga0, b0sig_ = sigb0, a0tau_ = taua0, b0tau_ = taub0, PACKAGE = "spBayesSurv");
-    
-    #########################################################################################
-    # save state
-    #########################################################################################
-    #### transfer the estimates back to original scales;
-    model.name <- "Generalized accelerated failure time frailty model:";
-    
-    #### coefficients
-    coeff <- c( apply(matrix(foo$beta, pce, nsave), 1, mean), mean(sqrt(foo$sigma2)), mean(foo$alpha) );
-    names(coeff) = c(colnames(X1), "scale", "precision");
-    
-    #### Save to a list
-    output <- list(modelname=model.name,
-                   coefficients=coeff,
-                   call=Call,
-                   prior=prior,
-                   mcmc=mcmc,
-                   n=n,
-                   pce=pce,
-                   ptf=ptf,
-                   Surv=Y,
-                   X=X,
-                   Xtf=Xtf,
-                   sigma2 = foo$sigma2,
-                   beta = foo$beta,
-                   alpha = foo$alpha,
-                   maxL = maxL,
-                   betatf = foo$betatf,
-                   logt = foo$y,
-                   cpo = foo$cpo,
-                   accept_beta = foo$ratebetace,
-                   accept_betatf = foo$ratebetatf,
-                   frailty=frailty,
-                   v = foo$v,
-                   tau2 = foo$tau2,
-                   IDnames = names(table(ID)));
-  }else{ 
-    
-    #########################################################################################
-    ### start non-frality model  
-    #########################################################################################
-    
-    #########################################################################################
-    # priors
-    # note the priors should be based on scaled data.
-    #########################################################################################
-    nburn <- mcmc$nburn;
-    nsave <- mcmc$nsave;
-    nskip <- mcmc$nskip;
-    ndisplay <- mcmc$ndisplay;
-    maxL <- prior$maxL; if(is.null(maxL)) maxL<-4;
-    ntprob <- 2^(maxL+1)-2; 
-    ntlr <- 2^maxL-1;
-    betatf <- matrix(0,nrow=ptf,ncol=ntlr);
-    a0=prior$a0; if(is.null(a0)) a0=5;
-    b0=prior$b0; if(is.null(b0)) b0=1;
-    if(a0<=0){
-      a0=-1;alpha=state$alpha; 
-      if(is.null(alpha)) stop("please specify state$alpha if prior$a0 is not positive");
-    }
-    m0 <- prior$m0; if(is.null(m0)) m0 <- betace;
-    S0 <- prior$S0; if(is.null(S0)) S0 <- betaShat0;
-    S0inv <- solve(S0);
-    siga0=prior$siga0; if(is.null(siga0)) siga0=sig2a0;
-    sigb0=prior$sigb0; if(is.null(sigb0)) sigb0=sig2b0;
-    gprior <- prior$gprior; if(is.null(gprior)) gprior <- 2*n*solve(t(Xtf1)%*%Xtf1);
-    
-    mcmc = list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=ndisplay)
+  }else{
+    ID = NULL;
+    blocki = c(0, n);
+    W = matrix(1, length(blocki)-1, length(blocki)-1);
+    D = rep(1, length(blocki)-1);
+    v <- rep(0, length(blocki)-1);
+  }
+  #########################################################################################
+  # priors
+  #########################################################################################
+  alpha=state$alpha; if(is.null(alpha)) alpha=5;
+  tau2 = state$tau2; if(is.null(tau2)) tau2=0.5;
+  nburn <- mcmc$nburn;
+  nsave <- mcmc$nsave;
+  nskip <- mcmc$nskip;
+  ndisplay <- mcmc$ndisplay;
+  maxL <- prior$maxL; if(is.null(maxL)) maxL<-4;
+  ntprob <- 2^(maxL+1)-2; 
+  ntlr <- 2^maxL-1;
+  betatf <- matrix(0,nrow=ptf,ncol=ntlr);
+  a0=prior$a0; if(is.null(a0)) a0=5;
+  b0=prior$b0; if(is.null(b0)) b0=1;
+  if(a0<=0){
+    a0=-1;alpha=state$alpha; 
+    if(is.null(alpha)) stop("please specify state$alpha if prior$a0 is not positive");
+  }
+  m0 <- prior$m0; if(is.null(m0)) m0 <- rep(0, pce);
+  S0 <- prior$S0; if(is.null(S0)) S0 <- diag(1e5, pce);
+  S0inv <- solve(S0);
+  siga0=prior$siga0; if(is.null(siga0)) siga0=sig2a0;
+  sigb0=prior$sigb0; if(is.null(sigb0)) sigb0=sig2b0;
+  gprior <- prior$gprior; if(is.null(gprior)) gprior <- 2*n*solve(t(Xtf1)%*%Xtf1);
+  taua0 = prior$taua0; if(is.null(taua0)) taua0=1;
+  taub0 = prior$taub0; if(is.null(taub0)) taub0=1;
+  mcmc = list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=ndisplay)
+  if(!is.null(frail.prior)){
     prior = list(maxL=maxL, a0=a0, b0=b0, siga0=siga0, sigb0=sigb0, m0=m0, S0=S0);
-    
-    #########################################################################################
-    # current state
-    #########################################################################################
-    alpha=state$alpha; if(is.null(alpha)) alpha=5;
-    
-    #########################################################################################
-    # calling the c++ code and # output
-    #########################################################################################
+    if((frail.prior=="iid")|(frail.prior=="car")){
+      prior$taua0=taua0; prior$taub0=taub0;
+    }else if (frail.prior=="grf"){
+      sill = state$sill; if(is.null(sill)) sill=sill_grf;
+      phi = state$phi; if(is.null(phi)) phi=phi_grf;
+      nu = prior$nu; if(is.null(nu)) nu=nu_grf;
+      silla0 = prior$silla0; if(is.null(silla0)) silla0=10*sill_grf;
+      sillb0 = prior$sillb0; if(is.null(sillb0)) sillb0=10*(1-sill_grf);
+      phia0 = prior$phia0; if(is.null(phia0)) phia0=10*phi_grf;
+      phib0 = prior$phib0; if(is.null(phib0)) phib0=10;
+      prior$taua0=taua0; prior$taub0=taub0; prior$silla0=silla0; prior$sillb0=sillb0;
+      prior$phia0=phia0; prior$phib0=phib0;
+    }
+  }
+  
+  #########################################################################################
+  # calling the c++ code and # output
+  #########################################################################################
+  if(!is.null(frail.prior)){
+    model.name <- "Generalized accelerated failure time frailty model:";
+    if((frail.prior=="iid")|(frail.prior=="car")){
+      foo <- .Call("frailtyLDTFP", nburn_ = nburn, nsave_ = nsave, nskip_ = nskip, ndisplay_ = ndisplay,
+                   tobs_ = cbind(t1, t2), type_ = delta, xce_ = t(X1), xtf_ = t(Xtf1), alpha_ = alpha, 
+                   betace_ = betace, betatf_ = betatf,  sigma2_ = sigma2, y_ = y, v_ = v, blocki_ = blocki,
+                   tau2_ = tau2, W_ = W, D_ = D, maxL_ = maxL, a0_ = a0, b0_ = b0,  m0_ = m0,  S0inv_ = S0inv, 
+                   gprior_ = gprior, a0sig_ = siga0, b0sig_ = sigb0, a0tau_ = taua0, b0tau_ = taub0, 
+                   PACKAGE = "spBayesSurv");
+    }else if (frail.prior=="grf"){
+      foo <- .Call("frailty_GRF_LDTFP", nburn_ = nburn, nsave_ = nsave, nskip_ = nskip, ndisplay_ = ndisplay,
+                   tobs_ = cbind(t1, t2), type_ = delta, xce_ = t(X1), xtf_ = t(Xtf1), alpha_ = alpha, 
+                   betace_ = betace, betatf_ = betatf,  sigma2_ = sigma2, y_ = y, v_ = v, blocki_ = blocki,
+                   tau2_ = tau2, sill_ = sill, DisMat_ = DisMat, maxL_ = maxL, a0_ = a0, b0_ = b0,  
+                   m0_ = m0,  S0inv_ = S0inv, gprior_ = gprior, a0sig_ = siga0, b0sig_ = sigb0, 
+                   a0tau_ = taua0, b0tau_ = taub0, a0sill_ = silla0, b0sill_ = sillb0, 
+                   nu_ = nu, phi_ = phi, a0phi_ = phia0, b0phi_ = phib0, PACKAGE = "spBayesSurv");
+    }
+  }else{
+    model.name <- "Generalized accelerated failure time model:";
     foo <- .Call("nonfrailtyLDTFP", nburn_ = nburn, nsave_ = nsave, nskip_ = nskip, ndisplay_ = ndisplay,
                  tobs_ = cbind(t1, t2), type_ = delta, xce_ = t(X1), xtf_ = t(Xtf1), alpha_ = alpha, 
                  betace_ = betace, betatf_ = betatf,  sigma2_ = sigma2, y_ = y, maxL_ = maxL, a0_ = a0, b0_ = b0,  
-                 m0_ = m0,  S0inv_ = S0inv, gprior_ = gprior, a0sig_ = siga0, b0sig_ = sigb0, PACKAGE = "spBayesSurv");
-    
-    #########################################################################################
-    # save state
-    #########################################################################################
-    #### transfer the estimates back to original scales;
-    model.name <- "Generalized accelerated failure time model:";
-    
-    #### coefficients
-    coeff <- c( apply(matrix(foo$beta, pce, nsave), 1, mean), mean(sqrt(foo$sigma2)), mean(foo$alpha) );
-    names(coeff) = c(colnames(X1), "scale", "precision");
-    
-    #### Save to a list
-    output <- list(modelname=model.name,
-                   coefficients=coeff,
-                   call=Call,
-                   prior=prior,
-                   mcmc=mcmc,
-                   n=n,
-                   pce=pce,
-                   ptf=ptf,
-                   Surv=Y,
-                   X=X,
-                   Xtf=Xtf,
-                   sigma2 = foo$sigma2,
-                   beta = foo$beta,
-                   alpha = foo$alpha,
-                   maxL = maxL,
-                   betatf = foo$betatf,
-                   logt = foo$y,
-                   cpo = foo$cpo,
-                   accept_beta = foo$ratebetace,
-                   accept_betatf = foo$ratebetatf,
-                   frailty=frailty);
+                 m0_ = m0,  S0inv_ = S0inv, gprior_ = gprior, a0sig_ = siga0, b0sig_ = sigb0, 
+                 PACKAGE = "spBayesSurv");
   }
+  #########################################################################################
+  # save state
+  #########################################################################################
+  #### coefficients
+  coeff <- c( apply(matrix(foo$beta, pce, nsave), 1, mean), mean(sqrt(foo$sigma2)), mean(foo$alpha) );
+  names(coeff) = c(colnames(X1), "scale", "precision");
+  
+  #### Save to a list
+  output <- list(modelname=model.name,
+                 coefficients=coeff,
+                 call=Call,
+                 prior=prior,
+                 mcmc=mcmc,
+                 n=n,
+                 pce=pce,
+                 ptf=ptf,
+                 Surv=Y,
+                 X=X,
+                 Xtf=Xtf,
+                 sigma2 = foo$sigma2,
+                 beta = foo$beta,
+                 alpha = foo$alpha,
+                 maxL = maxL,
+                 betatf = foo$betatf,
+                 logt = foo$y,
+                 cpo = foo$cpo,
+                 accept_beta = foo$ratebetace,
+                 accept_betatf = foo$ratebetatf,
+                 frail.prior=frail.prior);
+  ## check frailties
+  if(!is.null(frail.prior)){
+    output$v = foo$v;
+    output$ratev = foo$ratev;
+    output$tau2 = foo$tau2;
+    output$IDnames = names(table(ID));
+    if (frail.prior=="grf"){
+      output$sill = foo$sill;
+      output$phi = foo$phi;
+      output$ratetheta = foo$ratetheta;
+    }
+  }
+  
   ### Calculate Bayes Factors for betatf
   gprior = solve(t(Xtf1)%*%Xtf1)*(2*n);
   betatfmat = matrix(as.vector(foo$betatf[,-1,]), (2^maxL-2)*ptf, nsave);
@@ -373,7 +367,7 @@
     estimates <- .Call("frailtyGAFTplots", ygrid, xpred, xtfpred, x$beta, x$betatf, x$sigma2, x$maxL, CI, PACKAGE = "spBayesSurv");
     if(PLOT){
       par(cex=1.5,mar=c(4.1,4.1,1,1),cex.lab=1.4,cex.axis=1.1)
-      plot(ygrid, estimates$Shat[,i], "l", lwd=3, xlab="log time", ylab="survival",
+      plot(ygrid, estimates$Shat[,1], "l", lwd=3, xlab="log time", ylab="survival",
            xlim=c(min(ygrid), max(ygrid)), ylim=c(0,1));
       for(i in 1:nxpred){
         polygon(x=c(rev(ygrid),ygrid),
@@ -443,8 +437,8 @@
   }
   
   ### frailty variance parameter
-  ans$frailty=object$frailty;
-  if(is.null(object$frailty)){
+  ans$frail.prior=object$frail.prior;
+  if(is.null(object$frail.prior)){
     ans$frailvar <- NULL
   }else{
     mat <- object$tau2
@@ -460,6 +454,34 @@
                                                   paste(CI.level*100, "%HPD-Low", sep=""),
                                                   paste(CI.level*100, "%HPD-Upp", sep="")))
     ans$frailvar <- coef.table;
+    if(object$frail.prior=="grf"){
+      mat <- object$phi
+      coef.p <- mean(mat); names(coef.p)="range";
+      coef.m <- median(mat)    
+      coef.sd <- sd(mat)
+      limm <- as.vector(coda::HPDinterval(coda::mcmc(mat), prob=CI.level))
+      coef.l <- limm[1]
+      coef.u <- limm[2]
+      
+      coef.table <- cbind(coef.p, coef.m, coef.sd, coef.l , coef.u)
+      dimnames(coef.table) <- list(names(coef.p), c("Mean", "Median", "Std. Dev.", 
+                                                    paste(CI.level*100, "%HPD-Low", sep=""),
+                                                    paste(CI.level*100, "%HPD-Upp", sep="")))
+      ans$range <- coef.table;
+      mat <- object$sill
+      coef.p <- mean(mat); names(coef.p)="partial sill";
+      coef.m <- median(mat)    
+      coef.sd <- sd(mat)
+      limm <- as.vector(coda::HPDinterval(coda::mcmc(mat), prob=CI.level))
+      coef.l <- limm[1]
+      coef.u <- limm[2]
+      
+      coef.table <- cbind(coef.p, coef.m, coef.sd, coef.l , coef.u)
+      dimnames(coef.table) <- list(names(coef.p), c("Mean", "Median", "Std. Dev.", 
+                                                    paste(CI.level*100, "%HPD-Low", sep=""),
+                                                    paste(CI.level*100, "%HPD-Upp", sep="")))
+      ans$partial.sill <- coef.table;
+    }
   }
   
   ### summaries
@@ -467,6 +489,9 @@
   ans$pce <- object$pce
   ans$LPML <- sum(log(object$cpo))
   ans$BF <- object$BF;
+  
+  ### acceptance rates
+  ans$ratetheta = object$ratetheta;
   
   class(ans) <- "summary.frailtyGAFT"
   return(ans)
@@ -479,13 +504,11 @@
   print(x$call)
   if(!is.null(x$coeff)){
     cat("\nPosterior inference of regression coefficients\n")
-    #cat("(Adaptive M-H acceptance rate: ", x$ratebeta, "):\n", sep="")
     print.default(format(x$coeff, digits = digits), print.gap = 2, 
                   quote = FALSE)
   }
   
   cat("\nPosterior inference of scale parameter\n")
-  #cat("(Adaptive M-H acceptance rate: ", x$ratescale, "):\n", sep="")
   print.default(format(x$scale, digits = digits), print.gap = 2, quote = FALSE)
   
   if (!is.null(x$alpha)) {
@@ -495,16 +518,25 @@
   }
   
   if (!is.null(x$frailvar)) {
-    if(x$frailty=="CAR"){
+    if(x$frail.prior=="car"){
       cat("\nPosterior inference of conditional CAR frailty variance\n")
       print.default(format(x$frailvar, digits = digits), print.gap = 2, 
                     quote = FALSE)
-    }else{
+    }else if(x$frail.prior=="iid"){
       cat("\nPosterior inference of frailty variance\n")
       print.default(format(x$frailvar, digits = digits), print.gap = 2, 
                     quote = FALSE)
+    } else if(x$frail.prior=="grf"){
+      cat("\nPosterior inference of frailty variance\n")
+      print.default(format(x$frailvar, digits = digits), print.gap = 2, 
+                    quote = FALSE)
+      cat("\nPosterior inference of partial sill\n")
+      print.default(format(x$partial.sill, digits = digits), print.gap = 2, 
+                    quote = FALSE)
+      cat("\nPosterior inference of correlation function range \n")
+      print.default(format(x$range, digits = digits), print.gap = 2, 
+                    quote = FALSE)
     }
-    
   }
   
   cat("\nBayes factors for LDTFP covariate effects:\n")       
