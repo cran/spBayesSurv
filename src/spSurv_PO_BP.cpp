@@ -7,13 +7,13 @@ using namespace arma;
 using namespace Rcpp;
 using namespace std;
 
-RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEXP ltr_,
+RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEXP ltr_, SEXP subjecti_,
                       SEXP t1_, SEXP t2_, SEXP type_, SEXP X_, SEXP theta_, SEXP beta_, 
                       SEXP weight_, SEXP cpar_, SEXP a0_, SEXP b0_, SEXP theta0_, 
                       SEXP V0inv_, SEXP Vhat_, SEXP beta0_, SEXP S0inv_, SEXP Shat_, 
                       SEXP l0_, SEXP adapter_, SEXP gamma_, SEXP p0gamma_, SEXP selection_,
-                      SEXP frailty_, SEXP v_, SEXP blocki_, SEXP W_, 
-                      SEXP Dnm_, SEXP phi_, SEXP a0phi_, SEXP b0phi_,
+                      SEXP frailty_, SEXP v_, SEXP blocki_, SEXP W_, SEXP clustindx_,
+                      SEXP Dmm_, SEXP Dmr_, SEXP Drr_, SEXP phi_, SEXP nu_, SEXP a0phi_, SEXP b0phi_,
                       SEXP lambda_, SEXP a0lambda_, SEXP b0lambda_, SEXP dist_){
   BEGIN_RCPP
   
@@ -23,10 +23,12 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   const int nskip = as<int>(nskip_);
   const int ndisplay = as<int>(ndisplay_);
   const Rcpp::NumericVector ltr(ltr_); // n by 1;
+  const Rcpp::IntegerVector subjecti(subjecti_); //nsub+1 by 1;
   const Rcpp::NumericVector t1(t1_); // n by 1;
   const Rcpp::NumericVector t2(t2_); // n by 1;
   const Rcpp::IntegerVector type(type_);// n by 1;
   const Rcpp::NumericMatrix X(X_); // n by p;
+  const int nsub = subjecti.size()-1;
   const int n = type.size();
   const int p = X.ncol();
   const int l0 = as<int>(l0_);
@@ -40,7 +42,12 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   const arma::mat W = as<mat>(W_); // m by m;
   const int m = v.size();
   const arma::vec D = arma::sum(W, 1); // m by 1;
-  const arma::mat Dnm = as<mat>(Dnm_); // n by m;
+  const arma::mat Dmm = as<mat>(Dmm_); // m by m;
+  const arma::mat Dmr = as<mat>(Dmr_); // m by r; 
+  const arma::mat Drr = as<mat>(Drr_); // r by r; r is # of knots
+  const arma::mat clustindx = as<mat>(clustindx_); // m by nclust;
+  const int r = Drr.n_cols;
+  const bool FSA = (r<m);
   
   // prameters to be updated
   double cpar = as<double>(cpar_);
@@ -52,6 +59,7 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   Rcpp::NumericVector gamma(gamma_); // p by 1
   double lambda = as<double>(lambda_);
   double phi = as<double>(phi_);
+  double nu = as<double>(nu_);
   
   // hyperparameters
   // prior of cpar
@@ -98,7 +106,6 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   double rejphi=0;
   Rcpp::NumericVector rejv(m, 0.0);
   Rcpp::NumericMatrix v_save(m, nsave);
-  Rcpp::NumericMatrix vn_save(n, nsave);
   Rcpp::NumericVector lambda_save(nsave);
   Rcpp::NumericVector phi_save(nsave);
   
@@ -114,6 +121,8 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   
   // Working temp variables
   arma::mat Linv=arma::zeros<arma::mat>(n, nsave);
+  arma::mat St1=arma::zeros<arma::mat>(nsub, nsave);
+  arma::mat St2=arma::zeros<arma::mat>(nsub, nsave);
   arma::vec Dvalues = arma::zeros<arma::vec>(nsave);
   Rcpp::NumericVector sumtheta(2, 0.0); // 2 by 1
   Rcpp::NumericVector sumbeta(p, 0.0); // p by 1
@@ -121,6 +130,8 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   Rcpp::NumericVector sumvn(n, 0.0); 
   double llold, llnew;
   double ratio, uu, nn;
+  double phi_min = std::pow(-log(0.001), 1.0/nu)/Dmm.max();
+  //double phi_min = ESMALL;
   // for theta
   arma::vec thetaold(2); 
   arma::vec thBarold(2);
@@ -142,33 +153,51 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   arma::mat YsShat=0.16*arma::eye(nYs,nYs);
   // for cpa
   double cbarnew=0, cbarold=0, csnew=0, ctemp=0, cshat=0.16;
-  // for phi
-  double phibarnew=0, phibarold=0, phisnew=0, phitemp=0, phishat=0.16;
-  arma::mat Ztemp = arma::zeros<arma::mat>(n,m); //design matrix for frailties
+  // for log(phi)
+  double phibarnew=0, phibarold=0, phisnew=0, phinew=0, phishat=0.01;
+  // for sill
+  double sill=0.9999;
+  
   // for v
-  arma::vec vold(m);
-  arma::vec vBarold(m);
-  arma::vec vBarnew=arma::zeros<arma::vec>(m);
-  arma::mat vSnew=arma::zeros<arma::mat>(m,m);
-  arma::mat Im = ESMALL*arma::eye(m,m);
-  arma::mat Z = arma::zeros<arma::mat>(n,m); //design matrix for frailties
-  for(int i=0; i<n; ++i){
-    for(int j=0; j<m; ++j){
-      Z(i,j) = kernel_G(Dnm(i,j),phi);
+  arma::mat Im = arma::eye(m,m);
+  arma::mat Rmm = arma::zeros<arma::mat>(m,m); // Correlation matrix of v
+  arma::mat Rmr = arma::zeros<arma::mat>(m,r); 
+  arma::mat Rrr = arma::zeros<arma::mat>(r,r); 
+  arma::mat Rmminv = arma::zeros<arma::mat>(m,m); 
+  double logdetR = 0;
+  if(frailty==3){
+    for(int i=0; i<m; ++i){
+      for(int j=0; j<m; ++j){
+        Rmm(i,j) = pow_exp(Dmm(i,j),phi,nu);
+      }
+    }
+    if(FSA){
+      for(int i=0; i<m; ++i){
+        for(int j=0; j<r; ++j){
+          Rmr(i,j) = pow_exp(Dmr(i,j),phi,nu);
+        }
+      }
+      for(int i=0; i<r; ++i){
+        for(int j=0; j<r; ++j){
+          Rrr(i,j) = pow_exp(Drr(i,j),phi,nu);
+        }
+      }
+      inv_FSA(sill, Rmm, Rmr, Rrr, clustindx, Rmminv, logdetR);
+    }else{
+      Rmminv = arma::inv_sympd(sill*Rmm+(1.0-sill)*Im);
+      double sign0;
+      arma::log_det(logdetR, sign0, sill*Rmm+(1.0-sill)*Im);
     }
   }
-  arma::mat vShat = arma::eye(m,m)/(m+0.0);
   if(frailty==1)  {
     v_r = v_r - arma::mean(v_r);
   }
-  if((frailty==1)|(frailty==2)){
+  if((frailty==1)|(frailty==2)|(frailty==3)){
     for(int i=0; i<m; ++i){
       int ind1 = blocki[i];
       int ind2 = blocki[i+1]-1;
       (vn_r.subvec(ind1, ind2)).fill(v[i]);
     }
-  }else if(frailty==3){
-    vn_r = Z*v_r;
   }
   
   RNGScope scope;
@@ -183,8 +212,10 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   Xbeta_r = X_r*(beta_r%gamma_r);
   for (int iscan=0; iscan<nscan; iscan++){
     R_CheckUserInterrupt();
-    // Rprintf( "iscan = %d\n", iscan );
-    //if(iscan>5) break;
+    //Rprintf( "iscan = %d\n", iscan );
+    //Rprintf( "lambda = %f\n", lambda );
+    //Rprintf( "phi = %f\n", phi );
+    
     ///////////////////////////////////////////////
     // update BP weights
     //////////////////////////////////////////////
@@ -271,7 +302,7 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
     ///////////////////////////////////////////////
     // update v and lambda
     //////////////////////////////////////////////
-    if(frailty==1){
+    if(frailty==1){// CAR frailty
       for(int i=0; i<m; ++i){
         int ind1 = blocki[i];
         int ind2 = blocki[i+1]-1;
@@ -290,18 +321,18 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
           if(iscan>=nburn) rejv[i]+=1.0;
         }
         v_r = v_r - arma::mean(v_r);
-        // transfter from v to vn
-        for(int i=0; i<m; ++i){
-          int ind1 = blocki[i];
-          int ind2 = blocki[i+1]-1;
-          (vn_r.subvec(ind1, ind2)).fill(v[i]);
-        }
+      }
+      // transfter from v to vn
+      for(int i=0; i<m; ++i){
+        int ind1 = blocki[i];
+        int ind2 = blocki[i+1]-1;
+        (vn_r.subvec(ind1, ind2)).fill(v[i]);
       }
       // lambda
       double a0lambdastar = a0lambda+0.5*(m-1.0);
       double b0lambdastar = b0lambda+0.5*(arma::dot(v_r,D%v_r)-arma::dot(v_r,W*v_r)); 
       lambda = Rf_rgamma( a0lambdastar, 1.0/b0lambdastar ); 
-    } else if(frailty==2){
+    } else if(frailty==2){// IID frailty
       for(int i=0; i<m; ++i){
         int ind1 = blocki[i];
         int ind2 = blocki[i+1]-1;
@@ -328,67 +359,87 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
       double a0lambdastar = a0lambda+0.5*(m+0.0);
       double b0lambdastar = b0lambda+0.5*(arma::dot(v_r,v_r)); 
       lambda = Rf_rgamma( a0lambdastar, 1.0/b0lambdastar );       
-    } else if (frailty==3){
-      PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
-      llold += -0.5*lambda*arma::dot(v_r, v_r);
-      vold = v_r;
-      if(iscan>l0){
-        v_r = mvrnorm(vold, vSnew);
-      }else{
-        v_r = mvrnorm(vold, vShat);
+    } else if (frailty==3){// Gaussian random field frailty for clustered point-referenced data.
+      for(int i=0; i<m; ++i){
+        int ind1 = blocki[i];
+        int ind2 = blocki[i+1]-1;
+        double Rii = Rmminv(i,i);
+        double meanvi = -(arma::as_scalar(Rmminv.row(i)*v_r)-Rii*v[i])/Rii;
+        double sdvi = std::sqrt(1.0/(Rii*lambda));
+        double viold = v[i];
+        PO_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llold, ind1, ind2, v[i]);
+        llold += -0.5*Rii*lambda*std::pow(v[i]-meanvi,2);
+        v[i] = Rf_rnorm(viold, sdvi);
+        PO_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llnew, ind1, ind2, v[i]);
+        llnew += -0.5*Rii*lambda*std::pow(v[i]-meanvi,2);
+        ratio = exp(llnew-llold);
+        uu = unif_rand();
+        if(uu>ratio){
+          v[i]=viold;
+          if(iscan>=nburn) rejv[i]+=1.0;
+        }
       }
-      vn_r = Z*v_r;
-      PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
-      llnew += -0.5*lambda*arma::dot(v_r, v_r);
-      ratio = exp(llnew-llold);
-      uu = unif_rand();
-      if(uu>ratio){
-        v_r=vold;
-        if(iscan>=nburn) rejv[0]+=1.0;
+      // transfter from v to vn
+      for(int i=0; i<m; ++i){
+        int ind1 = blocki[i];
+        int ind2 = blocki[i+1]-1;
+        (vn_r.subvec(ind1, ind2)).fill(v[i]);
       }
-      nn = iscan+1;
-      vBarold = vBarnew;
-      vBarnew = (nn)/(nn+1.0)*vBarold + v_r/(nn+1.0);
-      vSnew = (nn-1.0)/nn*vSnew + adapter/(m+0.0)/nn*(nn*vBarold*vBarold.t() 
-                                                        - (nn+1.0)*vBarnew*vBarnew.t() + v_r*v_r.t() + Im );
-      vn_r = Z*v_r;
       // lambda
       double a0lambdastar = a0lambda+0.5*(m+0.0);
-      double b0lambdastar = b0lambda+0.5*(arma::dot(v_r,v_r)); 
+      double b0lambdastar = b0lambda+0.5*(arma::dot(v_r,Rmminv*v_r)); 
       lambda = Rf_rgamma( a0lambdastar, 1.0/b0lambdastar );
       // phi
       if(a0phi>0){
         if(iscan>l0){
-          phitemp = Rf_rnorm(phi, std::sqrt(phisnew));
+          phinew = Rf_rnorm(phi, std::sqrt(phisnew));
         }else{
-          phitemp = Rf_rnorm(phi, std::sqrt(phishat));
+          phinew = Rf_rnorm(phi, std::sqrt(phishat));
         }
-        if(phitemp<ESMALL){
-          if(iscan>=nburn) rejphi += 1;
+        if(phinew<phi_min){
+          if(iscan>=nburn) rejphi+=1.0;
         }else{
-          PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
-          llold += (a0phi-1.0)*log(phi)-b0phi*phi;
-          for(int i=0; i<n; ++i){
+          arma::mat Rmminvnew(m,m);
+          double logdetRnew=0;
+          llold = -0.5*logdetR - 0.5*lambda*arma::dot(v_r, Rmminv*v_r);
+          llold += (a0phi-1.0)*log(phi) - b0phi*phi;
+          for(int i=0; i<m; ++i){
             for(int j=0; j<m; ++j){
-              Ztemp(i,j) = kernel_G(Dnm(i,j),phitemp);
+              Rmm(i,j) = pow_exp(Dmm(i,j),phinew,nu);
             }
           }
-          vn_r = Ztemp*v_r;
-          PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
-          llnew += (a0phi-1.0)*log(phitemp)-b0phi*phitemp;
+          if(FSA){
+            for(int i=0; i<m; ++i){
+              for(int j=0; j<r; ++j){
+                Rmr(i,j) = pow_exp(Dmr(i,j),phinew,nu);
+              }
+            }
+            for(int i=0; i<r; ++i){
+              for(int j=0; j<r; ++j){
+                Rrr(i,j) = pow_exp(Drr(i,j),phinew,nu);
+              }
+            }
+            inv_FSA(sill, Rmm, Rmr, Rrr, clustindx, Rmminvnew, logdetRnew);
+          }else{
+            Rmminvnew = arma::inv_sympd(sill*Rmm+(1.0-sill)*Im);
+            double sign0;
+            arma::log_det(logdetRnew, sign0, sill*Rmm+(1.0-sill)*Im);
+          }
+          llnew = -0.5*logdetRnew - 0.5*lambda*arma::dot(v_r, Rmminvnew*v_r);
+          llnew += (a0phi-1.0)*log(phinew) - b0phi*phinew;
           ratio = exp(llnew-llold);
           uu = unif_rand();
           if(uu<ratio){
-            phi = phitemp; Z=Ztemp; 
+            phi=phinew; Rmminv = Rmminvnew; logdetR=logdetRnew;
           }else{
-            vn_r = Z*v_r;
-            if(iscan>=nburn) rejphi += 1;
+            if(iscan>=nburn) rejphi+=1.0;
           }
         }
         nn = iscan+1;
         phibarold = phibarnew;
         phibarnew = (nn)/(nn+1.0)*phibarold + phi/(nn+1.0);
-        phisnew = (nn-1.0)/nn*phisnew + adapter/nn*(nn*pow(phibarold,2) - (nn+1.0)*pow(phibarnew,2) + pow(phi,2) + ESMALL );
+        phisnew = (nn-1.0)/nn*phisnew + adapter/nn*(nn*pow(phibarold,2) - (nn+1.0)*pow(phibarnew,2)
+                                                      + pow(phi,2) + ESMALL );
       }
     }
     
@@ -457,6 +508,35 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
         double tempLik = 0;
         PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, tempLik);
         Dvalues(isave) = -2.0*tempLik;
+        // Cox-Snell residuals
+        for(int i=0; i<nsub; ++i){
+          int ind1 = subjecti[i];
+          int ind2 = subjecti[i+1]-1;
+          double logSt1tmp=0;
+          double logSt2tmp=0;
+          for(int j=ind1; j<=ind2; ++j){
+            double logSt0tmp=0;
+            if(ltr[j]>0){
+              logSt0tmp = -PO_BP_logsurv(ltr[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
+            }
+            if((type[j]==0)|(type[j]==1)){
+              double logtmp = PO_BP_logsurv(t1[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
+              logSt1tmp += logtmp; logSt1tmp += logSt0tmp;
+              logSt2tmp += logtmp; logSt2tmp += logSt0tmp;
+            }else if(type[j]==2){
+              double logtmp = PO_BP_logsurv(t2[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
+              logSt1tmp += logtmp; logSt1tmp += logSt0tmp;
+              logSt2tmp += logtmp; logSt2tmp += logSt0tmp;
+            }else{
+              double logtmp1 = PO_BP_logsurv(t1[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
+              double logtmp2 = PO_BP_logsurv(t2[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
+              logSt1tmp += logtmp1; logSt1tmp += logSt0tmp;
+              logSt2tmp += logtmp2; logSt2tmp += logSt0tmp;
+            }
+          }
+          St1(i,isave) = exp(logSt1tmp);
+          St2(i,isave) = exp(logSt2tmp);
+        }
         // save regression coefficient
         theta_save(_,isave) = theta;
         sumtheta += theta; 
@@ -470,7 +550,6 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
         sumweight += weight;
         // frailties
         v_save(_,isave) = v;
-        vn_save(_,isave) = vn;
         sumvn += vn;
         lambda_save[isave] = lambda;
         // phi
@@ -497,7 +576,13 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   double ratephi = 1.0 - rejphi/totscans;
   
   // get CPO
-  arma::vec Linvmean = arma::mean(Linv, 1);
+  arma::mat finv(nsub, nsave);
+  for(int i=0; i<nsub; ++i){
+    int ind1 = subjecti[i];
+    int ind2 = subjecti[i+1]-1;
+    finv.row(i) = arma::prod(Linv.rows(ind1, ind2), 0);
+  }
+  arma::vec Linvmean = arma::mean(finv, 1);
   arma::vec cpo = 1.0/Linvmean;
   
   // get DIC
@@ -509,6 +594,10 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   double pD = meanD + 2.0*Dmean;
   double DIC = meanD + pD; 
   
+  // get Cox-Snell residuals
+  arma::vec r1 = -arma::log(arma::mean(St1, 1));
+  arma::vec r2 = -arma::log(arma::mean(St2, 1));
+  
   return List::create(Named("theta")=theta_save,
                       Named("beta")=beta_save,
                       Named("gamma")=gamma_save,
@@ -517,12 +606,13 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
                       Named("cpo")=cpo,
                       Named("pD")=pD,
                       Named("DIC")=DIC,
+                      Named("resid1")=r1,
+                      Named("resid2")=r2,
                       Named("ratetheta")=ratetheta,
                       Named("ratebeta")=ratebeta,
                       Named("rateYs")=rateYs,
                       Named("ratec")=ratec,
                       Named("v")=v_save,
-                      Named("vn")=vn_save,
                       Named("lambda")=lambda_save,
                       Named("ratev")=ratev,
                       Named("phi")=phi_save,
@@ -530,24 +620,92 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   END_RCPP
 }
 
+// Get Cox-Snell residuals
+RcppExport SEXP PO_BP_cox_snell(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, SEXP type_, 
+                                SEXP X_, SEXP theta_, SEXP beta_, SEXP vn_, SEXP weight_, SEXP dist_){
+  BEGIN_RCPP
+  // Transfer R variables into C++;
+  const Rcpp::NumericVector ltr(ltr_); // n by 1;
+  const Rcpp::IntegerVector subjecti(subjecti_); //nsub+1 by 1;
+  const Rcpp::NumericVector t1(t1_); // n by 1;
+  const Rcpp::NumericVector t2(t2_); // n by 1;
+  const Rcpp::IntegerVector type(type_);// n by 1;
+  const arma::mat X=as<arma::mat>(X_); // n by p;
+  const int nsub = subjecti.size()-1;
+  const arma::mat theta=as<arma::mat>(theta_); // 2 by nsave;
+  const arma::mat beta=as<arma::mat>(beta_); // p by nsave;
+  const arma::mat vn=as<arma::mat>(vn_); // n by nsave;
+  const Rcpp::NumericMatrix weight(weight_); // maxL by nsave;
+  const int dist = as<int>(dist_);
+  int nsave = beta.n_cols;
+  
+  // Temp variables
+  arma::mat St1=arma::zeros<arma::mat>(nsub, nsave);
+  arma::mat St2=arma::zeros<arma::mat>(nsub, nsave);
+  
+  // get residuals
+  for(int isave=0; isave<nsave; ++isave){
+    double th1 = theta(0,isave);
+    double th2 = theta(1,isave);
+    Rcpp::NumericVector wi = weight(_,isave);
+    arma::vec xbeta = X*beta.col(isave)+vn.col(isave);
+    for(int i=0; i<nsub; ++i){
+      int ind1 = subjecti[i];
+      int ind2 = subjecti[i+1]-1;
+      double logSt1tmp=0;
+      double logSt2tmp=0;
+      for(int j=ind1; j<=ind2; ++j){
+        double logSt0tmp=0;
+        if(ltr[j]>0){
+          logSt0tmp = -PO_BP_logsurv(ltr[j], th1, th2, wi, true, dist, xbeta[j]);
+        }
+        if((type[j]==0)|(type[j]==1)){
+          double logtmp = PO_BP_logsurv(t1[j], th1, th2, wi, true, dist, xbeta[j]);
+          logSt1tmp += logtmp; logSt1tmp += logSt0tmp;
+          logSt2tmp += logtmp; logSt2tmp += logSt0tmp;
+        }else if(type[j]==2){
+          double logtmp = PO_BP_logsurv(t2[j], th1, th2, wi, true, dist, xbeta[j]);
+          logSt1tmp += logtmp; logSt1tmp += logSt0tmp;
+          logSt2tmp += logtmp; logSt2tmp += logSt0tmp;
+        }else{
+          double logtmp1 = PO_BP_logsurv(t1[j], th1, th2, wi, true, dist, xbeta[j]);
+          double logtmp2 = PO_BP_logsurv(t2[j], th1, th2, wi, true, dist, xbeta[j]);
+          logSt1tmp += logtmp1; logSt1tmp += logSt0tmp;
+          logSt2tmp += logtmp2; logSt2tmp += logSt0tmp;
+        }
+      }
+      St1(i,isave) = exp(logSt1tmp);
+      St2(i,isave) = exp(logSt2tmp);
+    }
+  }
+  // get Cox-Snell residuals
+  arma::vec r1 = -arma::log(arma::mean(St1, 1));
+  arma::vec r2 = -arma::log(arma::mean(St2, 1));
+  
+  return List::create(Named("resid1")=r1,
+                      Named("resid2")=r2);
+  END_RCPP
+}
+
+
 // Get density or survival Plots for frailty LDTFP PO
-RcppExport SEXP PO_BP_plots(SEXP tgrid_, SEXP xpred_, SEXP theta_, SEXP beta_, SEXP weight_, 
-                            SEXP CI_, SEXP dist_){
+RcppExport SEXP PO_BP_plots(SEXP tgrid_, SEXP xpred_, SEXP theta_, SEXP beta_, SEXP v_,
+                            SEXP weight_, SEXP CI_, SEXP dist_){
   BEGIN_RCPP
   // Transfer R variables into C++;
   Rcpp::NumericVector tgrid(tgrid_);
   arma::mat xpred = as<arma::mat>(xpred_); // npred by p;
+  arma::mat beta = as<arma::mat>(beta_); // p by nsave;
+  arma::mat v = as<arma::mat>(v_); // npred by nsave;
   Rcpp::NumericMatrix theta(theta_); // 2 by nsave;
-  Rcpp::NumericMatrix beta(beta_); // p by nsave;
   Rcpp::NumericMatrix weight(weight_); // maxL by nsave;
   double CI = as<double>(CI_);
   const int dist = as<int>(dist_);
-  int nsave = beta.ncol();
+  int nsave = beta.n_cols;
   int ngrid = tgrid.size();
   int npred = xpred.n_rows;
   int low = nsave*(1.0-CI)*0.5 - 1;
   int up = nsave*(CI+(1.0-CI)*0.5) - 1;
-  int p = beta.nrow();
   
   // Temp variables
   arma::vec xbeta(npred);
@@ -557,9 +715,6 @@ RcppExport SEXP PO_BP_plots(SEXP tgrid_, SEXP xpred_, SEXP theta_, SEXP beta_, S
   arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false);
   Rcpp::NumericVector esthArray(nsave*ngrid*npred);
   arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false);
-  
-  // Make arma objects
-  arma::mat beta_r(beta.begin(), p, nsave, false);
   
   // things to save;
   arma::mat fhat(ngrid, npred);
@@ -572,7 +727,7 @@ RcppExport SEXP PO_BP_plots(SEXP tgrid_, SEXP xpred_, SEXP theta_, SEXP beta_, S
   arma::mat hhatup(ngrid, npred);
   arma::mat hhatlow(ngrid, npred);
   for(int i=0; i<nsave; ++i){
-    xbeta = xpred*beta_r.col(i);
+    xbeta = xpred*beta.col(i)+v.col(i);
     Rcpp::NumericVector wi = weight(_,i);
     for(int j=0; j<npred; ++j){
       for(int k=0; k<ngrid; ++k){

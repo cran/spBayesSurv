@@ -13,7 +13,8 @@ This function fits a generalized accelerated failure time frailty model for clus
 \usage{
 frailtyGAFT(formula, data, na.action, 
             mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
-            prior=NULL, state=NULL, Proximity=NULL, Coordinates=NULL)
+            prior=NULL, state=NULL, Proximity=NULL, Coordinates=NULL,
+            DIST=NULL)
 }
 
 \arguments{
@@ -25,27 +26,28 @@ frailtyGAFT(formula, data, na.action,
    
    \item{mcmc}{a list giving the MCMC parameters. The list must include the following elements: \code{nburn} an integer giving the number of burn-in scans, \code{nskip} an integer giving the thinning interval, \code{nsave} an integer giving the total number of scans to be saved, \code{ndisplay} an integer giving the number of saved scans to be displayed on screen (the function reports on the screen when every \code{ndisplay} iterations have been carried out).}
    
-   \item{prior}{a list giving the prior information. The list includes the following parameter: \code{maxL} an integer giving the maximum level of LDTFP. See Zhou, Hanson and Zhang (2015) for more detailed prior specifications.}
+   \item{prior}{a list giving the prior information. The list includes the following parameter: \code{maxL} an integer giving the maximum level of LDTFP. See Zhou, et al. (2016) for more detailed prior specifications.}
    
    \item{state}{a list giving the current value of the parameters. This list is used if the current analysis is the continuation of a previous analysis.} 
    
    \item{Proximity}{an m by m symetric adjacency matrix, where m is the number of clusters/regions. If CAR frailty model is specified in the formula, \code{Proximity} is required; otherwise it is ignored. Note: this matrix should be specified according to the data that have been sorted by ID. }
    
    \item{Coordinates}{an m by d coordinates matrix, where m is the number of clusters/regions, d is the dimension of coordiantes. If GRF frailty model is specified in the formula, \code{Coordinates} is required; otherwise it is ignored. Note: this matrix should be specified according to the data that have been sorted by ID.}
+   \item{DIST}{This is a function argument, used to calculate the distance. The default is Euclidean distance (\code{fields::rdist}). This function should have two arguments (X1,X2), where X1 and X2 are matrices with coordinates as the rows. The returned value of this function should be the pairwise distance matrix. If nrow(X1)=m and nrow(X2)=n then the function should return an m by n matrix of all distances between these two sets of points.}
 }
 
 \details{
-This function fits a a generalized accelerated failure time frailty model (Zhou, Hanson and Zhang, 2016) for clustered and/or areal-level time-to-event data.
+This function fits a a generalized accelerated failure time frailty model (Zhou, et al., 2016) for clustered and/or areal-level time-to-event data. Note that the function arguments are slightly different with those presented in the original paper of Zhou, et al. (2016); see below examples. 
 }
 
 \value{
-  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Zhang (2016). 
+  The results include the MCMC chains for the parameters discussed in Zhou, et al. (2016). 
   Use \code{names} to find out what they are.
 
 }
 
 \seealso{
-\code{\link{baseline}}, \code{\link{frailtyprior}}
+\code{\link{baseline}}, \code{\link{frailtyprior}}, \code{\link{survregbayes}}, \code{\link{rdist}}
 }
 
 \references{

@@ -1,18 +1,18 @@
-"SuperSurvRegBayes2" <- function (formula, data, na.action, dist="lognormal", 
+"SuperSurvRegBayes" <- function (formula, data, na.action, dist="lognormal", 
                                   mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500),
-                                  prior=NULL, state=NULL, truncation_time=NULL, 
+                                  prior=NULL, state=NULL, truncation_time=NULL, subject.num=NULL, 
                                   InitParamMCMC=FALSE) {
   #########################################################################################
-  # call parameters
+  # call parameters 
   #########################################################################################
   Call <- match.call(); # save a copy of the call 
-  indx <- match(c("formula", "data", "na.action", "truncation_time"),
+  indx <- match(c("formula", "data", "na.action", "truncation_time", "subject.num"),
                 names(Call), nomatch=0) 
   if (indx[1] ==0) stop("A formula argument is required");
   temp <- Call[c(1,indx)]  # only keep the arguments we wanted
   temp[[1]] <- as.name('model.frame')  # change the function called
   
-  special <- c("baseline", "frailtyprior", "truncation_time")
+  special <- c("baseline", "frailtyprior", "truncation_time", "subject.num")
   temp$formula <- if(missing(data)) terms(formula, special)
   else              terms(formula, special, data=data)
   if (is.R()) m <- eval(temp, parent.frame())
@@ -22,6 +22,12 @@
     truncation_time = m[,"(truncation_time)"]
   }else{
     truncation_time = NULL
+  }
+  
+  if(any(names(m)=="(subject.num)")){
+    subject.num = m[,"(subject.num)"]
+  }else{
+    subject.num = NULL
   }
   
   Terms <- attr(m, 'terms')
@@ -95,12 +101,15 @@
   #########################################################################################
   t1 = Y[,1]; t2 = Y[,1];
   type <- attr(Y, "type")
-  if (type== 'counting') stop ("Invalid survival type")
   exactsurv <- Y[,ncol(Y)] ==1
   if (any(exactsurv)) {
     t1[exactsurv]=Y[exactsurv,1];
     t2[exactsurv]=Y[exactsurv,1];
   }
+  if (type== 'counting'){ #stop ("Invalid survival type")
+    t1 = Y[,2]; t2 = Y[,2];
+    truncation_time = as.vector(Y[,1]);
+  } 
   if (type=='interval') {
     intsurv <- Y[,3]==3;
     if (any(intsurv)){
@@ -115,20 +124,35 @@
     if (type=='left') delta <- 2- delta;
   }
   if(is.null(truncation_time)) truncation_time=rep(0, n);
+  if(is.null(subject.num)) subject.num=(1:n);
   distcode = switch(dist, loglogistic=1, lognormal=2, 3);
   frail.prior = colnames(frail.terms)[1];
+  #### if subject.num has been ordered if time-dependent covariates are considered
+  if(!(sum(order(subject.num)==(1:n))==n)){
+    message("Please sort data by subject.num; otherwise, the LPML will not be adjusted for time-dependent covariates.");
+  }
+  subjecti = c(0, cumsum(as.vector(table(subject.num))));
+  nsubject = length(subjecti)-1;
+  baseindx = (subjecti+1)[-length(subjecti)];
+  lastindx = subjecti[-1]
   
   #########################################################################################
   # initial MLE analysis and mcmc parameters
   #########################################################################################
+  tbase1 = t1; tbase2 = t2; deltabase = delta;
+  Xbase.scaled = X.scaled;
+  for(i in 1:n){
+    if(deltabase[i]==0) tbase2[i]=NA;
+    if(deltabase[i]==2) tbase1[i]=NA;
+  }
   ## initial fit for theta:
-  fit0 <- survival::survreg(formula = Y~X.scaled, dist=dist);
+  fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~Xbase.scaled, dist=dist);
   theta1 = -fit0$coefficients[1];
   theta2 = -log(fit0$scale);
   theta = c(theta1, theta2); theta_prior = c(theta1, theta2);
   Vhat0 = as.matrix(fit0$var[c(1,p+2),c(1,p+2)]);
-  fit1 <- survival::survreg(formula = Y~X.scaled, dist="weibull");
-  fit2 <- survival::survreg(formula = Y~X.scaled, dist="loglogistic");
+  fit1 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~Xbase.scaled, dist="weibull");
+  fit2 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~Xbase.scaled, dist="loglogistic");
   if(AIC(fit1)>AIC(fit2)){
     beta_h = rep(0, p); Shat0_h=as.matrix(fit1$var[c(2:(1+p)),c(2:(1+p))])/(fit1$scale)^2;
     beta_q = rep(0, p); Shat0_q=as.matrix(fit2$var[c(2:(1+p)),c(2:(1+p))]);
@@ -160,10 +184,10 @@
     ## initial fit for beta
     nburn0=5000; nsave0=2000;
     fit0<- .Call("PHPOAFT_BP", nburn_=nburn0, nsave_=nsave0, nskip_=1, ndisplay_=10000, 
-                 ltr_=truncation_time, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, 
+                 ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, 
                  beta_=beta, weight_=c(1), cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, 
                  V0inv_=solve(10*Vhat0), Vhat_=Vhat0, beta0_=rep(0,3*p), S0inv_=solve(S0param), 
-                 Shat_=Shat0, l0_=1000, adapter_=2.38^2, dist_=distcode, PACKAGE = "spBayesSurv");
+                 Shat_=Shat0, l0_=3000, adapter_=2.38^2, dist_=distcode, PACKAGE = "spBayesSurv");
     beta_h = colMeans(t(matrix(fit0$beta_h, p, nsave0)));
     beta_o = colMeans(t(matrix(fit0$beta_o, p, nsave0)));
     beta_q = colMeans(t(matrix(fit0$beta_q, p, nsave0)));
@@ -222,7 +246,7 @@
   #########################################################################################
   model.name <- "Super Survival Model:";
   foo <- .Call("PHPOAFT_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, 
-               ltr_=truncation_time, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, 
+               ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, 
                beta_=beta, weight_=weight, cpar_=cpar, a0_=a0, b0_=b0, theta0_=theta0, 
                V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, Shat_=Shat,
                l0_=min(5000,nsave/2), adapter_=2.38^2, dist_=distcode, PACKAGE = "spBayesSurv");
@@ -257,7 +281,10 @@
                  mcmc=mcmc,
                  n=n,
                  p=p,
-                 Surv=Y,
+                 nsubject=nsubject,
+                 subject.num=subject.num,
+                 truncation_time=truncation_time,
+                 Surv=survival::Surv(tbase1, tbase2, type="interval2"),
                  X.scaled=X.scaled,
                  X = X,
                  beta_h = beta_h.original,
@@ -287,32 +314,53 @@
   meanH = apply(HH, 1, mean);
   varH = var(t(HH));
   numH = (2*pi)^(-p/2)*(det(S0))^(-1/2)*(2*pi)^(-p/2)*(det(2*S0))^(-1/2);
-  denH = as.vector((2*pi)^(-p/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
+  denH = as.vector((2*pi)^(-p)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
   BF_h = denH/numH; 
   ## AFT:
   HH = rbind(foo$beta_o, foo$beta_h-foo$beta_q); 
   meanH = apply(HH, 1, mean);
   varH = var(t(HH));
   numH = (2*pi)^(-p/2)*(det(S0))^(-1/2)*(2*pi)^(-p/2)*(det(2*S0))^(-1/2);
-  denH = as.vector((2*pi)^(-p/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
+  denH = as.vector((2*pi)^(-p)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
   BF_q = denH/numH; 
   ## PO:
   HH = rbind(foo$beta_q, foo$beta_h); 
   meanH = apply(HH, 1, mean);
   varH = var(t(HH));
   numH = ((2*pi)^(-p/2)*(det(S0))^(-1/2))^2;
-  denH = as.vector((2*pi)^(-p/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
+  denH = as.vector((2*pi)^(-p)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
   BF_o = denH/numH; 
+  ## AH:
+  HH = rbind(foo$beta_h, foo$beta_q+foo$beta_o); 
+  meanH = apply(HH, 1, mean);
+  varH = var(t(HH));
+  numH = (2*pi)^(-p/2)*(det(S0))^(-1/2)*(2*pi)^(-p/2)*(det(2*S0))^(-1/2);
+  denH = as.vector((2*pi)^(-p)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
+  BF_a = denH/numH; 
+  ## Yang and Prentice:
+  HH = rbind(foo$beta_q); 
+  meanH = apply(HH, 1, mean);
+  varH = as.matrix(var(t(HH)), p, p);
+  numH = ((2*pi)^(-p/2)*(det(S0))^(-1/2));
+  denH = as.vector((2*pi)^(-p/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
+  BF_y = denH/numH; 
+  ## EH:
+  HH = rbind(foo$beta_h-foo$beta_q-foo$beta_o); 
+  meanH = apply(HH, 1, mean);
+  varH = as.matrix(var(t(HH)), p, p);
+  numH = ((2*pi)^(-p/2)*(det(3*S0))^(-1/2));
+  denH = as.vector((2*pi)^(-p/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
+  BF_e = denH/numH; 
   ## save:
-  BayesFactors = c(BF_q, BF_h, BF_o); 
-  names(BayesFactors) = c( "AFT", "PH", "PO");
+  BayesFactors = c(BF_q, BF_h, BF_o, BF_a, BF_e, BF_y); 
+  names(BayesFactors) = c( "AFT", "PH", "PO", "AH", "EH", "YP");
   output$BF = BayesFactors; 
-  class(output) <- c("SuperSurvRegBayes2")
+  class(output) <- c("SuperSurvRegBayes")
   output
 }
 
 #### print, summary, plot
-"print.SuperSurvRegBayes2" <- function (x, digits = max(3, getOption("digits") - 3), ...) 
+"print.SuperSurvRegBayes" <- function (x, digits = max(3, getOption("digits") - 3), ...) 
 {
   cat(x$modelname,"\nCall:\n", sep = "")
   print(x$call)
@@ -333,8 +381,8 @@
   invisible(x)
 }
 
-"plot.SuperSurvRegBayes2" <- function (x, xpred=NULL, tgrid=NULL, CI=0.95, PLOT=FALSE, ...) {
-  if(is(x,"SuperSurvRegBayes2")){
+"plot.SuperSurvRegBayes" <- function (x, xpred=NULL, tgrid=NULL, CI=0.95, PLOT=FALSE, ...) {
+  if(is(x,"SuperSurvRegBayes")){
     if(is.null(tgrid)) tgrid = seq(0.01, max(x$Surv[,2], na.rm=T), length.out=200);
     if(is.null(xpred)) {
       stop("please specify xpred")
@@ -368,7 +416,7 @@
   invisible(estimates)
 }
 
-"summary.SuperSurvRegBayes2" <- function(object, CI.level=0.95, ...) {
+"summary.SuperSurvRegBayes" <- function(object, CI.level=0.95, ...) {
   ans <- c(object[c("call", "modelname")])
   
   ### CPO
@@ -465,12 +513,12 @@
   ans$cpar = object$cpar;
   ans$BF <- object$BF;
   
-  class(ans) <- "summary.SuperSurvRegBayes2"
+  class(ans) <- "summary.SuperSurvRegBayes"
   return(ans)
 }
 
 
-"print.summary.SuperSurvRegBayes2"<-function (x, digits = max(3, getOption("digits") - 3), ...) 
+"print.summary.SuperSurvRegBayes"<-function (x, digits = max(3, getOption("digits") - 3), ...) 
 {
   cat(x$modelname,"\nCall:\n", sep = "")
   print(x$call)

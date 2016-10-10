@@ -12,7 +12,7 @@ This package provides several Bayesian survival models for spatial/non-spatial s
 \tabular{ll}{
 Package: \tab spBayesSurv\cr
 Type: \tab Package\cr
-Version: \tab 1.0.4\cr
+Version: \tab 1.0.5\cr
 License: \tab GPL (>= 2)\cr
 }
 This package provides several Bayesian survival models for spatial/non-spatial survival data, including marginal Bayesian Nonparametric models, where \code{spCopulaDDP} is for point-referenced data and \code{anovaDDP} is for non-spatial data; marginal Bayesian proportional hazards models, where \code{spCopulaCox} is for point-referenced data and \code{indeptCoxph} is for non-spatial data; generalized accelerated failure time frailty models via \code{frailtyGAFT} for both spatial and non-spatial survival data; and standard semiparametric frailty models via \code{survregbayes} and \code{survregbayes2} within the context of proportional hazards, proportional odds and accelerated failure time.

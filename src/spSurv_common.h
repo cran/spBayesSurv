@@ -34,13 +34,17 @@ arma::vec qnormvec(arma::vec x);
 // calculate pnorm(x) for a vector of x
 arma::vec pnormvec(arma::vec x);
 
-// Matern correlation function
-double rho_Matern(double dis, double nu, double phi);
+// Gaussian correlation function
+double rho_Gau(double dis, double phi);
 
-// process convolution bivariate Gaussian kernel
-double kernel_G(double dis, double phi);
+// Exponential correlation function
+double rho_Exp(double dis, double phi);
 
 // Powered Exponential
 double pow_exp(double dis, double phi, double nu);
+
+// Preprocess R^{-1} to get Rinv using FSA
+void inv_FSA(double sill, const arma::mat& Cnn, const arma::mat& Cnm, const arma::mat& Cmm,
+             const arma::mat& clustindx, arma::mat& Cinv, double& logdetC);
 
 #endif

@@ -1,11 +1,9 @@
-\name{SuperSurvRegBayes2}
-\alias{SuperSurvRegBayes2}
-\alias{print.SuperSurvRegBayes2}
-\alias{plot.SuperSurvRegBayes2}
-\alias{summary.SuperSurvRegBayes2}
-\alias{print.summary.SuperSurvRegBayes2}
-
-
+\name{SuperSurvRegBayes}
+\alias{SuperSurvRegBayes}
+\alias{print.SuperSurvRegBayes}
+\alias{plot.SuperSurvRegBayes}
+\alias{summary.SuperSurvRegBayes}
+\alias{print.summary.SuperSurvRegBayes}
 
 \title{Bayesian Semiparametric Super Survival Model}
 \description{
@@ -13,10 +11,10 @@ This function fits a super survival model. It can fit both Case I and Case II in
 }
    
 \usage{
-SuperSurvRegBayes2(formula, data, na.action, dist="lognormal", 
-                   mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500),
-                   prior=NULL, state=NULL, truncation_time=NULL, 
-                   InitParamMCMC=FALSE)
+SuperSurvRegBayes(formula, data, na.action, dist="lognormal", 
+                  mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500),
+                  prior=NULL, state=NULL, truncation_time=NULL, subject.num=NULL, 
+                  InitParamMCMC=FALSE)
 }
 
 \arguments{
@@ -35,6 +33,8 @@ SuperSurvRegBayes2(formula, data, na.action, dist="lognormal",
    \item{state}{a list giving the current value of the parameters. This list is used if the current analysis is the continuation of a previous analysis.} 
    
    \item{truncation_time}{a vector of left-trucation times with length n.}
+   
+   \item{subject.num}{a vector of suject id numbers when time dependent covariates are considered. For example, for subject 1 time dependent covariates are recorded over [0,1), [1,3), and for subject 2 covariates are recorded over [0,2), [2,3), [3,4). Suppose we only have two subjects, i.e. n=2. In this case, we save the data in the long format, set truncation_time=c(0,1,0,2,3) and subject.num=c(1,1,2,2,2).}
    
    \item{InitParamMCMC}{flag to indicate wheter an initial MCMC will be run based on the centering parametric model, where \code{TRUE} indicates yes. }
 }
@@ -125,7 +125,7 @@ mcmc=list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=1000);
 prior = list(maxL=15, a0=1, b0=1, M=10, q=.9);
 state <- list(cpar=1);
 ptm<-proc.time()
-res1 = SuperSurvRegBayes2(formula = Surv(t1, t2, type="interval2")~x1+x2, data=d, 
+res1 = SuperSurvRegBayes(formula = Surv(t1, t2, type="interval2")~x1+x2, data=d, 
                           prior=prior, mcmc=mcmc, state=state, dist="lognormal");
 sfit=summary(res1); sfit;
 systime1=proc.time()-ptm

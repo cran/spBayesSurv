@@ -1,6 +1,7 @@
 "frailtyGAFT" <- function (formula, data, na.action, 
                            mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
-                           prior=NULL, state=NULL, Proximity=NULL, Coordinates=NULL){
+                           prior=NULL, state=NULL, Proximity=NULL, Coordinates=NULL, 
+                           DIST=NULL){
   #########################################################################################
   # call parameters
   #########################################################################################
@@ -109,6 +110,10 @@
   if(is.null(truncation_time)) truncation_time=rep(0, n);
   frail.prior = colnames(frail.terms)[1];
   ID = frail.terms[,1];
+  #### Distance type:
+  if(is.null(DIST)){
+    DIST <- function(x, y) fields::rdist(x, y)
+  }
   
   ##############################################
   ### Currently it only supports AFT ###########
@@ -153,38 +158,28 @@
       W = matrix(0, length(blocki)-1, length(blocki)-1);
       D = rep(0, length(blocki)-1);
     }else if(frail.prior=="grf"){
-      if(is.null(Coordinates)) stop("please specify coordinates for the centroid of each ID");
+      if(is.null(Coordinates)) stop("please specify Coordinates for each ID");
       if(nrow(Coordinates)!=(length(blocki)-1)) stop("the number of coordinates should be equal to the number of ID")
-      DisMat = .Call("DistMat", t(Coordinates), t(Coordinates), PACKAGE = "spBayesSurv");
-      if(min(DisMat[row(DisMat)!=col(DisMat)])<=0) stop("each ID should have different centroids");
+      Dmm = DIST(Coordinates, Coordinates);
+      if(min(Dmm[row(Dmm)!=col(Dmm)])<=0) stop("each ID should have different Coordinates");
     }else{
       stop("This function only supports non-frailty, car frailty, iid and grf frailty models.")
     }
     if(is.null(state$frail)) {
       v <- rep(0, length(blocki)-1);
       if(frail.prior=="grf"){
-        #print("check");
-        foo <- .Call("frailtyLDTFP", nburn_ = 5000, nsave_ = 5000, nskip_ = 0, ndisplay_ = 10000,
-                     tobs_ = cbind(t1, t2), type_ = delta, xce_ = t(X1), xtf_ = t(Xtf1), alpha_ = 5, 
-                     betace_ = betace, betatf_ = matrix(0,nrow=ptf,ncol=2^4-1),  sigma2_ = sigma2, 
-                     y_ = y, v_ = v, blocki_ = blocki, tau2_ = 0.5, 
-                     W_ = matrix(0, length(blocki)-1, length(blocki)-1), D_ = rep(0, length(blocki)-1), 
-                     maxL_ = 4, a0_ = 5, b0_ = 1,  m0_ = betace,  S0inv_ = solve(betaShat0), 
-                     gprior_ = 2*n*solve(t(Xtf1)%*%Xtf1), a0sig_ = sig2a0, b0sig_ = sig2b0, 
-                     a0tau_ = 1, b0tau_ = 1, PACKAGE = "spBayesSurv");
-        v = rowMeans(foo$v);
-        tau2_grf = mean(foo$tau2);
-        dd = data.frame(frail=v, s1=Coordinates[,1], s2=Coordinates[,2]);
-        sp::coordinates(dd) =~ s1+s2;
-        vfit0=automap::autofitVariogram(v ~ 1, dd, model=c("Exp", "Gau"));
-        cov.select = as.vector(vfit0$var_model$model[2])
-        if(cov.select=="Exp"){
-          nu_grf=1;
-        }else {
-          nu_grf=2;
+        nu = prior$nu; if(is.null(nu)) nu=1;
+        fit0 <- survival::survreg(formula = Y~X1-1+survival::frailty.gaussian(ID), dist="lognormal");
+        v = fit0$frail;
+        tau2_grf = var(fit0$frail);
+        maxdis = max(Dmm);
+        phi_min = (-log(0.001))^(1/nu)/maxdis
+        phib0_prior = -log(.95)/phi_min;
+        phi = 1/phib0_prior;
+        if(!is.null(state$phi)){
+          phi = state$phi;
         }
-        sill_grf = min(0.95, vfit0$var_model$psill[2]/sum(vfit0$var_model$psill));
-        phi_grf = vfit0$var_model$range[2];
+        if (phi<=0) stop("phi in state arguement should be greater than 0.")
       }
     } else {
       v <- state$frail; if(length(v)!=(length(blocki)-1)) stop("check the length of frail");
@@ -229,20 +224,16 @@
     if((frail.prior=="iid")|(frail.prior=="car")){
       prior$taua0=taua0; prior$taub0=taub0;
     }else if (frail.prior=="grf"){
-      sill = state$sill; if(is.null(sill)) sill=sill_grf;
-      phi = state$phi; if(is.null(phi)) phi=phi_grf;
-      nu = prior$nu; if(is.null(nu)) nu=nu_grf;
-      silla0 = prior$silla0; if(is.null(silla0)) silla0=10*sill_grf;
-      sillb0 = prior$sillb0; if(is.null(sillb0)) sillb0=10*(1-sill_grf);
-      phia0 = prior$phia0; if(is.null(phia0)) phia0=10*phi_grf;
-      phib0 = prior$phib0; if(is.null(phib0)) phib0=10;
-      prior$taua0=taua0; prior$taub0=taub0; prior$silla0=silla0; prior$sillb0=sillb0;
+      phia0 = prior$phia0; if(is.null(phia0)) phia0=1;
+      phib0 = prior$phib0; if(is.null(phib0)) phib0=phib0_prior;
+      prior$nu=nu;
+      prior$taua0=taua0; prior$taub0=taub0; #prior$silla0=silla0; prior$sillb0=sillb0;
       prior$phia0=phia0; prior$phib0=phib0;
     }
   }
   
   #########################################################################################
-  # calling the c++ code and # output
+  # calling the c++ code and # output 
   #########################################################################################
   if(!is.null(frail.prior)){
     model.name <- "Generalized accelerated failure time frailty model:";
@@ -257,10 +248,10 @@
       foo <- .Call("frailty_GRF_LDTFP", nburn_ = nburn, nsave_ = nsave, nskip_ = nskip, ndisplay_ = ndisplay,
                    tobs_ = cbind(t1, t2), type_ = delta, xce_ = t(X1), xtf_ = t(Xtf1), alpha_ = alpha, 
                    betace_ = betace, betatf_ = betatf,  sigma2_ = sigma2, y_ = y, v_ = v, blocki_ = blocki,
-                   tau2_ = tau2, sill_ = sill, DisMat_ = DisMat, maxL_ = maxL, a0_ = a0, b0_ = b0,  
+                   tau2_ = tau2, Dmm_ = Dmm, maxL_ = maxL, a0_ = a0, b0_ = b0,  
                    m0_ = m0,  S0inv_ = S0inv, gprior_ = gprior, a0sig_ = siga0, b0sig_ = sigb0, 
-                   a0tau_ = taua0, b0tau_ = taub0, a0sill_ = silla0, b0sill_ = sillb0, 
-                   nu_ = nu, phi_ = phi, a0phi_ = phia0, b0phi_ = phib0, PACKAGE = "spBayesSurv");
+                   a0tau_ = taua0, b0tau_ = taub0, nu_ = nu, phi_ = phi, 
+                   a0phi_ = phia0, b0phi_ = phib0, PACKAGE = "spBayesSurv");
     }
   }else{
     model.name <- "Generalized accelerated failure time model:";
@@ -304,11 +295,11 @@
     output$v = foo$v;
     output$ratev = foo$ratev;
     output$tau2 = foo$tau2;
-    output$IDnames = names(table(ID));
+    output$ID = ID;
     if (frail.prior=="grf"){
       output$sill = foo$sill;
       output$phi = foo$phi;
-      output$ratetheta = foo$ratetheta;
+      output$ratephi = foo$ratephi;
     }
   }
   
@@ -422,7 +413,7 @@
     ans$alpha <- NULL
   }else{
     mat <- object$alpha
-    coef.p <- mean(mat)    
+    coef.p <- mean(mat); names(coef.p)="";
     coef.m <- median(mat)    
     coef.sd <- sd(mat)
     limm <- as.vector(coda::HPDinterval(coda::mcmc(mat), prob=CI.level))
@@ -468,19 +459,6 @@
                                                     paste(CI.level*100, "%HPD-Low", sep=""),
                                                     paste(CI.level*100, "%HPD-Upp", sep="")))
       ans$range <- coef.table;
-      mat <- object$sill
-      coef.p <- mean(mat); names(coef.p)="partial sill";
-      coef.m <- median(mat)    
-      coef.sd <- sd(mat)
-      limm <- as.vector(coda::HPDinterval(coda::mcmc(mat), prob=CI.level))
-      coef.l <- limm[1]
-      coef.u <- limm[2]
-      
-      coef.table <- cbind(coef.p, coef.m, coef.sd, coef.l , coef.u)
-      dimnames(coef.table) <- list(names(coef.p), c("Mean", "Median", "Std. Dev.", 
-                                                    paste(CI.level*100, "%HPD-Low", sep=""),
-                                                    paste(CI.level*100, "%HPD-Upp", sep="")))
-      ans$partial.sill <- coef.table;
     }
   }
   
@@ -491,7 +469,7 @@
   ans$BF <- object$BF;
   
   ### acceptance rates
-  ans$ratetheta = object$ratetheta;
+  ans$ratephi = object$ratephi;
   
   class(ans) <- "summary.frailtyGAFT"
   return(ans)
@@ -530,10 +508,7 @@
       cat("\nPosterior inference of frailty variance\n")
       print.default(format(x$frailvar, digits = digits), print.gap = 2, 
                     quote = FALSE)
-      cat("\nPosterior inference of partial sill\n")
-      print.default(format(x$partial.sill, digits = digits), print.gap = 2, 
-                    quote = FALSE)
-      cat("\nPosterior inference of correlation function range \n")
+      cat("\nPosterior inference of correlation function range phi \n")
       print.default(format(x$range, digits = digits), print.gap = 2, 
                     quote = FALSE)
     }

@@ -7,7 +7,7 @@ using namespace arma;
 using namespace Rcpp;
 using namespace std;
 
-RcppExport SEXP AFT_MPT(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEXP ltr_,
+RcppExport SEXP AFT_MPT(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEXP ltr_, SEXP subjecti_,
                         SEXP t1_, SEXP t2_, SEXP type_, SEXP X_, SEXP theta_, SEXP beta_, 
                         SEXP cpar_, SEXP Ys_, SEXP maxL_, SEXP a0_, SEXP b0_, SEXP theta0_, 
                         SEXP V0inv_,SEXP Vhat_, SEXP beta0_, SEXP S0inv_, SEXP Shat_, 
@@ -22,10 +22,12 @@ RcppExport SEXP AFT_MPT(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, S
   const int nskip = as<int>(nskip_);
   const int ndisplay = as<int>(ndisplay_);
   const Rcpp::NumericVector ltr(ltr_); // n by 1;
+  const Rcpp::IntegerVector subjecti(subjecti_); //nsub+1 by 1;
   const Rcpp::NumericVector t1(t1_); // n by 1;
   const Rcpp::NumericVector t2(t2_); // n by 1;
   const Rcpp::IntegerVector type(type_);// n by 1;
   const Rcpp::NumericMatrix X(X_); // n by p;
+  const int nsub = subjecti.size()-1;
   const int n = type.size();
   const int maxL = as<int>(maxL_);
   const int p = X.ncol();
@@ -422,7 +424,13 @@ RcppExport SEXP AFT_MPT(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, S
   Rcpp::NumericVector ratev = 1.0 - rejv/totscans;
   
   // get CPO
-  arma::vec Linvmean = arma::mean(Linv, 1);
+  arma::mat finv(nsub, nsave);
+  for(int i=0; i<nsub; ++i){
+    int ind1 = subjecti[i];
+    int ind2 = subjecti[i+1]-1;
+    finv.row(i) = arma::prod(Linv.rows(ind1, ind2), 0);
+  }
+  arma::vec Linvmean = arma::mean(finv, 1);
   arma::vec cpo = 1.0/Linvmean;
   
   // get DIC

@@ -9,10 +9,11 @@ using namespace std;
 
 RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 		SEXP tobs_, SEXP type_, SEXP xce_, SEXP xtf_, SEXP alpha_, SEXP betace_, 
-    SEXP betatf_, SEXP sigma2_, SEXP y_, SEXP v_, SEXP blocki_, SEXP tau2_, SEXP sill_,
-    SEXP DisMat_, SEXP maxL_, SEXP a0_, SEXP b0_, SEXP m0_, SEXP S0inv_, SEXP gprior_, 
-    SEXP a0sig_, SEXP b0sig_, SEXP a0tau_, SEXP b0tau_, SEXP a0sill_, SEXP b0sill_,
+    SEXP betatf_, SEXP sigma2_, SEXP y_, SEXP v_, SEXP blocki_, SEXP tau2_,
+    SEXP Dmm_, SEXP maxL_, SEXP a0_, SEXP b0_, SEXP m0_, SEXP S0inv_, SEXP gprior_, 
+    SEXP a0sig_, SEXP b0sig_, SEXP a0tau_, SEXP b0tau_,
     SEXP nu_, SEXP phi_, SEXP a0phi_, SEXP b0phi_) {
+	
 	BEGIN_RCPP
   
 	// Transfer R variables into C++;
@@ -24,7 +25,7 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
   const IntegerVector type(type_);// nrec by 1;
   const arma::mat xce = as<mat>(xce_); // pce by nrec;
   const arma::mat xtf = as<mat>(xtf_); // ptf by nrec;
-  const arma::mat DisMat = as<mat>(DisMat_); // m by m;
+  const arma::mat Dmm = as<mat>(Dmm_); // m by m;
   const double nu = as<double>(nu_);
   const int pce = xce.n_rows;
   const int ptf = xtf.n_rows;
@@ -39,7 +40,6 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
   arma::vec v = as<vec>(v_); // m by 1;
   Rcpp::IntegerVector blocki(blocki_); // m+1 by 1;
   double tau2 = as<double>(tau2_);
-  double sill = as<double>(sill_);
   double phi = as<double>(phi_);
   const int m = v.size();  
   
@@ -59,9 +59,6 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
   // gamma prior of tau2^{-1}
   const double a0tau = as<double>(a0tau_);
   const double b0tau = as<double>(b0tau_);
-  // beta prior for sill
-  const double a0sill = as<double>(a0sill_);
-  const double b0sill = as<double>(b0sill_);
   // gamma prior for phi
   const double a0phi = as<double>(a0phi_);
   const double b0phi = as<double>(b0phi_);
@@ -95,7 +92,6 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
 	NumericMatrix y_save(nrec, nsave);
   arma::mat v_save(m, nsave);
   NumericVector tau2_save(nsave);
-  NumericVector sill_save(nsave);
   NumericVector phi_save(nsave);
   NumericVector rejbetatf(ntlr);
   double rejbetace=0;
@@ -110,30 +106,27 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
   int i1, evali;
   int JJ, KK, mm;
   double rej;
-  arma::mat Rspat=arma::zeros<arma::mat>(m,m);
+  double phi_min = std::pow(-log(0.001), 1.0/nu)/Dmm.max();
+  double sill=0.9999;
   arma::mat Im = arma::eye(m,m);
+  arma::mat Rmm=arma::zeros<arma::mat>(m,m);
   for(int i=0; i<m; ++i){
     for(int j=0; j<m; ++j){
-      Rspat(i,j) = pow_exp(DisMat(i,j), phi, nu);
+      Rmm(i,j) = pow_exp(Dmm(i,j), phi, nu);
     }
   }
-  arma::mat Rspatinv = arma::inv_sympd(sill*Rspat+(1.0-sill)*Im);
-  arma::mat Rspatinvold(m,m);
-  // update for theta=(log(sill/(1-sill)), log(phi));
-  arma::vec theta(2); 
-  theta[0]=log(sill/(1.0-sill)); theta[1]=log(phi);
-  arma::vec thetaold(2); 
-  arma::vec thBarold(2);
-  arma::vec thBarnew=arma::zeros<arma::vec>(2);
-  arma::mat thSnew=arma::zeros<arma::mat>(2,2);
-  arma::mat I2 = ESMALL*arma::eye(2,2);
-  arma::mat thShat=arma::zeros<arma::mat>(2,2);
-  thShat(0,0) = 0.5; thShat(1,1)=0.1;
+  arma::mat Rmminv = arma::inv_sympd(sill*Rmm+(1.0-sill)*Im);
+  double logdetR = 0; double sign0 = 0;
+  arma::log_det(logdetR, sign0, sill*Rmm+(1.0-sill)*Im);
+  
+  // update for (phi);
+  double phibarnew=0, phibarold=0, phisnew=0, phinew=0, phishat=0.01;
+  
   double llold, llnew;
   double ratio, uu, nn;
-  int l0 = (int)(std::min(1000,nsave/2));
+  int l0 = (int)(std::min(3000,nsave/2));
   double adapter = 5.6644;
-  double rejtheta=0;
+  double rejphi=0;
   
 	////////////////////////////////////////////////////////////////////////
   // Initial State
@@ -244,10 +237,12 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
     for(int i=0; i<m; ++i){
       int ind1 = blocki[i];
       int ind2 = blocki[i+1]-1;
+      double Rii = Rmminv(i,i);
+      double meanvi = -(arma::as_scalar(Rmminv.row(i)*v)-Rii*v[i])/Rii;
       evali=1; 
       xx0 = v[i];
       loglikldtfpvi2(xx0, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx0, maxL);
-      v[i]=xx0; gxx0 += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      gxx0 += -0.5*Rii*std::pow(xx0-meanvi,2)/tau2;
       logy = gxx0-exp_rand();
       uwork=unif_rand();
       llim=xx0-win*uwork;
@@ -257,35 +252,35 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
       KK = (mm-1)-JJ;
       ++evali;
       loglikldtfpvi2(llim, ind1, ind2, y, xbetace, xbetatf, sigma2, gllim, maxL);
-      v[i]=llim; gllim += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      gllim += -0.5*Rii*std::pow(llim-meanvi,2)/tau2;
       ++evali; 
       loglikldtfpvi2(rlim, ind1, ind2, y, xbetace, xbetatf, sigma2, grlim, maxL);
-      v[i]=rlim; grlim += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      grlim += -0.5*Rii*std::pow(rlim-meanvi,2)/tau2;
       while((JJ>0)&(gllim>logy)){
         llim -= win;
         JJ -= 1;
         ++evali; 
         loglikldtfpvi2(llim, ind1, ind2, y, xbetace, xbetatf, sigma2, gllim, maxL);
-        v[i]=llim; gllim += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+        gllim += -0.5*Rii*std::pow(llim-meanvi,2)/tau2;
       }
       while((KK>0)&(grlim>logy)){
         rlim += win;
         KK -= 1;
         ++evali; 
         loglikldtfpvi2(rlim, ind1, ind2, y, xbetace, xbetatf, sigma2, grlim, maxL);
-        v[i]=rlim; grlim += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+        grlim += -0.5*Rii*std::pow(rlim-meanvi,2)/tau2;
       }
       xx1 = llim +(rlim-llim)*unif_rand();
       ++evali; 
       loglikldtfpvi2(xx1, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx1, maxL);
-      v[i]=xx1; gxx1 += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+      gxx1 += -0.5*Rii*std::pow(xx1-meanvi,2)/tau2;
       while(gxx1<logy){
         if(xx1>xx0) rlim=xx1;
         if(xx1<xx0) llim=xx1;
         xx1 = llim +(rlim-llim)*unif_rand();
         ++evali; 
         loglikldtfpvi2(xx1, ind1, ind2, y, xbetace, xbetatf, sigma2, gxx1, maxL);
-        v[i]=xx1; gxx1 += -0.5*arma::dot(v, Rspatinv*v)/tau2;
+        gxx1 += -0.5*Rii*std::pow(xx1-meanvi,2)/tau2;
       }
       v[i]=xx1;
     }
@@ -401,48 +396,48 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
     // tau2
     //////////////////////////////////////////////
     double a0taustar = a0tau+0.5*(m+0.0);
-    double b0taustar = b0tau+0.5*(arma::dot(v,Rspatinv*v)); 
+    double b0taustar = b0tau+0.5*(arma::dot(v,Rmminv*v)); 
     tau2 = 1.0/Rf_rgamma( a0taustar, 1.0/b0taustar ); 
     
     ///////////////////////////////////////////////
-    // sill, phi
+    // phi
     //////////////////////////////////////////////
-    double logdetRinv, sign0;
-    arma::log_det(logdetRinv, sign0, Rspatinv);
-    llold = 0.5*logdetRinv -0.5*arma::dot(v, Rspatinv*v)/tau2;
-    llold += (a0sill-1.0)*log(sill) + (b0sill-1.0)*log(1.0-sill) +2.0*log(sill)- theta[0];
-    llold += (a0phi-1.0)*log(phi) - b0phi*phi + theta[1];
-    thetaold = theta; Rspatinvold = Rspatinv;
-    if(iscan>l0){
-      theta = mvrnorm(thetaold, thSnew);
-    }else{
-      theta = mvrnorm(thetaold, thShat);
-    }
-    sill = 1.0/(1.0+exp(-theta[0]));
-    phi = exp(theta[1]);
-    for(int i=0; i<m; ++i){
-      for(int j=0; j<m; ++j){
-        Rspat(i,j) = pow_exp(DisMat(i,j), phi, nu);
+    if(a0phi>0){
+      if(iscan>l0){
+        phinew = Rf_rnorm(phi, std::sqrt(phisnew));
+      }else{
+        phinew = Rf_rnorm(phi, std::sqrt(phishat));
       }
+      if(phinew<phi_min){
+        if(iscan>=nburn) rejphi+=1.0;
+      }else{
+        arma::mat Rmminvnew(m,m);
+        double logdetRnew=0;
+        llold = -0.5*logdetR - 0.5*arma::dot(v, Rmminv*v)/tau2;
+        llold += (a0phi-1.0)*log(phi) - b0phi*phi;
+        for(int i=0; i<m; ++i){
+          for(int j=0; j<m; ++j){
+            Rmm(i,j) = pow_exp(Dmm(i,j),phinew,nu);
+          }
+        }
+        Rmminvnew = arma::inv_sympd(sill*Rmm+(1.0-sill)*Im);
+        arma::log_det(logdetRnew, sign0, sill*Rmm+(1.0-sill)*Im);
+        llnew = -0.5*logdetRnew - 0.5*arma::dot(v, Rmminvnew*v)/tau2;
+        llnew += (a0phi-1.0)*log(phinew) - b0phi*phinew;
+        ratio = exp(llnew-llold);
+        uu = unif_rand();
+        if(uu<ratio){
+          phi=phinew; Rmminv = Rmminvnew; logdetR=logdetRnew;
+        }else{
+          if(iscan>=nburn) rejphi+=1.0;
+        }
+      }
+      nn = iscan+1;
+      phibarold = phibarnew;
+      phibarnew = (nn)/(nn+1.0)*phibarold + phi/(nn+1.0);
+      phisnew = (nn-1.0)/nn*phisnew + adapter/nn*(nn*pow(phibarold,2) - (nn+1.0)*pow(phibarnew,2)
+                                                    + pow(phi,2) + ESMALL );
     }
-    Rspatinv = arma::inv_sympd(sill*Rspat+(1.0-sill)*Im);
-    arma::log_det(logdetRinv, sign0, Rspatinv);
-    llnew = 0.5*logdetRinv -0.5*arma::dot(v, Rspatinv*v)/tau2;
-    llnew += (a0sill-1.0)*log(sill) + (b0sill-1.0)*log(1.0-sill) +2.0*log(sill)- theta[0];
-    llnew += (a0phi-1.0)*log(phi) - b0phi*phi + theta[1];
-    ratio = exp(llnew-llold);
-    uu = unif_rand();
-    if(uu>ratio){
-      theta=thetaold; Rspatinv=Rspatinvold;
-      sill = 1.0/(1.0+exp(-theta[0]));
-      phi = exp(theta[1]);
-      if(iscan>=nburn) rejtheta+=1.0;
-    }
-    nn = iscan+1;
-    thBarold = thBarnew;
-    thBarnew = (nn)/(nn+1.0)*thBarold + theta/(nn+1.0);
-    thSnew = (nn-1.0)/nn*thSnew + adapter/(2.0)/nn*(nn*thBarold*thBarold.t() 
-                                                      - (nn+1.0)*thBarnew*thBarnew.t() + theta*theta.t() + I2 );
     
     ///////////////////////////////////////////////
     // tf logistic regressions
@@ -513,7 +508,6 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
         // frailties
         v_save.col(isave) = v;
         tau2_save[isave] = tau2;
-        sill_save[isave] = sill;
         phi_save[isave] = phi;
         // tf parameters
         betatf_save.slice(isave) = betatf;
@@ -531,7 +525,7 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
   
   NumericVector ratebetatf = 1.0- rejbetatf/(nscan-nburn+0.0);
   double ratebetace = 1.0- rejbetace/(nscan-nburn+0.0);
-  double ratetheta = 1.0 - rejtheta/(nscan-nburn+0.0);
+  double ratephi = 1.0 - rejphi/(nscan-nburn+0.0);
   
   // get CPO
   arma::vec Linvmean = arma::mean(Linv, 1);
@@ -544,12 +538,11 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
                       Named("y")=y_save,
                       Named("v")=v_save,
                       Named("tau2")=tau2_save,
-                      Named("sill")=sill_save,
                       Named("phi")=phi_save,
                       Named("cpo")=cpo,
                       Named("ratebetatf")=ratebetatf,
                       Named("ratebetace")=ratebetace,
-                      Named("ratetheta")=ratetheta);
+                      Named("ratephi")=ratephi);
 	END_RCPP
 }
 

@@ -11,6 +11,18 @@
   .Call("CoxPHplots", xpred_, tgrid_, beta_, h_, d_, probs_, PACKAGE = "spBayesSurv")
 }
 
+.rho_Gau <- function(dis, phi){
+  exp(-(phi*dis)^2);
+}
+
+.rho_Exp <- function(dis, phi){
+  exp(-abs(phi*dis));
+}
+
+.rho_pow <- function(dis, phi, nu){
+  exp(-abs(phi*dis)^nu);
+}
+
 baseline = function (...) 
 {
   words <- as.character((match.call())[-1]);
