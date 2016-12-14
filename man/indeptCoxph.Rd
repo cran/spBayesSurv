@@ -8,7 +8,7 @@ This function fits a Bayesian proportional hazards model for non-spatial right c
    
 \usage{
 indeptCoxph(y, delta, x=NULL, prediction, prior, mcmc, state, 
-            RandomIntervals=F, data=sys.frame(sys.parent()), 
+            RandomIntervals=FALSE, data=sys.frame(sys.parent()), 
             na.action=na.fail, work.dir=NULL)
 }
 
@@ -79,25 +79,21 @@ Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>
 \keyword{Bayesian}
 
 \examples{
-\dontrun{
-
 ###############################################################
 # A simulated data: Cox PH
 ###############################################################
 rm(list=ls())
-library(MASS)
-library(Rcpp)
-library(RcppArmadillo)
-library(coda)
 library(survival)
 library(spBayesSurv)
+library(coda)
+library(MASS)
 ## True parameters 
 betaT = c(-1); 
 theta1 = 0.98; theta2 = 100000;
 
 ## generate coordinates: 
 ## npred is the # of locations for prediction
-n = 300; npred = 30; ntot = n + npred;
+n = 100; npred = 30; ntot = n + npred;
 ldist = 100; wdist = 40;
 s1 = runif(ntot, 0, wdist); s2 = runif(ntot, 0, ldist);
 s = rbind(s1,s2); #plot(s[1,], s[2,]);
@@ -194,15 +190,15 @@ prior = list(M = 10);
 state <- NULL;
 
 # MCMC parameters
-nburn <- 5000
-nsave <- 3000
+nburn <- 1000
+nsave <- 1000
 nskip <- 0
 ndisplay <- 1000
 mcmc <- list(nburn=nburn,
              nsave=nsave,
              nskip=nskip,
              ndisplay=ndisplay)
-
+# Note larger nburn, nsave and nskip should be used in practice.
 # Fit the Cox PH model
 res1 = indeptCoxph( y = t,
                     delta =delta, 
@@ -227,7 +223,7 @@ par(mfrow = c(2,1))
 xnew = c(-1, 1)
 xpred = cbind(xnew); 
 nxpred = nrow(xpred);
-ygrid = seq(-5, 1.1, 0.05);tgrid = exp(ygrid);
+ygrid = seq(-5, 1.1, 0.2);tgrid = exp(ygrid);
 ngrid = length(ygrid);
 estimates = GetCurves(res1, xpred, ygrid, CI=c(0.05, 0.95));
 fhat = estimates$fhat; 
@@ -245,8 +241,6 @@ for(i in 1:nxpred){
   lines(tgrid, Shat[,i], lty=2, lwd=2, col=4);
   lines(tgrid, estimates$Shatup[,i], lty=2, lwd=1, col=4);
   lines(tgrid, estimates$Shatlow[,i], lty=2, lwd=1, col=4);
-}
-
 }
 }
 

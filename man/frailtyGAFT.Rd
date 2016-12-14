@@ -60,17 +60,17 @@ Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>
 }
 
 \examples{
-\dontrun{
 ###############################################################
 # A simulated data: GAFT spatial frailty model
 ###############################################################
+rm(list=ls())
 library(survival)
 library(spBayesSurv)
 library(coda)
-library(mvtnorm)
+library(MASS)
 
 ## True densities
-set.seed(1234567890)
+set.seed(1)
 Finvsingle = function(u, F) {
   res = uniroot(function (x) F(x)-u, lower=-1000, upper=1000, 
                 tol=.Machine$double.eps^0.5);
@@ -95,7 +95,7 @@ FF = function(x, xtf=0){
 betaT = c(-1, 1, -0.5);
 tau2T = 0.1;
 m = 50; # blocks
-mi = 5;
+mi = 2;
 mis = rep(mi, m);
 id = rep(1:m,mis);
 n = length(id); # Total number of subjects
@@ -117,7 +117,7 @@ for(i in 1:(m-1)){
 }
 Qstar = Dstar-Wstar;
 covT = tau2T*solve(Qstar);
-v0 = c(rmvnorm(1,sigma=covT));
+v0 = mvrnorm(1, mu=rep(0,m-1), Sigma=covT);
 v = c(v0,-sum(v0));
 vn = rep(v, mis);
 
@@ -151,14 +151,22 @@ d = dtotal[order(dtotal$ID),];
 # Prior information and MCMC
 fit0 <- survival::survreg(Surv(tleft, censor)~x1+x2, dist="lognormal", data=d);
 prior = list(maxL = 4, a0 = 5, b0 = 1);
-mcmc=list(nburn=100, nsave=500, nskip=1, ndisplay=100)
+mcmc=list(nburn=200, nsave=200, nskip=0, ndisplay=100)
+# Note larger nburn, nsave and nskip should be used in practice.
 
 # Fit the model
+ptm<-proc.time()
 res = frailtyGAFT(Surv(tleft, tright, type="interval2")~x1+x2+baseline(x1, x2)+
                     frailtyprior(prior="car", ID),  data=d, mcmc=mcmc, prior=prior, 
                   Proximity=W);
 summary(res);
+systime1=proc.time()-ptm; systime1;
 
+### trace plots
+par(mfrow = c(3,1))
+traceplot(mcmc(res$beta[1,]), main="beta1");
+traceplot(mcmc(res$beta[2,]), main="beta2");
+traceplot(mcmc(res$beta[3,]), main="beta3");
 
 ####################################################################
 ## Get curves
@@ -170,7 +178,7 @@ xnew = c(0, 1)
 xpred = cbind(c(1,1.5), xnew); 
 xtfpred = xpred;
 nxpred = nrow(xpred);
-estimates = plot(res, xpred, ygrid, xtfpred=xtfpred, CI=0.9, PLOT=F);
+estimates = plot(res, xpred, ygrid, xtfpred=xtfpred, CI=0.9, PLOT=FALSE);
 fhat = estimates$fhat; 
 Shat = estimates$Shat;
 ## density in y
@@ -194,13 +202,6 @@ for(i in 1:nxpred){
   lines(ygrid, 1-FF(ygrid-shiftpred[i],xnew[i]), "l", lwd=2,  
         xlim=xlim, main="survival in y")
   lines(ygrid, Shat[,i], lty=2, lwd=2, col=4);
-}
-
-### trace plots
-par(mfrow = c(3,1))
-traceplot(mcmc(res$beta[1,]), main="beta1");
-traceplot(mcmc(res$beta[2,]), main="beta2");
-traceplot(mcmc(res$beta[3,]), main="beta3");
 }
 }
 

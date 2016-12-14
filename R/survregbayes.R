@@ -2,7 +2,8 @@
                             mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
                             prior=NULL, state=NULL, selection=FALSE, Proximity=NULL, 
                             truncation_time=NULL, subject.num=NULL, Knots=NULL, 
-                            Coordinates=NULL, DIST=NULL, InitParamMCMC=TRUE) {
+                            Coordinates=NULL, DIST=NULL, InitParamMCMC=TRUE, 
+                            scale.designX=TRUE) {
   #########################################################################################
   # call parameters
   #########################################################################################
@@ -90,7 +91,11 @@
     X.scaled <- NULL;
     X1 = cbind(rep(1,n), X.scaled); 
   }else{
-    #X.scaled <- scale(X, center=rep(0,p), scale=rep(1,p));
+    if(scale.designX){
+      X.scaled <- scale(X);
+    }else{
+      X.scaled <- scale(X, center=rep(0,p), scale=rep(1,p));
+    }
     X.scaled <- scale(X);
     X.center = attributes(X.scaled)$`scaled:center`;
     X.scale = attributes(X.scaled)$`scaled:scale`;
@@ -278,7 +283,7 @@
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
                    beta0_=beta_prior, S0inv_=solve(scaleS*Shat0), Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
                    gamma_=rep(1.0, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
-                   W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu=nu, a0phi_=1, b0phi_=1, 
+                   W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(survmodel=="PO"){
       fit0<- .Call("PO_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0, subjecti_=subjecti0,
@@ -286,7 +291,7 @@
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
                    beta0_=beta_prior, S0inv_=solve(scaleS*Shat0), Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
                    gamma_=rep(1.0, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
-                   W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu=nu, a0phi_=1, b0phi_=1, 
+                   W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(survmodel=="PH"){
       fit0<- .Call("PH_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0, subjecti_=subjecti0,
@@ -294,7 +299,7 @@
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
                    beta0_=beta_prior, S0inv_=solve(scaleS*Shat0), Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
                    gamma_=rep(1.0, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
-                   W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu=nu, a0phi_=1, b0phi_=1, 
+                   W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
     }else{
       stop("This function only supports PH, PO or AFT");
@@ -501,7 +506,8 @@
   HH = apply(foo$weight, 2, function(x) log(x[-maxL])-log(x[maxL]) ); 
   meanH = apply(HH, 1, mean);
   varH = var(t(HH));
-  numH = exp( mean(foo$cpar)*sum(-log(maxL)) );
+  meancpar = mean(foo$cpar);
+  numH = exp( lgamma(meancpar*maxL)-maxL*lgamma(meancpar)-meancpar*maxL*log(maxL) );
   denH = as.vector((2*pi)^(-(maxL-1)/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
   BayesFactor = numH/denH; 
   
@@ -565,7 +571,8 @@
     HH = apply(x$weight, 2, function(y) log(y[-maxL])-log(y[maxL]) ); 
     meanH = apply(HH, 1, mean);
     varH = var(t(HH));
-    numH = exp( mean(x$cpar)*sum(-log(maxL)) );
+    meancpar = mean(x$cpar);
+    numH = exp( lgamma(meancpar*maxL)-maxL*lgamma(meancpar)-meancpar*maxL*log(maxL) );
     denH = as.vector((2*pi)^(-(maxL-1)/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
     BayesFactor = numH/denH;
   }
@@ -605,7 +612,8 @@
   invisible(x)
 }
 
-"cox.snell.survregbayes" <- function (x) {
+"cox.snell.survregbayes" <- function (x, ncurves=0) {
+  Resids = list();
   if(is(x,"survregbayes")){
     Y = x$Surv;
     t1 = Y[,1]; t2 = Y[,1];
@@ -645,22 +653,28 @@
       frailn = apply(x$v, 2, function(x) rep(x, freq.frail) );
     }
     distcode = switch(x$dist, loglogistic=1, lognormal=2, 3);
+    if(x$selection){
+      betafitted = x$beta.scaled*x$gamma;
+    }else{
+      betafitted = x$beta.scaled;
+    }
     if(x$survmodel=="AFT"){
       foo <- .Call("AFT_BP_cox_snell", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=x$beta.scaled, vn_=frailn, weight_=x$weight, 
+                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
                    dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(x$survmodel=="PO"){
       foo <- .Call("PO_BP_cox_snell", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=x$beta.scaled, vn_=frailn, weight_=x$weight, 
+                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
                    dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(x$survmodel=="PH"){
       foo <- .Call("PH_BP_cox_snell", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=x$beta.scaled, vn_=frailn, weight_=x$weight, 
+                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
                    dist_=distcode, PACKAGE = "spBayesSurv");
     }else{
       stop("This function only supports PH, PO or AFT");
     }
-    resid1 = foo$resid1[,1]; resid2 = foo$resid2[,1];
+    resid1 = -log(apply(foo$St1, 1, mean)); 
+    resid2 = -log(apply(foo$St2, 1, mean)); 
     for(i in 1:nsubject){
       if(delta[lastindx[i]]==0){
         resid2[i]=NA;
@@ -670,9 +684,28 @@
         resid1[i]=NA;
       }
     }
-    Resid = survival::Surv(resid1, resid2, type="interval2");
+    Resids$resid=survival::Surv(resid1, resid2, type="interval2");
+    if(ncurves>=1){
+      res.indx = sample(x$mcmc$nsave, ncurves);
+      for(k in 1:ncurves){
+        resid1 = -log(foo$St1[,res.indx[k]]);
+        resid2 = -log(foo$St2[,res.indx[k]]);
+        for(i in 1:nsubject){
+          if(delta[lastindx[i]]==0){
+            resid2[i]=NA;
+          }else if (delta[lastindx[i]]==1){
+            resid2[i]=resid1[i];
+          }else if (delta[lastindx[i]]==2){
+            resid1[i]=NA;
+          }
+        }
+        Resids[[k+1]] = survival::Surv(resid1, resid2, type="interval2");
+        names(Resids)[k+1] = paste("resid", k, sep="");
+      }
+    }
   }
-  Resid
+  Resids$St1 = foo$St1; Resids$St2 = foo$St2; 
+  Resids
 }
 
 "plot.survregbayes" <- function (x, xpred=NULL, tgrid=NULL, frail=NULL, CI=0.95, PLOT=FALSE, ...) {

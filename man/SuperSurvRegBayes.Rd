@@ -14,7 +14,7 @@ This function fits a super survival model. It can fit both Case I and Case II in
 SuperSurvRegBayes(formula, data, na.action, dist="lognormal", 
                   mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500),
                   prior=NULL, state=NULL, truncation_time=NULL, subject.num=NULL, 
-                  InitParamMCMC=FALSE)
+                  InitParamMCMC=FALSE, scale.designX=TRUE)
 }
 
 \arguments{
@@ -36,7 +36,9 @@ SuperSurvRegBayes(formula, data, na.action, dist="lognormal",
    
    \item{subject.num}{a vector of suject id numbers when time dependent covariates are considered. For example, for subject 1 time dependent covariates are recorded over [0,1), [1,3), and for subject 2 covariates are recorded over [0,2), [2,3), [3,4). Suppose we only have two subjects, i.e. n=2. In this case, we save the data in the long format, set truncation_time=c(0,1,0,2,3) and subject.num=c(1,1,2,2,2).}
    
-   \item{InitParamMCMC}{flag to indicate wheter an initial MCMC will be run based on the centering parametric model, where \code{TRUE} indicates yes. }
+   \item{InitParamMCMC}{flag to indicate wheter an initial MCMC will be run based on the centering parametric model, where \code{TRUE} indicates yes.}
+   
+   \item{scale.designX}{flag to indicate wheter the design matrix X will be centered by column means and scaled by column standard deviations, where \code{TRUE} indicates yes. The default is \code{TRUE} for improving numerical stability. Even when it is scaled, the reported regression coefficients are in original scales. Note if we want to specify informative priors for regression coefficients, these priors should correspond to scaled predictors when \code{scale.designX=TRUE}.}
 }
 
 \value{
@@ -58,7 +60,6 @@ Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>
 }
 
 \examples{
-\dontrun{
 #################################################################
 # A simulated data based on PH_PO_AFT super model
 #################################################################
@@ -99,7 +100,7 @@ lines(tt, Sioft(tt, xpred2), "l");
 
 ##-------------Generate data-------------------##
 ## generate x 
-n = 100; 
+n = 80; 
 x1 = rbinom(n, 1, 0.5); x2 = rnorm(n, 0, 1); X = cbind(x1, x2);
 ## generate survival times
 u = runif(n);
@@ -120,7 +121,7 @@ d = data.frame(t1=t1, t2=t2, x1=x1, x2=x2, delta=delta, tT=tT); table(d$delta)/n
 
 ##-------------Fit the model-------------------##
 # MCMC parameters
-nburn=5000; nsave=2000; nskip=2; niter = nburn+nsave
+nburn=200; nsave=500; nskip=0; niter = nburn+nsave
 mcmc=list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=1000);
 prior = list(maxL=15, a0=1, b0=1, M=10, q=.9);
 state <- list(cpar=1);
@@ -128,7 +129,7 @@ ptm<-proc.time()
 res1 = SuperSurvRegBayes(formula = Surv(t1, t2, type="interval2")~x1+x2, data=d, 
                           prior=prior, mcmc=mcmc, state=state, dist="lognormal");
 sfit=summary(res1); sfit;
-systime1=proc.time()-ptm
+systime1=proc.time()-ptm; systime1;
 par(mfrow = c(3,2))
 traceplot(mcmc(res1$beta_h[1,]), main="beta_h for x1");
 traceplot(mcmc(res1$beta_h[2,]), main="beta_h for x2");
@@ -140,7 +141,7 @@ traceplot(mcmc(res1$beta_q[2,]), main="beta_q for x2");
 ####################################################################
 ## Get curves
 ####################################################################
-wide=0.1;
+wide=0.2;
 tgrid = seq(1e-10,4,wide);
 ngrid = length(tgrid);
 xpred = rbind(c(0,0), c(0,1)); 
@@ -151,6 +152,5 @@ plot(tgrid, Sioft(tgrid, xpred[2,]), "l", lwd=3);
 lines(tgrid, Sioft(tgrid, xpred[1,]), "l", lwd=3);
 lines(estimates$tgrid, estimates$Shat[,1], lty=2, lwd=3)
 lines(estimates$tgrid, estimates$Shat[,2], lty=2, lwd=3)
-}
 }
 

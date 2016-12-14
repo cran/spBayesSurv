@@ -14,7 +14,8 @@ This function fits mixtures of Polya trees (MPT) proportional hazards, proportio
 survregbayes2(formula, data, na.action, survmodel="PH", dist="loglogistic", 
               mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
               prior=NULL, state=NULL, selection=FALSE, Proximity=NULL,
-              truncation_time=NULL, subject.num=NULL, InitParamMCMC=TRUE)
+              truncation_time=NULL, subject.num=NULL, InitParamMCMC=TRUE, 
+              scale.designX=TRUE)
 }
 
 \arguments{
@@ -43,6 +44,8 @@ survregbayes2(formula, data, na.action, survmodel="PH", dist="loglogistic",
    \item{subject.num}{a vector of suject id numbers when time dependent covariates are considered. For example, for subject 1 time dependent covariates are recorded over [0,1), [1,3), and for subject 2 covariates are recorded over [0,2), [2,3), [3,4). Suppose we only have two subjects, i.e. n=2. In this case, we save the data in the long format, set truncation_time=c(0,1,0,2,3) and subject.num=c(1,1,2,2,2).}
    
    \item{InitParamMCMC}{flag to indicate wheter an initial MCMC will be run based on the centering parametric model, where \code{TRUE} indicates yes. }
+   
+   \item{scale.designX}{flag to indicate wheter the design matrix X will be centered by column means and scaled by column standard deviations, where \code{TRUE} indicates yes. The default is \code{TRUE} for improving numerical stability. Even when it is scaled, the reported regression coefficients are in original scales. Note if we want to specify informative priors for regression coefficients, these priors should correspond to scaled predictors when \code{scale.designX=TRUE}.}
 }
 
 
@@ -65,7 +68,6 @@ Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>
 }
 
 \examples{
-\dontrun{
 rm(list=ls())
 library(coda)
 library(survival)
@@ -87,7 +89,7 @@ Finv = function(u, x,v=0) uniroot(function (t) Fioft(t,x,v)-u,
 
 ##-------------Generate data-------------------##
 ## generate x 
-n = 500; 
+n = 100; 
 x1 = rbinom(n, 1, 0.5); x2 = rnorm(n, 0, 1); X = cbind(x1, x2);
 ## generate survival times
 u = runif(n);
@@ -137,14 +139,17 @@ table(d$delta)/n;
 fit0=survreg(formula = Surv(t1, t2, type="interval2")~x1+x2, 
              data=d, dist="loglogistic");
 # MCMC parameters
-nburn=3000; nsave=3000; nskip=0; niter = nburn+nsave
+nburn=500; nsave=500; nskip=0; niter = nburn+nsave
+# Note larger nburn, nsave and nskip should be used in practice.
 mcmc=list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=500);
 prior = list(maxL=4, a0=1, b0=1);
 state <- list(cpar=1);
 ptm<-proc.time()
 res = survregbayes2(formula = Surv(t1, t2, type="interval2")~x1+x2, data=d, 
                      survmodel="PH", prior=prior, mcmc=mcmc, 
-                    state=state, dist="loglogistic");
+                    state=state, dist="loglogistic", InitParamMCMC=FALSE);
+## Note InitParamMCMC=FALSE is used only speeding,
+## InitParamMCMC=TRUE is recommended in general. 
 sfit=summary(res); sfit;
 systime=proc.time()-ptm; 
 
@@ -185,6 +190,5 @@ polygon(x=c(rev(tgrid),tgrid),
         border=NA,col="lightgray");
 lines(tgrid, Sioft(tgrid, c(0,xnew[i])), "l", lwd=3);
 lines(tgrid, estimates$Shat[,i], lty=3, lwd=3, col=1);
-}
 }
 

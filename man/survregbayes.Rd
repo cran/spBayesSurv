@@ -17,7 +17,8 @@ survregbayes(formula, data, na.action, survmodel="PH", dist="loglogistic",
              mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
              prior=NULL, state=NULL, selection=FALSE, Proximity=NULL, 
              truncation_time=NULL, subject.num=NULL, Knots=NULL,
-             Coordinates=NULL, DIST=NULL, InitParamMCMC=TRUE)
+             Coordinates=NULL, DIST=NULL, InitParamMCMC=TRUE, 
+             scale.designX=TRUE)
 }
 
 \arguments{
@@ -52,6 +53,8 @@ survregbayes(formula, data, na.action, survmodel="PH", dist="loglogistic",
    \item{DIST}{This is a function argument, used to calculate the distance. The default is Euclidean distance (\code{fields::rdist}). This function should have two arguments (X1,X2), where X1 and X2 are matrices with coordinates as the rows. The returned value of this function should be the pairwise distance matrix. If nrow(X1)=m and nrow(X2)=n then the function should return an m by n matrix of all distances between these two sets of points.}
    
    \item{InitParamMCMC}{flag to indicate wheter an initial MCMC will be run based on the centering parametric model, where \code{TRUE} indicates yes. }
+   
+   \item{scale.designX}{flag to indicate wheter the design matrix X will be centered by column means and scaled by column standard deviations, where \code{TRUE} indicates yes. The default is \code{TRUE} for improving numerical stability. Even when it is scaled, the reported regression coefficients are in original scales. Note if we want to specify informative priors for regression coefficients, these priors should correspond to scaled predictors when \code{scale.designX=TRUE}.}
 }
 
 
@@ -76,11 +79,11 @@ Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>
 }
 
 \examples{
-\dontrun{
 rm(list=ls())
-library(coda)
 library(survival)
 library(spBayesSurv)
+library(coda)
+library(MASS)
 library(fields)
 
 ## True coeffs
@@ -103,7 +106,7 @@ rho_Exp = function(dis, phi) exp(-(dis*phi));
 ###############################################################################
 phiT=1; sill=0.9999; ## phiT is the range parameter phi. 
 tau2T = 1; ## true frailty variance; 
-m = 100; mi=5
+m = 50; mi=2
 id=rep(1:m, each=mi)
 mseq = rep(mi, m);
 n = sum(mseq);
@@ -112,7 +115,7 @@ locs = cbind(s1, s2);
 ss = cbind(rep(locs[,1],each=mi), rep(locs[,2],each=mi)); ### the locations. 
 Dmm = .Call("DistMat", t(locs), t(locs), PACKAGE = "spBayesSurv");
 Rmm = sill*rho_Exp(Dmm, phiT)+diag(1-sill, m, m);
-v = MASS::mvrnorm(1, mu=rep(0,m), Sigma=tau2T*Rmm); 
+v = mvrnorm(1, mu=rep(0,m), Sigma=tau2T*Rmm); 
 vn = rep(v, each=mi)
 ## generate x 
 x1 = rbinom(n, 1, 0.5); x2 = rnorm(n, 0, 1); X = cbind(x1, x2);
@@ -145,7 +148,8 @@ table(d$delta)/n;
 
 ##-------------spBayesSurv-------------------##
 # MCMC parameters
-nburn=3000; nsave=3000; nskip=0; niter = nburn+nsave
+nburn=200; nsave=200; nskip=0;
+# Note larger nburn, nsave and nskip should be used in practice.
 mcmc=list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=1000);
 prior = list(maxL=15, a0=1, b0=1, nknots=m, nblock=m, nu=1);
 # here if nknots<m, FSA will be used with nblock=m.
@@ -153,14 +157,12 @@ state <- list(cpar=1);
 cor.dist = function(x1, x2) rdist(x1,x2)
 ptm<-proc.time()
 res1 = survregbayes(formula = Surv(t1, delta)~x1+x2+
-                       frailtyprior("grf", id), data=d, 
+                       frailtyprior("grf", id), data=d, InitParamMCMC=FALSE,
                      survmodel="PH", prior=prior, mcmc=mcmc, DIST=cor.dist,
                      state=state, dist="loglogistic", Coordinates = locs);
-## Or equivalently
-#res1 = survregbayes(formula = Surv(t1, t2, type="interval2")~x1+x2+
-#                       frailtyprior("grf", id), data=d, 
-#                     survmodel="PH", prior=prior, mcmc=mcmc, 
-#                     state=state, dist="loglogistic", Coordinates = locs);
+## Or equivalently formula = Surv(t1, t2, type="interval2") can also be used.
+## Note InitParamMCMC=FALSE is used for speeding,
+## InitParamMCMC=TRUE is recommended in general. 
 sfit=summary(res1); sfit
 systime1=proc.time()-ptm; systime1;
 
@@ -182,7 +184,7 @@ traceplot(mcmc(res1$phi), main="phi");
 ############################################
 ## Curves
 ############################################
-wide=0.02;
+wide=0.2;
 tgrid = seq(1e-10,4,wide);
 ngrid = length(tgrid);
 p = length(betaT); # number of covariates
@@ -197,10 +199,21 @@ lines(estimates$tgrid, estimates$Shat[,1], lty=2, lwd=3)
 lines(estimates$tgrid, estimates$Shat[,2], lty=2, lwd=3)
 
 ## Cox-Snell plot
-fit0 = survfit(res1$Surv.cox.snell~1)
-plot(fit0, fun="cumhaz", conf.int=F, xlim=c(0,5), ylim=c(0,5))
-xx = seq(0, 5, 0.01);
-lines(xx, xx, lty=3)
+nrand = 2;
+set.seed(1)
+Resid = cox.snell.survregbayes(res1, ncurves=nrand);
+r.max = 5;
+xlim=c(0, r.max); ylim=c(0, r.max);
+xx = seq(0, r.max, 0.01);
+fit = survfit(Resid$resid1~1);
+par(cex=1.5,mar=c(2.1,2.1,1,1),cex.lab=1.4,cex.axis=1.1)
+plot(fit, fun="cumhaz", conf.int=FALSE, mark.time=FALSE, 
+     xlim=xlim, ylim=ylim, lwd=2, lty=2)
+lines(xx, xx, lty=1, lwd=3, col="darkgrey")
+for(i in 2:nrand){
+  fit = survfit(Resid[[i+1]]~1);
+  lines(fit, fun="cumhaz", conf.int=FALSE, mark.time=FALSE, 
+        xlim=xlim, ylim=ylim, lwd=2, lty=2)
 }
 }
 

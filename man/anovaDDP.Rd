@@ -83,18 +83,14 @@ Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>
 \keyword{Bayesian nonparametric}
 
 \examples{
-\dontrun{
-
 ###############################################################
 # A simulated data: mixture of two normals
 ###############################################################
 rm(list=ls())
-library(MASS)
-library(Rcpp)
-library(RcppArmadillo)
-library(coda)
 library(survival)
 library(spBayesSurv)
+library(coda)
+library(MASS)
 
 ## True parameters 
 betaT = cbind(c(3.5, 0.5), c(2.5, -1)); 
@@ -104,7 +100,7 @@ theta1 = 0.98; theta2 = 100000;
 
 ## generate coordinates: 
 ## npred is the # of locations for prediction
-n = 300; npred = 30; ntot = n + npred;
+n = 100; npred = 30; ntot = n + npred;
 ldist = 100; wdist = 40;
 s1 = runif(ntot, 0, wdist); s2 = runif(ntot, 0, ldist);
 s = rbind(s1,s2);
@@ -206,16 +202,17 @@ prior = list(N = 10,
 state <- NULL
 
 # MCMC parameters
-nburn <- 5000
-nsave <- 3000
+nburn <- 500
+nsave <- 500
 nskip <- 0
 ndisplay <- 500
 mcmc <- list(nburn=nburn,
              nsave=nsave,
              nskip=nskip,
              ndisplay=ndisplay)
-
+# Note larger nburn, nsave and nskip should be used in practice.
 # Fit model
+ptm<-proc.time()
 res1 = anovaDDP( y = y,
               delta =delta, 
               x = x, 
@@ -223,7 +220,7 @@ res1 = anovaDDP( y = y,
               prior=prior, 
               mcmc=mcmc,
               state=state);
-
+systime1=proc.time()-ptm; systime1;
 par(mfrow = c(2,2))
 w.save = res1$w;
 Kindex = which.max(rowMeans(w.save));
@@ -250,7 +247,7 @@ par(mfrow = c(2,2))
 xnew = c(-1, 1)
 xpred = cbind(xnew); 
 nxpred = nrow(xpred);
-ygrid = seq(0,6.0,0.05); tgrid = exp(ygrid);
+ygrid = seq(0,6.0,0.2); tgrid = exp(ygrid);
 ngrid = length(ygrid);
 estimates = GetCurves(res1, xpred, ygrid, CI=c(0.05, 0.95));
 fhat = estimates$fhat; 
@@ -290,7 +287,5 @@ for(i in 1:nxpred){
   lines(tgrid, Shat[,i], lty=2, lwd=2, col=4);
   lines(tgrid, estimates$Shatup[,i], lty=2, lwd=1, col=4);
   lines(tgrid, estimates$Shatlow[,i], lty=2, lwd=1, col=4);
-}
-
 }
 }

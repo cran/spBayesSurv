@@ -1,7 +1,8 @@
 "survregbayes2" <- function (formula, data, na.action, survmodel="PH", dist="loglogistic", 
                             mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
                             prior=NULL, state=NULL, selection=FALSE, Proximity=NULL, 
-                            truncation_time=NULL, subject.num=NULL, InitParamMCMC=TRUE) {
+                            truncation_time=NULL, subject.num=NULL, InitParamMCMC=TRUE,
+                            scale.designX=TRUE) {
   #########################################################################################
   # call parameters 
   #########################################################################################
@@ -89,7 +90,11 @@
     X.scaled <- NULL;
     X1 = cbind(rep(1,n), X.scaled); 
   }else{
-    #X.scaled <- scale(X, center=rep(0,p), scale=rep(1,p));
+    if(scale.designX){
+      X.scaled <- scale(X);
+    }else{
+      X.scaled <- scale(X, center=rep(0,p), scale=rep(1,p));
+    }
     X.scaled <- scale(X);
     X.center = attributes(X.scaled)$`scaled:center`;
     X.scale = attributes(X.scaled)$`scaled:scale`;

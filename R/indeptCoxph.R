@@ -1,5 +1,6 @@
-"indeptCoxph" <- function(y, delta, x=NULL, prediction, prior, mcmc, state, RandomIntervals=F, 
-                          data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL) {
+"indeptCoxph" <- function(y, delta, x=NULL, prediction, prior, mcmc, state, 
+                          RandomIntervals=FALSE, data=sys.frame(sys.parent()), 
+                          na.action=na.fail, work.dir=NULL) {
   #########################################################################################
   # call parameters
   #########################################################################################

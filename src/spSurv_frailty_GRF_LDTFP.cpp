@@ -106,7 +106,8 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
   int i1, evali;
   int JJ, KK, mm;
   double rej;
-  double phi_min = std::pow(-log(0.001), 1.0/nu)/Dmm.max();
+  //double phi_min = std::pow(-log(0.001), 1.0/nu)/Dmm.max();
+  double phi_min = ESMALL;
   double sill=0.9999;
   arma::mat Im = arma::eye(m,m);
   arma::mat Rmm=arma::zeros<arma::mat>(m,m);

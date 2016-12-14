@@ -1,5 +1,6 @@
-"spCopulaCoxph" <- function(y, delta, x=NULL, s, prediction, prior, mcmc, state, RandomIntervals=F,
-                                    data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL) {
+"spCopulaCoxph" <- function(y, delta, x=NULL, s, prediction, prior, mcmc, state, 
+                            RandomIntervals=FALSE, data=sys.frame(sys.parent()), 
+                            na.action=na.fail, work.dir=NULL) {
     #########################################################################################
     # call parameters
     #########################################################################################

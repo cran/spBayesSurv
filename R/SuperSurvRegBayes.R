@@ -1,7 +1,7 @@
 "SuperSurvRegBayes" <- function (formula, data, na.action, dist="lognormal", 
                                   mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500),
                                   prior=NULL, state=NULL, truncation_time=NULL, subject.num=NULL, 
-                                  InitParamMCMC=FALSE) {
+                                  InitParamMCMC=FALSE, scale.designX=TRUE) {
   #########################################################################################
   # call parameters 
   #########################################################################################
@@ -89,8 +89,11 @@
     X.scaled <- NULL;
     X1 = cbind(rep(1,n), X.scaled); 
   }else{
-    #X.scaled <- scale(X, center=rep(0,p), scale=rep(1,p));
-    X.scaled <- scale(X);
+    if(scale.designX){
+      X.scaled <- scale(X);
+    }else{
+      X.scaled <- scale(X, center=rep(0,p), scale=rep(1,p));
+    }
     X.center = attributes(X.scaled)$`scaled:center`;
     X.scale = attributes(X.scaled)$`scaled:scale`;
     X1 = cbind(rep(1,n), X.scaled);

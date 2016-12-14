@@ -130,8 +130,8 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   Rcpp::NumericVector sumvn(n, 0.0); 
   double llold, llnew;
   double ratio, uu, nn;
-  double phi_min = std::pow(-log(0.001), 1.0/nu)/Dmm.max();
-  //double phi_min = ESMALL;
+  //double phi_min = std::pow(-log(0.001), 1.0/nu)/Dmm.max();
+  double phi_min = ESMALL;
   // for theta
   arma::vec thetaold(2); 
   arma::vec thBarold(2);
@@ -679,11 +679,11 @@ RcppExport SEXP PO_BP_cox_snell(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, S
     }
   }
   // get Cox-Snell residuals
-  arma::vec r1 = -arma::log(arma::mean(St1, 1));
-  arma::vec r2 = -arma::log(arma::mean(St2, 1));
+  //arma::vec r1 = -arma::log(arma::mean(St1, 1));
+  //arma::vec r2 = -arma::log(arma::mean(St2, 1));
   
-  return List::create(Named("resid1")=r1,
-                      Named("resid2")=r2);
+  return List::create(Named("St1")=St1,
+                      Named("St2")=St2);
   END_RCPP
 }
 
