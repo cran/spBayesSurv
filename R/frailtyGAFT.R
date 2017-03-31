@@ -165,31 +165,33 @@
     }else{
       stop("This function only supports non-frailty, car frailty, iid and grf frailty models.")
     }
-    if(is.null(state$frail)) {
-      v <- rep(0, length(blocki)-1);
-      if(frail.prior=="grf"){
-        nu = prior$nu; if(is.null(nu)) nu=1;
-        fit0 <- survival::survreg(formula = Y~X1-1+survival::frailty.gaussian(ID), dist="lognormal");
-        v = fit0$frail;
-        tau2_grf = var(fit0$frail);
-        maxdis = max(Dmm);
-        phi_min = (-log(0.001))^(1/nu)/maxdis
-        phib0_prior = -log(.95)/phi_min;
-        phi = 1/phib0_prior;
-        if(!is.null(state$phi)){
-          phi = state$phi;
-        }
-        if (phi<=0) stop("phi in state arguement should be greater than 0.")
-      }
-    } else {
-      v <- state$frail; if(length(v)!=(length(blocki)-1)) stop("check the length of frail");
-    }
   }else{
     ID = NULL;
     blocki = c(0, n);
     W = matrix(1, length(blocki)-1, length(blocki)-1);
     D = rep(1, length(blocki)-1);
     v <- rep(0, length(blocki)-1);
+  }
+  phi = state$phi; if(is.null(phi)) phi=1;
+  phib0_prior = 1;
+  nu = prior$nu; if(is.null(nu)) nu=1;
+  if(!is.null(frail.prior)){
+    if(frail.prior=="grf"){
+      maxdis = max(Dmm);
+      #phi_min = (-log(0.001))^(1/nu)/maxdis; phib0_prior = -log(.95)/phi_min; phi = 1/phib0_prior;
+      #cc = sqrt((-log(0.001))^(1/nu)/maxdis); phi = maxdis*cc;
+      phi = (-log(0.001))^(1/nu)/maxdis; 
+      phib0_prior = 1;
+      if(!is.null(state$phi)){
+        phi = state$phi;
+      }
+      if (phi<=0) stop("phi in state arguement should be greater than 0.")
+    }
+  }
+  if(is.null(state$frail)) {
+    v <- rep(0, length(blocki)-1);
+  } else {
+    v <- state$frail; if(length(v)!=(length(blocki)-1)) stop("check the length of frail");
   }
   #########################################################################################
   # priors
@@ -218,14 +220,14 @@
   gprior <- prior$gprior; if(is.null(gprior)) gprior <- 2*n*solve(t(Xtf1)%*%Xtf1);
   taua0 = prior$taua0; if(is.null(taua0)) taua0=1;
   taub0 = prior$taub0; if(is.null(taub0)) taub0=1;
+  phib0 = prior$phib0; if(is.null(phib0)) phib0=phib0_prior;
+  phia0 = prior$phia0; if(is.null(phia0)) phia0=phib0*phi+1;
   mcmc = list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=ndisplay)
   if(!is.null(frail.prior)){
     prior = list(maxL=maxL, a0=a0, b0=b0, siga0=siga0, sigb0=sigb0, m0=m0, S0=S0);
     if((frail.prior=="iid")|(frail.prior=="car")){
       prior$taua0=taua0; prior$taub0=taub0;
     }else if (frail.prior=="grf"){
-      phia0 = prior$phia0; if(is.null(phia0)) phia0=1;
-      phib0 = prior$phib0; if(is.null(phib0)) phib0=phib0_prior;
       prior$nu=nu;
       prior$taua0=taua0; prior$taub0=taub0; #prior$silla0=silla0; prior$sillb0=sillb0;
       prior$phia0=phia0; prior$phib0=phib0;
@@ -333,9 +335,9 @@
   invisible(x)
 }
 
-"plot.frailtyGAFT" <- function (x, xpred=NULL, ygrid=NULL, xtfpred=NULL, CI=0.95, PLOT=FALSE, ...) {
+"plot.frailtyGAFT" <- function (x, xpred=NULL, tgrid=NULL, xtfpred=NULL, CI=0.95, PLOT=FALSE, ...) {
   if(is(x,"frailtyGAFT")){
-    if(is.null(ygrid)) ygrid = seq(log(min(x$Y[,2], na.rm=T)), log(max(x$Y[,2], na.rm=T)), length.out=200);
+    if(is.null(tgrid)) tgrid = seq(0.01, max(x$Surv[,1], na.rm=T), length.out=200);
     if(is.null(xpred)) {
       xpred = matrix(1);
       nxpred = nrow(xpred);
@@ -355,20 +357,23 @@
       xtfpred = cbind(xtfpred);
       xtfpred = cbind(rep(1,nxpred), xtfpred);
     }
-    estimates <- .Call("frailtyGAFTplots", ygrid, xpred, xtfpred, x$beta, x$betatf, x$sigma2, x$maxL, CI, PACKAGE = "spBayesSurv");
+    estimates <- .Call("frailtyGAFTplots", tgrid, xpred, xtfpred, x$beta, x$betatf, 
+                       x$sigma2, x$maxL, CI, PACKAGE = "spBayesSurv");
     if(PLOT){
       par(cex=1.5,mar=c(4.1,4.1,1,1),cex.lab=1.4,cex.axis=1.1)
-      plot(ygrid, estimates$Shat[,1], "l", lwd=3, xlab="log time", ylab="survival",
-           xlim=c(min(ygrid), max(ygrid)), ylim=c(0,1));
+      plot(tgrid, estimates$Shat[,1], "l", lwd=3, xlab="time", ylab="survival",
+           ylim=c(0,1), main=paste(i));
       for(i in 1:nxpred){
-        polygon(x=c(rev(ygrid),ygrid),
+        polygon(x=c(rev(tgrid),tgrid),
                 y=c(rev(estimates$Shatlow[,i]),estimates$Shatup[,i]),
                 border=NA,col="lightgray");
-        lines(ygrid, estimates$Shat[,i], lty=3, lwd=3, col=1);
+      }
+      for(i in 1:nxpred){
+        lines(tgrid, estimates$Shat[,i], lty=3, lwd=3, col=1);
       }
     }
   }
-  estimates$ygrid=ygrid;
+  estimates$tgrid=tgrid;
   invisible(estimates)
 }
 
@@ -410,10 +415,10 @@
   
   ### Precision parameter
   if(object$prior$a0<=0){
-    ans$alpha <- NULL
+    ans$prec <- NULL
   }else{
     mat <- object$alpha
-    coef.p <- mean(mat); names(coef.p)="";
+    coef.p <- mean(mat); names(coef.p)="alpha";
     coef.m <- median(mat)    
     coef.sd <- sd(mat)
     limm <- as.vector(coda::HPDinterval(coda::mcmc(mat), prob=CI.level))
@@ -424,7 +429,7 @@
     dimnames(coef.table) <- list(names(coef.p), c("Mean", "Median", "Std. Dev.", 
                                                   paste(CI.level*100, "%HPD-Low", sep=""),
                                                   paste(CI.level*100, "%HPD-Upp", sep="")))
-    ans$alpha <- coef.table
+    ans$prec <- coef.table
   }
   
   ### frailty variance parameter
@@ -489,9 +494,9 @@
   cat("\nPosterior inference of scale parameter\n")
   print.default(format(x$scale, digits = digits), print.gap = 2, quote = FALSE)
   
-  if (!is.null(x$alpha)) {
+  if (!is.null(x$prec)) {
     cat("\nPosterior inference of precision parameter of LDTFP\n")
-    print.default(format(x$alpha, digits = digits), print.gap = 2, 
+    print.default(format(x$prec, digits = digits), print.gap = 2, 
                   quote = FALSE)
   }
   

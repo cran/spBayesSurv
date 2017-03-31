@@ -144,28 +144,36 @@ double pow_exp(double dis, double phi, double nu){
 // Preprocess R^{-1} to get Rinv using FSA
 void inv_FSA(double sill, const arma::mat& Cnn, const arma::mat& Cnm, const arma::mat& Cmm,
               const arma::mat& clustindx, arma::mat& Cinv, double& logdetC){
-  int n=Cnn.n_cols;
+  int n = Cnn.n_cols;
   int nclust = clustindx.n_cols;
-  arma::mat Cs = sill*(Cnn-Cnm*arma::solve(Cmm, Cnm.t())) + (1.0-sill)*arma::eye(n,n);
-  arma::mat invCs = arma::diagmat(1.0/Cs.diag());
-  double logdet3 = arma::sum(arma::log(Cs.diag()));
-  if(nclust<n){
-    logdet3=0;
-    for (int i=0; i<nclust; i++){
-      arma::uvec vindx = arma::find(clustindx.col(i));
-      invCs.submat(vindx, vindx) = arma::inv_sympd(Cs.submat(vindx, vindx));
-      double val0, sign0;
-      arma::log_det(val0, sign0, Cs.submat(vindx, vindx));
-      logdet3 += val0;
+  int m = Cmm.n_cols;
+  if(m==n){
+    arma::mat Cnntemp = sill*Cnn+(1.0-sill)*arma::eye(n,n);
+    Cinv = arma::inv_sympd(Cnntemp);
+    double sign0;
+    arma::log_det(logdetC, sign0, Cnntemp);
+  }else{
+    arma::mat Cs = sill*(Cnn-Cnm*arma::solve(Cmm, Cnm.t())) + (1.0-sill)*arma::eye(n,n);
+    arma::mat invCs = arma::diagmat(1.0/Cs.diag());
+    double logdet3 = arma::sum(arma::log(Cs.diag()));
+    if(nclust<n){
+      logdet3=0;
+      for (int i=0; i<nclust; i++){
+        arma::uvec vindx = arma::find(clustindx.col(i));
+        invCs.submat(vindx, vindx) = arma::inv_sympd(Cs.submat(vindx, vindx));
+        double val0, sign0;
+        arma::log_det(val0, sign0, Cs.submat(vindx, vindx));
+        logdet3 += val0;
+      }
     }
+    arma::mat invCsCnm = invCs*Cnm;
+    arma::mat More = Cmm + sill*Cnm.t()*invCsCnm;
+    Cinv = invCs - sill*invCsCnm*arma::solve(More,invCsCnm.t());
+    double val0, sign0;
+    arma::log_det(val0, sign0, More);
+    double logdet1 = val0;
+    arma::log_det(val0, sign0, Cmm);
+    double logdet2 = val0;
+    logdetC = logdet1 - logdet2 + logdet3;
   }
-  arma::mat invCsCnm = invCs*Cnm;
-  arma::mat More = Cmm + sill*Cnm.t()*invCsCnm;
-  Cinv = invCs - sill*invCsCnm*arma::solve(More,invCsCnm.t());
-  double val0, sign0;
-  arma::log_det(val0, sign0, More);
-  double logdet1 = val0;
-  arma::log_det(val0, sign0, Cmm);
-  double logdet2 = val0;
-  logdetC = logdet1 - logdet2 + logdet3;
 }

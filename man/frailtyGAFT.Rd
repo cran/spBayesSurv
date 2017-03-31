@@ -171,37 +171,22 @@ traceplot(mcmc(res$beta[3,]), main="beta3");
 ####################################################################
 ## Get curves
 ####################################################################
-par(mfrow = c(2,1))
-ygrid = seq(-3,3,0.03); tgrid = exp(ygrid);
-ngrid = length(ygrid);
+par(mfrow = c(1,1))
+tgrid = seq(0.1,6,length=100); ygrid=log(tgrid);
+ngrid = length(tgrid);
 xnew = c(0, 1)
 xpred = cbind(c(1,1.5), xnew); 
 xtfpred = xpred;
 nxpred = nrow(xpred);
-estimates = plot(res, xpred, ygrid, xtfpred=xtfpred, CI=0.9, PLOT=FALSE);
-fhat = estimates$fhat; 
-Shat = estimates$Shat;
-## density in y
-xlim=c(-3,3)
+estimates = plot(res, xpred, tgrid, xtfpred=xtfpred, CI=0.9, PLOT=FALSE);
+## survival curves
 shiftpred = rep(0, nxpred);
 for(i in 1:nxpred) shiftpred[i] = (sum(c(1,xpred[i,])*betaT));
-
-## plots
-## density in y
-plot(ygrid, ff(ygrid-shiftpred[1],xnew[1]), "l", lwd=2,  
-     xlim=xlim, main="density in y")
+plot(tgrid, 1-FF(ygrid-shiftpred[1],xnew[1]), "l", lwd=2,  
+     main="Survival function", xlab="time", ylab="survival")
 for(i in 1:nxpred){
-  lines(ygrid, ff(ygrid-shiftpred[i],xnew[i]), "l", lwd=2,  
-        xlim=xlim, main="density in y")
-  lines(ygrid, fhat[,i], lty=2, lwd=2, col=4);
-}
-## survival in y
-plot(ygrid, 1-FF(ygrid-shiftpred[1],xnew[1]), "l", lwd=2,  
-     xlim=xlim, main="survival in y")
-for(i in 1:nxpred){
-  lines(ygrid, 1-FF(ygrid-shiftpred[i],xnew[i]), "l", lwd=2,  
-        xlim=xlim, main="survival in y")
-  lines(ygrid, Shat[,i], lty=2, lwd=2, col=4);
+  lines(tgrid, 1-FF(ygrid-shiftpred[i],xnew[i]), "l", lwd=2)
+  lines(tgrid, estimates$Shat[,i], lty=2, lwd=2, col=4);
 }
 }
 

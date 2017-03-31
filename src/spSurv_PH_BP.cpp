@@ -156,7 +156,7 @@ RcppExport SEXP PH_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   // for log(phi)
   double phibarnew=0, phibarold=0, phisnew=0, phinew=0, phishat=0.01;
   // for sill
-  double sill=0.9999;
+  double sill=1.0-ESMALL;
   
   // for v
   arma::mat Im = arma::eye(m,m);

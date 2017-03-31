@@ -682,10 +682,11 @@ arma::vec spldtfp_Linv(const Rcpp::NumericMatrix& tobs, const Rcpp::IntegerVecto
 }
 
 // Get density or survival Plots for frailty LDTFP AFT
-RcppExport SEXP frailtyGAFTplots(SEXP ygrid_, SEXP xcepred_, SEXP xtfpred_, SEXP betace_, SEXP betatf_, SEXP sigma2_, SEXP maxL_, SEXP CI_){
+RcppExport SEXP frailtyGAFTplots(SEXP tgrid_, SEXP xcepred_, SEXP xtfpred_, SEXP betace_, 
+                                 SEXP betatf_, SEXP sigma2_, SEXP maxL_, SEXP CI_){
   BEGIN_RCPP
   // Transfer R variables into C++;
-  arma::vec ygrid = as<vec>(ygrid_);
+  arma::vec tgrid = as<vec>(tgrid_);
   arma::mat xcepred = as<mat>(xcepred_); // npred by pce;
   arma::mat xtfpred = as<mat>(xtfpred_); // npred by ptf;
   arma::mat betace = as<mat>(betace_); // pce by nsave;
@@ -698,12 +699,13 @@ RcppExport SEXP frailtyGAFTplots(SEXP ygrid_, SEXP xcepred_, SEXP xtfpred_, SEXP
   double CI = as<double>(CI_);
   int maxL = as<int>(maxL_);
   int nsave = sigma2.size();
-  int ngrid = ygrid.size();
+  int ngrid = tgrid.size();
   int npred = xcepred.n_rows;
   int low = nsave*(1.0-CI)*0.5 - 1;
   int up = nsave*(CI+(1.0-CI)*0.5) - 1;
   
   // Temp variables
+  arma::vec ygrid = arma::log(tgrid);
   Rcpp::NumericVector estfArray(nsave*ngrid*npred);
   arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false);
   Rcpp::NumericVector estSArray(nsave*ngrid*npred);
@@ -732,10 +734,10 @@ RcppExport SEXP frailtyGAFTplots(SEXP ygrid_, SEXP xcepred_, SEXP xtfpred_, SEXP
     for(int j=0; j<npred; ++j){
       for(int k=0; k<ngrid; ++k){
         ldensldtfp(ygrid[k], xibetav(j), xibetatf.col(j), sigma2[i], tmp1, maxL);
-        estf(k, i, j) = std::exp(tmp1);
+        estf(k, i, j) = std::exp(tmp1)/tgrid[k];
         cdfldtfp(ygrid[k], xibetav(j), xibetatf.col(j), sigma2[i], tmp2, maxL);
         estS(k, i, j) = 1.0 - tmp2;
-        esth(k, i, j) = std::exp(tmp1)/(1.0 - tmp2);
+        esth(k, i, j) = std::exp(tmp1)/tgrid[k]/(1.0 - tmp2);
       }
     }
   }

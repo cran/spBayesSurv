@@ -44,40 +44,24 @@ void Getmk(Rcpp::IntegerVector& mk, const Rcpp::IntegerVector& Mt);
 // Calculate lk, k=1, ..., M with m0=0;
 // where h=(h0, h1, ..., hM) with h0=0 and d=(d0, d1, ..., dM) with d0=0, dM=R_PosInf
 void Getlk(Rcpp::NumericVector& lk, const Rcpp::IntegerVector& Mt, int M1, Rcpp::NumericVector d, 
-           const Rcpp::NumericVector& t, const arma::vec& Xbeta);
-
-//Sample hcen using adaptive M-H for Cox PH with random cutpoints;
-void sample_hcen(double& hcen, int& rejhcen, double& hSnew, double& hbarnew, Rcpp::NumericVector h, double r0, double h0, double V0,
-                 double hl0, double hs0, double hadapter, int iscan);
+           const Rcpp::NumericVector& t, const Rcpp::NumericVector& Xbeta);
 
 //////////////////////////////////////////////////////////////////////
 // Independent Cox PH
 /////////////////////////////////////////////////////////////////////
-//Sample beta using adaptive M-H for independent Cox PH;
-void indept_sample_beta(arma::vec& beta, int& rejbeta, arma::mat& Snew, arma::vec& betabarnew, const arma::mat& X, 
-                 const arma::vec& Lamb0, arma::vec mu0, arma::mat Sig0, int p, double l0, arma::mat S0, 
-                 double adapter, int iscan);
-
 // Calculate CPO for Independent Cox PH
-arma::vec LinvIndeptCox(Rcpp::NumericVector tobs, Rcpp::IntegerVector delta, arma::vec Xbeta, Rcpp::NumericVector h, Rcpp::NumericVector d);
+arma::vec LinvIndeptCox(Rcpp::NumericVector tobs, Rcpp::IntegerVector delta, Rcpp::NumericVector Xbeta,
+                        Rcpp::NumericVector h, Rcpp::NumericVector d);
 
 //////////////////////////////////////////////////////////////////////
 // spatial Copula Cox PH
 /////////////////////////////////////////////////////////////////////
 // Claculate transformed survival time vector z
-void Getz(arma::vec& z, const Rcpp::NumericVector& t, Rcpp::NumericVector h, Rcpp::NumericVector d, const arma::vec& Xbeta, int n);
-
-//Sample beta using adaptive M-H for spatial Copula Cox PH;
-void spCopula_sample_beta(arma::vec& beta, int& rejbeta, arma::mat& Snew, arma::vec& betabarnew, const arma::mat& X, 
-                 const arma::vec& Lamb0, arma::vec mu0, arma::mat Sig0, int p, double l0, arma::mat S0, 
-                 double adapter, int iscan, arma::vec& z, const arma::mat& Cinv, 
-                 const Rcpp::NumericVector& t, Rcpp::NumericVector h, Rcpp::NumericVector d, int n);
+void Getz(arma::vec& z, const Rcpp::NumericVector& t, Rcpp::NumericVector h, Rcpp::NumericVector d, 
+          const Rcpp::NumericVector& Xbeta, int n);
 
 // Calculate CPO for spatial Copula Cox PH
-arma::vec LinvSpCopulaCox(Rcpp::NumericVector tobs, Rcpp::IntegerVector delta, arma::vec Xbeta, Rcpp::NumericVector h, Rcpp::NumericVector d, 
-                          arma::mat Cinv, arma::vec z);
-
-// Get density or survival Plots for Cox PH
-RcppExport SEXP CoxPHplots(SEXP xpred_, SEXP tgrid_, SEXP beta_, SEXP h_, SEXP d_, SEXP probs_);
+arma::vec LinvSpCopulaCox(Rcpp::NumericVector tobs, Rcpp::IntegerVector delta, Rcpp::NumericVector Xbeta, 
+                          Rcpp::NumericVector h, Rcpp::NumericVector d, arma::mat Cinv, arma::vec z);
 
 #endif

@@ -14,7 +14,7 @@
   temp <- Call[c(1,indx)]  # only keep the arguments we wanted
   temp[[1]] <- as.name('model.frame')  # change the function called
   
-  special <- c("baseline", "frailtyprior", "truncation_time", "subject.num")
+  special <- c("baseline", "frailtyprior", "truncation_time", "subject.num", "b_spline")
   temp$formula <- if(missing(data)) terms(formula, special)
   else              terms(formula, special, data=data)
   if (is.R()) m <- eval(temp, parent.frame())
@@ -38,6 +38,7 @@
   
   baseline0 <- attr(Terms, "specials")$baseline
   frailtyprior0<- attr(Terms, "specials")$frailtyprior
+  b_spline0<- attr(Terms, "specials")$b_spline
   dropx <- NULL
   if (length(frailtyprior0)) {
     temp <- survival::untangle.specials(Terms, 'frailtyprior', 1)
@@ -52,6 +53,19 @@
     Xtf <- m[[temp$vars]]
   }else{
     Xtf <- NULL;
+  }
+  if (length(b_spline0)) {
+    temp <- survival::untangle.specials(Terms, 'b_spline', 1)
+    #dropx <- c(dropx, temp$terms);
+    X.bs = NULL;
+    n.bs = rep(0, length(temp$vars));
+    for(ii in 1:length(temp$vars)){
+      X.bs = cbind(X.bs, m[[temp$vars[ii]]]);
+      n.bs[ii] = ncol(m[[temp$vars[ii]]]); 
+    }
+  }else{
+    X.bs <- NULL;
+    n.bs <- NULL;
   }
   
   if (length(dropx)) {
@@ -212,9 +226,10 @@
   if(!is.null(frail.prior)){
     if((frail.prior=="grf")){
       maxdis = max(Dmm);
-      phi_min = (-log(0.001))^(1/nu)/maxdis
-      phib0_prior = -log(.95)/phi_min;
-      phi = 1/phib0_prior;
+      #phi_min = (-log(0.001))^(1/nu)/maxdis; phib0_prior = -log(.95)/phi_min; phi = 1/phib0_prior;
+      #cc = sqrt((-log(0.001))^(1/nu)/maxdis); phi = maxdis*cc;
+      phi = (-log(0.001))^(1/nu)/maxdis; 
+      phib0_prior = 1;
       if(!is.null(state$phi)){
         phi = state$phi;
       }
@@ -348,14 +363,14 @@
   # priors
   # note the priors should be based on scaled data.
   #########################################################################################
-  cpar=state$cpar; if(is.null(cpar)) cpar=1;
+  alpha=state$alpha; if(is.null(alpha)) alpha=1;
   tau2 = state$tau2; if(is.null(tau2)) tau2=1/lambda; lambda=1/tau2;
   nburn <- mcmc$nburn;
   nsave <- mcmc$nsave;
   nskip <- mcmc$nskip;
   ndisplay <- mcmc$ndisplay;
   maxL <- prior$maxL; if(is.null(maxL)) maxL<-15;
-  #if (cpar==Inf) maxL=1;
+  #if (alpha==Inf) maxL=1;
   weight = rep(1/maxL, maxL);
   a0=prior$a0; if(is.null(a0)) a0=1;
   b0=prior$b0; if(is.null(b0)) b0=1;
@@ -383,6 +398,14 @@
       S0 <- S0_prior;
     }
   }
+  if(!is.null(n.bs)){
+    temp = survival::untangle.specials(Terms, 'b_spline', 1);
+    for(ii in 1:length(n.bs)){
+      indxii = which(attributes(X)$assign==temp$terms[ii]);
+      gg = (log(M)/qnorm(q))^2/n.bs[ii];
+      S0[indxii, indxii] = gg*n*solve(t(X.scaled[,indxii])%*%X.scaled[,indxii]);
+    }
+  }
   S0inv <- solve(S0);
   theta0 <- prior$theta0; if(is.null(theta0)) theta0 <- theta_prior;
   V0 <- prior$V0; if(is.null(V0)) V0 <- V0_prior;
@@ -397,14 +420,15 @@
   gamma0 = rep(1.0, p);
   taua0 = prior$taua0; if(is.null(taua0)) taua0=.001;
   taub0 = prior$taub0; if(is.null(taub0)) taub0=.001;
-  phia0 = prior$phia0; if(is.null(phia0)) phia0=1;
   phib0 = prior$phib0; if(is.null(phib0)) phib0=phib0_prior;
+  phia0 = prior$phia0; if(is.null(phia0)) phia0=phib0*phi+1;
   mcmc = list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=ndisplay)
   theta_initial=theta+0;
   beta_initial=beta+0;
   tau2_initial=1/lambda+0;
   frail_initial=v+0;
   clustindx=matrix(1,length(blocki)-1, 1);
+  nblock=prior$nblock; 
   if(!is.null(frail.prior)){
     initial.values = list(beta=beta_initial, theta=theta_initial, tau2=tau2_initial, frail=frail_initial);
     prior = list(maxL=maxL, a0=a0, b0=b0, theta0=theta0, V0=V0, beta0=beta0, S0=S0,
@@ -412,7 +436,7 @@
     if((frail.prior=="grf")){
       prior$nknots=nknots; initial.values$phi=phi; prior$nu=nu;
       prior$phia0=phia0; prior$phib0=phib0;
-      if(is.null(prior$nblock)) nblock=nID;
+      if(is.null(nblock)) nblock=nID;
       if(nblock==nID){
         clustindx=diag(1,length(blocki)-1, length(blocki)-1);
       }else{
@@ -444,7 +468,7 @@
     model.name <- "Accelerated failure time model:";
     foo <- .Call("AFT_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
                  subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, weight_=weight, 
-                 cpar_=cpar, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
+                 cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
                  beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, clustindx_=clustindx, 
@@ -454,7 +478,7 @@
     model.name <- "Proportional Odds model:";
     foo <- .Call("PO_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
                  subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, weight_=weight, 
-                 cpar_=cpar, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
+                 cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
                  beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, clustindx_=clustindx, 
@@ -464,7 +488,7 @@
     model.name <- "Proportional hazards model:";
     foo <- .Call("PH_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
                  subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, weight_=weight, 
-                 cpar_=cpar, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
+                 cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
                  beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, clustindx_=clustindx, 
@@ -503,13 +527,35 @@
   Surv.cox.snell = survival::Surv(resid1, resid2, type="interval2");
   
   ### Calculate Bayes Factors for log(weight[-maxL])-log(weight[maxL]);
-  HH = apply(foo$weight, 2, function(x) log(x[-maxL])-log(x[maxL]) ); 
-  meanH = apply(HH, 1, mean);
-  varH = var(t(HH));
-  meancpar = mean(foo$cpar);
-  numH = exp( lgamma(meancpar*maxL)-maxL*lgamma(meancpar)-meancpar*maxL*log(maxL) );
-  denH = as.vector((2*pi)^(-(maxL-1)/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
-  BayesFactor = numH/denH; 
+  if(alpha==Inf){
+    BayesFactor=NULL;
+  }else{
+    HH = apply(foo$weight, 2, function(x) log(x[-maxL])-log(x[maxL]) ); 
+    meanH = apply(HH, 1, mean);
+    varH = var(t(HH));
+    meancpar = mean(foo$cpar);
+    numH = exp( lgamma(meancpar*maxL)-maxL*lgamma(meancpar)-meancpar*maxL*log(maxL) );
+    denH = as.vector((2*pi)^(-(maxL-1)/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
+    BayesFactor = numH/denH; 
+  }
+  
+  ### Calculate Bayes Factors for non-linear B-spline terms
+  if(is.null(n.bs)){
+    BF.bs = NULL;
+  }else{
+    BF.bs = rep(0, length(n.bs));
+    temp = survival::untangle.specials(Terms, 'b_spline', 1);
+    names(BF.bs) = temp$vars
+    for(ii in 1:length(n.bs)){
+      indxii = which(attributes(X)$assign==temp$terms[ii])
+      HH = foo$beta[indxii,];
+      meanH = apply(HH, 1, mean); pp=length(meanH);
+      varH = as.matrix(var(t(HH)), pp, pp);
+      numH = ((2*pi)^(-pp/2)*(det(S0[indxii,indxii]))^(-1/2));
+      denH = as.vector((2*pi)^(-pp/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
+      BF.bs[ii] = numH/denH
+    }
+  }
   
   #### Save to a list
   output <- list(modelname=model.name,
@@ -530,7 +576,7 @@
                  beta = beta.original,
                  theta.scaled = theta.scaled,
                  beta.scaled = beta.scaled,
-                 cpar = foo$cpar,
+                 alpha = foo$cpar,
                  maxL = maxL,
                  weight = foo$weight,
                  cpo = foo$cpo,
@@ -544,7 +590,8 @@
                  frail.prior=frail.prior,
                  selection = selection,
                  initial.values=initial.values,
-                 BF = BayesFactor);
+                 BF.baseline = BayesFactor,
+                 BF.bs = BF.bs);
   if(!is.null(frail.prior)){
     output$v = foo$v;
     output$ratev = foo$ratev;
@@ -567,14 +614,18 @@
 #### BF for testing the centering distribution
 "BF.survregbayes" <- function (x) {
   if(is(x,"survregbayes")){
-    maxL = x$prior$maxL;
-    HH = apply(x$weight, 2, function(y) log(y[-maxL])-log(y[maxL]) ); 
-    meanH = apply(HH, 1, mean);
-    varH = var(t(HH));
-    meancpar = mean(x$cpar);
-    numH = exp( lgamma(meancpar*maxL)-maxL*lgamma(meancpar)-meancpar*maxL*log(maxL) );
-    denH = as.vector((2*pi)^(-(maxL-1)/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
-    BayesFactor = numH/denH;
+    if(x$alpha[1]==Inf){
+      BayesFactor=NULL;
+    }else{
+      maxL = x$prior$maxL;
+      HH = apply(x$weight, 2, function(y) log(y[-maxL])-log(y[maxL]) ); 
+      meanH = apply(HH, 1, mean);
+      varH = var(t(HH));
+      meancpar = mean(x$alpha);
+      numH = exp( lgamma(meancpar*maxL)-maxL*lgamma(meancpar)-meancpar*maxL*log(maxL) );
+      denH = as.vector((2*pi)^(-(maxL-1)/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
+      BayesFactor = numH/denH;
+    }
   }
   BayesFactor
 }
@@ -591,7 +642,7 @@
                   quote = FALSE)
   }
   
-  cat(paste("\nBayes Factor for ", x$dist, " baseline vs. Bernstein poly:", sep=""), x$BF)       
+  #cat(paste("\nBayes Factor for ", x$dist, " baseline vs. Bernstein poly:", sep=""), x$BF)       
   
   cat("\nLPML:", sum(log(x$cpo)))
   cat("\nDIC:", x$DIC)
@@ -802,8 +853,8 @@
   if(object$prior$a0<=0){
     ans$prec <- NULL
   }else{
-    mat <- object$cpar
-    coef.p <- mean(mat); names(coef.p)="";    
+    mat <- object$alpha
+    coef.p <- mean(mat); names(coef.p)="alpha";    
     coef.m <- median(mat)    
     coef.sd <- sd(mat)
     limm <- as.vector(quantile(mat, probs=c((1-CI.level)/2, 1-(1-CI.level)/2)))
@@ -867,8 +918,9 @@
   if(object$selection){
     ans$gamma = object$gamma;
   }
-  ans$cpar = object$cpar;
-  ans$BF = object$BF;
+  ans$alpha = object$alpha;
+  ans$BF.baseline = object$BF.baseline;
+  ans$BF.bs = object$BF.bs;
   
   class(ans) <- "summary.survregbayes"
   return(ans)
@@ -887,7 +939,7 @@
                   quote = FALSE)
   }
   
-  if(x$cpar[1]==Inf){
+  if(x$alpha[1]==Inf){
     cat("\nPosterior inference of baseline parameters\n")
     message("Note: the baseline estimates are based on scaled covariates")
     cat("(Adaptive M-H acceptance rate: ", x$ratetheta, "):\n", sep="")
@@ -923,7 +975,12 @@
     }
   }
   
-  cat(paste("\nBayes Factor for ", x$dist, " baseline vs. Bernstein poly:", sep=""), x$BF)  
+  #cat(paste("\nBayes Factor for ", x$dist, " baseline vs. Bernstein poly:", sep=""), x$BF)  
+  if(!is.null(x$BF.bs)){
+    cat("\nBayes Factor for testing linearity\n")
+    print.default(format(x$BF.bs, digits = digits), print.gap = 2, 
+                  quote = FALSE)
+  }
   
   if(x$selection){
     models=apply(x$gamma, 2, function(x) paste(x, sep="", collapse=",") )

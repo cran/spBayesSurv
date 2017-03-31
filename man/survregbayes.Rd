@@ -54,7 +54,7 @@ survregbayes(formula, data, na.action, survmodel="PH", dist="loglogistic",
    
    \item{InitParamMCMC}{flag to indicate wheter an initial MCMC will be run based on the centering parametric model, where \code{TRUE} indicates yes. }
    
-   \item{scale.designX}{flag to indicate wheter the design matrix X will be centered by column means and scaled by column standard deviations, where \code{TRUE} indicates yes. The default is \code{TRUE} for improving numerical stability. Even when it is scaled, the reported regression coefficients are in original scales. Note if we want to specify informative priors for regression coefficients, these priors should correspond to scaled predictors when \code{scale.designX=TRUE}.}
+   \item{scale.designX}{flag to indicate whether the design matrix X will be centered by column means and scaled by column standard deviations, where \code{TRUE} indicates yes. The default is \code{TRUE} for improving numerical stability. Even when it is scaled, the reported regression coefficients are in original scales. Note if we want to specify informative priors for regression coefficients, these priors should correspond to scaled predictors when \code{scale.designX=TRUE}.}
 }
 
 
@@ -68,7 +68,7 @@ survregbayes(formula, data, na.action, survmodel="PH", dist="loglogistic",
 }
 
 \references{
-Zhou, H. and Hanson, T. (2016). Bayesian semiparametric models for spatially correlated arbitrarily censored data. In preparation.
+Zhou, H. and Hanson, T. (2017). A unified framework for fitting Bayesian semiparametric models to arbitrarily censored spatial survival data. \emph{arXiv preprint arXiv:1701.06976}.
 
 Sang, H. and Huang, J. Z. (2012). A full scale approximation of covariance functions for large spatial data sets. \emph{Journal of the Royal Statistical Society: Series B (Statistical Methodology)}, 74(1), 111-132.
 }
@@ -153,13 +153,12 @@ nburn=200; nsave=200; nskip=0;
 mcmc=list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=1000);
 prior = list(maxL=15, a0=1, b0=1, nknots=m, nblock=m, nu=1);
 # here if nknots<m, FSA will be used with nblock=m.
-state <- list(cpar=1);
 cor.dist = function(x1, x2) rdist(x1,x2)
 ptm<-proc.time()
 res1 = survregbayes(formula = Surv(t1, delta)~x1+x2+
                        frailtyprior("grf", id), data=d, InitParamMCMC=FALSE,
                      survmodel="PH", prior=prior, mcmc=mcmc, DIST=cor.dist,
-                     state=state, dist="loglogistic", Coordinates = locs);
+                     dist="loglogistic", Coordinates = locs);
 ## Or equivalently formula = Surv(t1, t2, type="interval2") can also be used.
 ## Note InitParamMCMC=FALSE is used for speeding,
 ## InitParamMCMC=TRUE is recommended in general. 

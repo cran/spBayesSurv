@@ -58,13 +58,14 @@ arma::vec anovaDDP_Linv(Rcpp::NumericVector yobs, Rcpp::IntegerVector delta, arm
 /////////////////////////////////////////////////////////////////////
 // Sample y_i when delta_i=0
 void spCopula_sample_y(Rcpp::NumericVector& y, Rcpp::NumericVector& rejy, arma::mat& zPhi, arma::vec& z, arma::vec w, 
-      const Rcpp::NumericVector& yobs, const Rcpp::IntegerVector& delta, const arma::mat& Xbeta, Rcpp::NumericVector tau, 
-      Rcpp::IntegerVector K, const arma::mat& Cinv, int n, int N);
+                       const Rcpp::NumericVector& yobs, const Rcpp::IntegerVector& delta, const arma::mat& Xbeta, Rcpp::NumericVector tau, 
+                       Rcpp::IntegerVector K, const arma::mat& Cinv, int n, int N, int iscan, int nburn);
 
 // Sample beta;
 void spCopula_sample_beta(arma::mat& beta, Rcpp::NumericVector& rejbeta, arma::mat& zPhi, arma::vec& z, arma::vec w, 
-      const Rcpp::NumericVector& y, const arma::mat& X, Rcpp::NumericVector tau2, const Rcpp::IntegerVector& nK, 
-      const Rcpp::IntegerMatrix& Kind, arma::vec mu, arma::mat Sig, arma::mat invSig, const arma::mat& Cinv, int n, int N, int p);
+                          const Rcpp::NumericVector& y, const arma::mat& X, Rcpp::NumericVector tau2, 
+                          const Rcpp::IntegerVector& nK, const Rcpp::IntegerMatrix& Kind, arma::vec mu, 
+                          arma::mat Sig, arma::mat invSig, const arma::mat& Cinv, int n, int N, int p, int iscan, int nburn);
 
 // Sample beta blockwise;
 void spCopula_sample_beta_block(arma::mat& beta, Rcpp::NumericVector& rejbeta, arma::mat& zPhi, arma::vec& z, arma::vec w, 
@@ -73,8 +74,9 @@ void spCopula_sample_beta_block(arma::mat& beta, Rcpp::NumericVector& rejbeta, a
 
 //Sample simga2;
 void spCopula_sample_sigma2(Rcpp::NumericVector& tau2, Rcpp::NumericVector& rejsigma, arma::mat& zPhi, arma::vec& z, 
-      arma::vec w, const Rcpp::NumericVector& y, const arma::mat& Xbeta, const Rcpp::IntegerVector& nK, 
-      const Rcpp::IntegerMatrix& Kind, double nua, double nub, const arma::mat& Cinv, int n, int N);
+                            arma::vec w, const Rcpp::NumericVector& y, const arma::mat& Xbeta, const Rcpp::IntegerVector& nK, 
+                            const Rcpp::IntegerMatrix& Kind, double nua, double nub, const arma::mat& Cinv, int n, int N, 
+                            int iscan, int nburn);
 
 //Sample simga2 blockwise;
 void spCopula_sample_sigma2_block(Rcpp::NumericVector& tau2, Rcpp::NumericVector& rejsigma, arma::mat& zPhi, arma::vec& z, 
@@ -83,7 +85,7 @@ void spCopula_sample_sigma2_block(Rcpp::NumericVector& tau2, Rcpp::NumericVector
 
 //Sample V;
 void spCopula_sample_V(Rcpp::NumericVector& V, Rcpp::NumericVector& rejV, arma::mat& zPhi, arma::vec& z, arma::vec& w, 
-      const Rcpp::IntegerVector& nK, double alpha, const arma::mat& Cinv, int N);
+                       const Rcpp::IntegerVector& nK, double alpha, const arma::mat& Cinv, int N, int iscan, int nburn);
 
 //Sample V blockwise;
 void spCopula_sample_V_block(Rcpp::NumericVector& V, Rcpp::NumericVector& rejV, arma::mat& zPhi, arma::vec& z, arma::vec& w, 
@@ -100,7 +102,7 @@ void spCopulaInitial(Rcpp::IntegerVector& K, Rcpp::NumericVector& y, arma::mat& 
                   double a0, double b0, double nua, double nub, arma::mat invS0, arma::vec invS0m0 );
 
 // Get density or survival Plots for DDP
-RcppExport SEXP DDPplots(SEXP xpred_, SEXP ygrid_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP probs_);
+RcppExport SEXP DDPplots(SEXP xpred_, SEXP tgrid_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP CI_);
 
 // Spatial Maps for transformed spatial process using LDDPM-spatial model
 RcppExport SEXP PredMapsZ(SEXP ds0n_, SEXP dnn_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP theta1_, SEXP theta2_, SEXP z_);

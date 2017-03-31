@@ -309,7 +309,7 @@
   # priors
   # note the priors should be based on scaled data.
   #########################################################################################
-  cpar=state$cpar; if(is.null(cpar)) cpar=1;
+  alpha=state$alpha; if(is.null(alpha)) alpha=1;
   tau2 = state$tau2; if(is.null(tau2)) tau2=1/lambda; lambda=1/tau2; 
   nburn <- mcmc$nburn;
   nsave <- mcmc$nsave;
@@ -381,7 +381,7 @@
   if(survmodel=="AFT"){
     model.name <- "Accelerated failure time model:";
     foo <- .Call("AFT_MPT", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time, subjecti_=subjecti, 
-                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=cpar, Ys_=Ys, maxL_=maxL,
+                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=alpha, Ys_=Ys, maxL_=maxL,
                  a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, 
                  Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, lambda_=lambda, a0lambda_=taua0, b0lambda_=taub0, 
@@ -389,7 +389,7 @@
   }else if(survmodel=="PO"){
     model.name <- "Proportional Odds model:";
     foo <- .Call("PO_MPT", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time, subjecti_=subjecti, 
-                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=cpar, Ys_=Ys, maxL_=maxL,
+                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=alpha, Ys_=Ys, maxL_=maxL,
                  a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, 
                  Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, lambda_=lambda, a0lambda_=taua0, b0lambda_=taub0, 
@@ -397,7 +397,7 @@
   }else if(survmodel=="PH"){
     model.name <- "Proportional hazards model:";
     foo <- .Call("PH_MPT", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time, subjecti_=subjecti, 
-                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=cpar, Ys_=Ys, maxL_=maxL,
+                 t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=alpha, Ys_=Ys, maxL_=maxL,
                  a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, 
                  Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, lambda_=lambda, a0lambda_=taua0, b0lambda_=taub0, 
@@ -439,7 +439,7 @@
                  beta = beta.original,
                  theta.scaled = theta.scaled,
                  beta.scaled = beta.scaled,
-                 cpar = foo$cpar,
+                 alpha = foo$cpar,
                  maxL = maxL,
                  Ys = foo$Ys,
                  cpo = foo$cpo,
@@ -585,8 +585,8 @@
   if(object$prior$a0<=0){
     ans$prec <- NULL
   }else{
-    mat <- object$cpar
-    coef.p <- mean(mat); names(coef.p)="";
+    mat <- object$alpha
+    coef.p <- mean(mat); names(coef.p)="alpha";
     coef.m <- median(mat)    
     coef.sd <- sd(mat)
     limm <- as.vector(quantile(mat, probs=c((1-CI.level)/2, 1-(1-CI.level)/2)))
@@ -635,7 +635,7 @@
   if(object$selection){
     ans$gamma = object$gamma;
   }
-  ans$cpar = object$cpar;
+  ans$alpha = object$alpha;
   
   class(ans) <- "summary.survregbayes2"
   return(ans)
@@ -654,7 +654,7 @@
                   quote = FALSE)
   }
   
-  if(x$cpar[1]==Inf){
+  if(x$alpha[1]==Inf){
     cat("\nPosterior inference of baseline parameters\n")
     message("Note: the baseline estimates are based on scaled covariates")
     cat("(Adaptive M-H acceptance rate: ", x$ratetheta, "):\n", sep="")

@@ -1,57 +1,33 @@
 \name{anovaDDP}
 \alias{anovaDDP}
 
-\title{Fit Bayesian Nonparametric Survival Model}
+\title{Bayesian Nonparametric Survival Model}
 \description{
-This function fits a Bayesian Nonparametric model for non-spatial right censored time-to-event data.
+This function fits a Bayesian nonparametric model for non-spatial right censored time-to-event data.
 }
    
 \usage{
-anovaDDP(y, delta, x=NULL, prediction, prior, mcmc, state, status=TRUE,
-         data=sys.frame(sys.parent()), na.action=na.fail, work.dir=NULL)
+anovaDDP(formula, data, na.action, prediction=NULL,
+         mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500),
+         prior=NULL, state=NULL, scale.designX=TRUE)
 }
 
 \arguments{
-   \item{y}{         an n by 1 vector giving the log survival times.}
+   \item{formula}{a formula expression with the response returned by the \code{Surv} function in the \code{survival} package. It currently only supports right-censoring.}
    
-   \item{delta}{	   an n by 1 vector indicating whether it is right censored (=0) or not (=1).}
+   \item{data}{a data frame in which to interpret the variables named in the \code{formula} argument.}
    
-   \item{x}{         an n by p matrix of covariates without intercept. The default is NULL, 
-                     indicating no covariates included.} 
-
-   \item{prediction}{a list giving the information used to obtain conditional 
-                     inferences. The list includes the following elements: 
-                     \code{xpred} giving the n by p covariates matrix, used for prediction.}
+   \item{na.action}{a missing-data filter function, applied to the \code{model.frame}.}
+   
+   \item{prediction}{a list giving the information used to obtain conditional inferences. The list includes the following element: \code{xpred} giving the npred by p covariates matrix, used for prediction. If \code{prediction=NULL}, \code{xpred} will be set to be the design matrix used in \code{formula}.}
+   
+   \item{mcmc}{a list giving the MCMC parameters. The list must include the following elements: \code{nburn} an integer giving the number of burn-in scans, \code{nskip} an integer giving the thinning interval, \code{nsave} an integer giving the total number of scans to be saved, \code{ndisplay} an integer giving the number of saved scans to be displayed on screen (the function reports on the screen when every \code{ndisplay} iterations have been carried out).}
     
-    \item{prior}{    a list giving the prior information. The list includes the following
-                     parameter: \code{N} an integer giving the truncation of the Dirichlet 
-                     process, \code{a0} and \code{b0} giving the hyperparameters for
-                     prior distribution of the precision parameter \code{alpha}. See Zhou, Hanson and Knapp (2015) 
-                     for more detailed hyperprior specifications.}
+    \item{prior}{a list giving the prior information. The list includes the following elements: \code{N} an integer giving the truncation of the Dirichlet process. See Zhou, Hanson and Zhang (2017) for more detailed hyperprior specifications.}
 
-    \item{mcmc}{     a list giving the MCMC parameters. The list must include
-                     the following elements: \code{nburn} an integer giving the number of burn-in 
-                     scans, \code{nskip} an integer giving the thinning interval, \code{nsave} an integer 
-                     giving the total number of scans to be saved, \code{ndisplay} an integer giving
-                     the number of saved scans to be displayed on screen (the function reports 
-                     on the screen when every \code{ndisplay} iterations have been carried
-                     out).}   
-
-    \item{state}{    a list giving the current value of the parameters. This list is used
-                     if the current analysis is the continuation of a previous analysis.}
-                     
-    \item{status}{   a logical variable indicating whether this run is new (\code{TRUE}) or the continuation of 
-                     a previous analysis (\code{FALSE}). In the latter case the current value of the parameters 
-                     must be specified in the object state.}
-
-    \item{data}{     data frame.}     
+    \item{state}{a list giving the current value of the parameters. This list is used if the current analysis is the continuation of a previous analysis.}  
     
-    \item{na.action}{a function that indicates what should happen when the data
-                     contain \code{NA}s. The default action (\code{na.fail}) causes 
-                     \code{anovaDDP} to print an error message and terminate if there are any
-                     incomplete observations.}       
-
-    \item{work.dir}{working directory.} 
+    \item{scale.designX}{flag to indicate wheter the design matrix X will be centered by column means and scaled by column standard deviations, where \code{TRUE} indicates yes. The default is \code{TRUE} for improving numerical stability. All returned posterior samples fit from scaled covariates. Note if we want to specify informative priors for regression coefficients, these priors should correspond to scaled predictors when \code{scale.designX=TRUE}.}
 
 }
 
@@ -60,19 +36,19 @@ This function fits a Bayesian Nonparametric model (De Iorio et al., 2009) for no
 }
 
 \value{
-  The results include the MCMC chains for the parameters discussed in De Iorio et al. (2009) and 
-  Zhou, Hanson and Knapp (2015). Use \code{names} to find out what they are.
+  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Zhang (2017). 
+  Use \code{names} to find out what they are. 
 
 }
 
 \seealso{
-\code{\link{spCopulaDDP}}
+\code{\link{spCopulaDDP}, \link{GetCurves}} 
 }
 
 \references{
-De Iorio, M., Johnson, W. O., Mueller, P., and Rosner, G. L. (2009). Bayesian nonparametric nonproportional hazards survival modeling. \emph{Biometrics}, 65(3): 762-771. 
-
 Zhou, H., Hanson, T., and Knapp, R. (2015). Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations. \emph{Biometrics}, 71(4): 1101-1110. 
+
+De Iorio, M., Johnson, W. O., Mueller, P., and Rosner, G. L. (2009). Bayesian nonparametric nonproportional hazards survival modeling. \emph{Biometrics}, 65(3): 762-771. 
 }
 
 \author{
@@ -90,40 +66,13 @@ rm(list=ls())
 library(survival)
 library(spBayesSurv)
 library(coda)
-library(MASS)
-
 ## True parameters 
 betaT = cbind(c(3.5, 0.5), c(2.5, -1)); 
 wT = c(0.4, 0.6); 
 sig2T = c(1^2, 0.5^2);
-theta1 = 0.98; theta2 = 100000;
-
-## generate coordinates: 
-## npred is the # of locations for prediction
-n = 100; npred = 30; ntot = n + npred;
-ldist = 100; wdist = 40;
-s1 = runif(ntot, 0, wdist); s2 = runif(ntot, 0, ldist);
-s = rbind(s1,s2);
-#plot(s[1,], s[2,]);
-
-## Covariance matrix
-corT = matrix(1, ntot, ntot);
-for (i in 1:(ntot-1)){
-  for (j in (i+1):ntot){
-    dij = sqrt(sum( (s[,i]-s[,j])^2 ));
-    corT[i,j] = theta1*exp(-theta2*dij);
-    corT[j,i] = theta1*exp(-theta2*dij);
-  }
-}
-
-## Generate x 
-x = runif(ntot,-1.5,1.5);
-X = cbind(rep(1,ntot), x);
-p = ncol(X); # number of covariates + 1
-## Generate transformed log of survival times
-z = mvrnorm(1, rep(0, ntot), corT);
-## The pdf of Ti:
-fi = function(y, xi, w=wT){
+n=100; 
+## The Survival function for log survival times:
+fiofy = function(y, xi, w=wT){
   nw = length(w);
   ny = length(y);
   res = matrix(0, ny, nw);
@@ -133,12 +82,8 @@ fi = function(y, xi, w=wT){
   }
   apply(res, 1, sum)
 }
-## true plot
-xx = seq(-2, 7, 0.01)
-#plot(xx, fi(xx, -1), "l", lwd=2, col=2)
-#lines(xx, fi(xx, 1), "l", lwd=2, col=3)
-## The CDF of Ti:
-Fi = function(y, xi, w=wT){
+fioft = function(t, xi, w=wT) fiofy(log(t), xi, w)/t;
+Fiofy = function(y, xi, w=wT){
   nw = length(w);
   ny = length(y);
   res = matrix(0, ny, nw);
@@ -148,144 +93,73 @@ Fi = function(y, xi, w=wT){
   }
   apply(res, 1, sum)
 }
-## The inverse for CDF of Ti
-Finvsingle = function(u, xi) {
-  res = uniroot(function (x) Fi(x, xi)-u, lower=-500, upper=500);
-  res$root
-}
-Finv = function(u, xi) {sapply(u, Finvsingle, xi)};
-## Generate log of survival times y
-u = pnorm(z);
-y = rep(0, ntot);
-for (i in 1:ntot){
-  y[i] = Finv(u[i], x[i]);
-}
-#plot(x,y);
-yTrue = y;
+Fioft = function(t, xi, w=wT) Fiofy(log(t), xi, w);
+## The inverse for Fioft
+Finv = function(u, x) uniroot(function (y) Fiofy(y,x)-u, lower=-250, 
+                              upper=250, extendInt ="yes", tol=1e-6)$root
 
-## Censoring scheme
-Centime = runif(ntot, 3.5,5);
-Centime = 10000;
-delta = (y<=Centime) +0 ;
-sum(delta)/ntot;
-cen = which(delta==0);
-y[cen] = Centime[cen];
+## generate x 
+x1 = runif(n,-1.5,1.5); X = cbind(x1);
+## generate survival times
+u = runif(n);
+tT = rep(0, n);
+for (i in 1:n){
+  tT[i] = exp(Finv(u[i], X[i,]));
+}
 
+### ----------- right-censored -------------###
+t_obs=tT 
+Centime = runif(n, 20, 200);
+delta = (tT<=Centime) +0 ; 
+length(which(delta==0))/n; # censoring rate
+rcen = which(delta==0);
+t_obs[rcen] = Centime[rcen]; ## observed time 
 ## make a data frame
-dtotal = data.frame(s1=s1, s2=s2, y=y, x=x, delta=delta, yTrue=yTrue);
-## Hold out npred=30 for prediction purpose
-predindex = sample(1:ntot, npred);
-dpred = dtotal[predindex,];
-dtrain = dtotal[-predindex,];
-
-# rename the variables 
-d = dtrain;n=nrow(d); n;
-s = cbind(d$s1, d$s2);
-y = d$y;
-x = d$x;
-delta =d$delta;
- 
-# Prediction settings 
-xpred = dpred$x;
-s0 = cbind( dpred$s1, dpred$s2 );
-prediction = list(spred=s0, xpred=xpred);
+d = data.frame(tobs=t_obs, x1=x1, delta=delta, tT=tT); 
+table(d$delta)/n;
 
 ###############################################################
-# ANOVA DDP 
+# Independent DDP: Bayesian Nonparametric Survival Model
 ###############################################################
-
-# Prior information
-prior = list(N = 10, 
-             a0 = 2, b0 = 2);
-
-# current state values
-state <- NULL
-
 # MCMC parameters
-nburn <- 500
-nsave <- 500
-nskip <- 0
-ndisplay <- 500
-mcmc <- list(nburn=nburn,
-             nsave=nsave,
-             nskip=nskip,
-             ndisplay=ndisplay)
+nburn=500; nsave=500; nskip=0;
 # Note larger nburn, nsave and nskip should be used in practice.
-# Fit model
-ptm<-proc.time()
-res1 = anovaDDP( y = y,
-              delta =delta, 
-              x = x, 
-              prediction=prediction, 
-              prior=prior, 
-              mcmc=mcmc,
-              state=state);
-systime1=proc.time()-ptm; systime1;
-par(mfrow = c(2,2))
-w.save = res1$w;
-Kindex = which.max(rowMeans(w.save));
-traceplot(mcmc(w.save[Kindex,]), main="w")
-sig2.save = res1$sigma2;
-traceplot(mcmc(sig2.save[Kindex,]), main="sig2")
-beta.save = res1$beta;
-traceplot(mcmc(beta.save[2,Kindex,]), main="beta")
-alpha.save = res1$alpha;
-traceplot(mcmc(alpha.save), main="alpha")
-
+mcmc=list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=1000);
+prior = list(N=10, a0=2, b0=2);
+# Fit the Cox PH model
+res1 = anovaDDP(formula = Surv(tobs, delta)~x1, data=d, 
+                prior=prior, mcmc=mcmc);
 ## LPML
-#cpo=CPOanovaDDP(y, delta, X, beta.save, sig2.save, w.save )$cpo;
-LPML1 = sum(log(res1$cpo)); LPML1;
-
-## MSPE
-mean((dpred$yTrue-apply(res1$Ypred, 1, median))^2); 
-
-## number of non-negligible components
+LPML = sum(log(res1$cpo)); LPML;
+## Number of non-negligible components
 quantile(colSums(res1$w>0.05))
 
-## plots
-par(mfrow = c(2,2))
-xnew = c(-1, 1)
-xpred = cbind(xnew); 
-nxpred = nrow(xpred);
-ygrid = seq(0,6.0,0.2); tgrid = exp(ygrid);
-ngrid = length(ygrid);
-estimates = GetCurves(res1, xpred, ygrid, CI=c(0.05, 0.95));
-fhat = estimates$fhat; 
-Shat = estimates$Shat;
-## density in y
-plot(ygrid, fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 0.8), 
-     xlim=c(0,6), main="density in y")
-for(i in 1:nxpred){
-  lines(ygrid, fi(ygrid, xnew[i]), lwd=2)
-  lines(ygrid, fhat[,i], lty=2, lwd=2, col=4);
-  lines(ygrid, estimates$fhatup[,i], lty=2, lwd=1, col=4);
-  lines(ygrid, estimates$fhatlow[,i], lty=2, lwd=1, col=4);
-}
-## survival in y
-plot(ygrid, 1-Fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 1), 
-     xlim=c(0,6), main="survival in y")
-for(i in 1:nxpred){
-  lines(ygrid, 1-Fi(ygrid, xnew[i]), lwd=2)
-  lines(ygrid, Shat[,i], lty=2, lwd=2, col=4);
-  lines(ygrid, estimates$Shatup[,i], lty=2, lwd=1, col=4);
-  lines(ygrid, estimates$Shatlow[,i], lty=2, lwd=1, col=4);
-}
-## density in t
-plot(tgrid, fi(ygrid, xnew[1])/tgrid, "l", lwd=2, ylim=c(0, 0.15), 
-     xlim=c(0,100), main="density in t")
-for(i in 1:nxpred){
-  lines(tgrid, fi(ygrid, xnew[i])/tgrid, lwd=2)
-  lines(tgrid, fhat[,i]/tgrid, lty=2, lwd=2, col=4);
-  lines(tgrid, estimates$fhatup[,i]/tgrid, lty=2, lwd=1, col=4);
-  lines(tgrid, estimates$fhatlow[,i]/tgrid, lty=2, lwd=1, col=4);
-}
-## survival in t
-plot(tgrid, 1-Fi(ygrid, xnew[1]), "l", lwd=2, ylim=c(0, 1), 
-     xlim=c(0,100), main="survival in t")
-for(i in 1:nxpred){
-  lines(tgrid, 1-Fi(ygrid, xnew[i]), lwd=2)
-  lines(tgrid, Shat[,i], lty=2, lwd=2, col=4);
-  lines(tgrid, estimates$Shatup[,i], lty=2, lwd=1, col=4);
-  lines(tgrid, estimates$Shatlow[,i], lty=2, lwd=1, col=4);
-}
+############################################
+## Curves
+############################################
+ygrid = seq(0,6.0,length=100); tgrid = exp(ygrid);
+ngrid = length(tgrid);
+xpred = rbind(-1, 1); 
+estimates=plot(res1, xpred=xpred, tgrid=tgrid);
+
+## plot
+par(mfrow = c(1,2))
+plot(tgrid, 1-Fioft(tgrid, xpred[1,]), "l", lwd=3, 
+     main="Survival function", xlab="time", ylab="survival");
+lines(tgrid, 1-Fioft(tgrid, xpred[2,]), "l", lwd=3);
+lines(estimates$tgrid, estimates$Shat[,1], lty=2, lwd=3)
+lines(estimates$tgrid, estimates$Shatlow[,1], lty=3, lwd=1)
+lines(estimates$tgrid, estimates$Shatup[,1], lty=3, lwd=1)
+lines(estimates$tgrid, estimates$Shat[,2], lty=2, lwd=3)
+lines(estimates$tgrid, estimates$Shatlow[,2], lty=3, lwd=1)
+lines(estimates$tgrid, estimates$Shatup[,2], lty=3, lwd=1)
+plot(log(tgrid), fiofy(log(tgrid), xpred[1,]), "l", lwd=3, 
+     main="Density of log time", xlab="log time", ylab="survival");
+lines(log(tgrid), fiofy(log(tgrid), xpred[2,]), "l", lwd=3);
+lines(log(estimates$tgrid), estimates$fhat[,1]*tgrid, lty=2, lwd=3)
+lines(log(estimates$tgrid), estimates$fhatlow[,1]*tgrid, lty=3, lwd=1)
+lines(log(estimates$tgrid), estimates$fhatup[,1]*tgrid, lty=3, lwd=1)
+lines(log(estimates$tgrid), estimates$fhat[,2]*tgrid, lty=2, lwd=3)
+lines(log(estimates$tgrid), estimates$fhatlow[,2]*tgrid, lty=3, lwd=1)
+lines(log(estimates$tgrid), estimates$fhatup[,2]*tgrid, lty=3, lwd=1)
 }

@@ -124,10 +124,9 @@ d = data.frame(t1=t1, t2=t2, x1=x1, x2=x2, delta=delta, tT=tT); table(d$delta)/n
 nburn=200; nsave=500; nskip=0; niter = nburn+nsave
 mcmc=list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=1000);
 prior = list(maxL=15, a0=1, b0=1, M=10, q=.9);
-state <- list(cpar=1);
 ptm<-proc.time()
 res1 = SuperSurvRegBayes(formula = Surv(t1, t2, type="interval2")~x1+x2, data=d, 
-                          prior=prior, mcmc=mcmc, state=state, dist="lognormal");
+                          prior=prior, mcmc=mcmc, dist="lognormal");
 sfit=summary(res1); sfit;
 systime1=proc.time()-ptm; systime1;
 par(mfrow = c(3,2))

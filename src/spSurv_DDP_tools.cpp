@@ -64,13 +64,13 @@ double fofy(double y, arma::vec w, arma::vec mu, arma::vec sig){
 
 // calculate F^{-1}(u)
 double DDP_Finvofu(double u, arma::vec wma, arma::vec mu, arma::vec sig, double lower, double upper){
-  double err = 10e-6;
+  double err = 1e-8;
   double yl = lower;
   double Fl = Fofy(yl, wma, mu, sig) - u;
   double yr = upper;
   double Fr = Fofy(yr, wma, mu, sig) - u;
-  if (Fl>=0) return(lower);
-  if (Fr<=0) return(upper);
+  if (Fl>0) return(lower);
+  if (Fr<0) return(upper);
   double ym = (yl+yr)*0.5;
   double Fm = Fofy(ym, wma, mu, sig) - u;
   while( std::abs(Fm)>err ){
@@ -205,7 +205,7 @@ arma::vec anovaDDP_Linv(Rcpp::NumericVector yobs, Rcpp::IntegerVector delta, arm
 // Sample y_i when delta_i=0
 void spCopula_sample_y(Rcpp::NumericVector& y, Rcpp::NumericVector& rejy, arma::mat& zPhi, arma::vec& z, arma::vec w, 
       const Rcpp::NumericVector& yobs, const Rcpp::IntegerVector& delta, const arma::mat& Xbeta, Rcpp::NumericVector tau, 
-      Rcpp::IntegerVector K, const arma::mat& Cinv, int n, int N){
+      Rcpp::IntegerVector K, const arma::mat& Cinv, int n, int N, int iscan, int nburn){
   for (int i=0; i<n; ++i){
     if(delta[i]==0){
       double yold = y[i];
@@ -221,15 +221,19 @@ void spCopula_sample_y(Rcpp::NumericVector& y, Rcpp::NumericVector& rejy, arma::
       double tempnew = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
       double ratio = std::exp(tempnew-tempold);
       double uu = unif_rand();
-      if (uu>ratio) {y[i] = yold; ++rejy[i]; zPhi.row(i)=zPhiold; z[i] = zold;} 
+      if (uu>ratio) {
+        y[i] = yold; zPhi.row(i)=zPhiold; z[i] = zold;
+        if(iscan>=nburn) rejy[i]+=1.0;
+      }
     }
   }
 }
 
 // Sample beta;
 void spCopula_sample_beta(arma::mat& beta, Rcpp::NumericVector& rejbeta, arma::mat& zPhi, arma::vec& z, arma::vec w, 
-      const Rcpp::NumericVector& y, const arma::mat& X, Rcpp::NumericVector tau2, const Rcpp::IntegerVector& nK, 
-      const Rcpp::IntegerMatrix& Kind, arma::vec mu, arma::mat Sig, arma::mat invSig, const arma::mat& Cinv, int n, int N, int p){
+                          const Rcpp::NumericVector& y, const arma::mat& X, Rcpp::NumericVector tau2, 
+                          const Rcpp::IntegerVector& nK, const Rcpp::IntegerMatrix& Kind, arma::vec mu, 
+                          arma::mat Sig, arma::mat invSig, const arma::mat& Cinv, int n, int N, int p, int iscan, int nburn){
         
   Rcpp::NumericVector tau = Rcpp::sqrt(tau2);
   for (int k=0; k<N; ++k){
@@ -268,7 +272,10 @@ void spCopula_sample_beta(arma::mat& beta, Rcpp::NumericVector& rejbeta, arma::m
         double tempnew2 = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
         double ratio2 = std::exp( tmpnew2 - tmpold0 )*(std::exp(tempnew2-tempnew)-1)/(std::exp(tempold-tempnew)-1);
         double uu2 = unif_rand();
-        if (uu2>ratio2) {beta.col(k) = betakold; ++rejbeta[k]; zPhi.col(k)=zPhikold; z=zold;} 
+        if (uu2>ratio2) {
+          beta.col(k) = betakold; zPhi.col(k)=zPhikold; z=zold;
+          if(iscan>=nburn) rejbeta[k]+=1.0;
+        } 
       }
     } else{
       arma::vec betakold = beta.col(k);
@@ -283,7 +290,10 @@ void spCopula_sample_beta(arma::mat& beta, Rcpp::NumericVector& rejbeta, arma::m
       double tempnew = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
       double ratio = std::exp(tempnew-tempold);
       double uu = unif_rand(); 
-      if (uu>ratio) {beta.col(k) = betakold; ++rejbeta[k]; zPhi.col(k)=zPhikold; z=zold;}
+      if (uu>ratio) {
+        beta.col(k) = betakold; zPhi.col(k)=zPhikold; z=zold;
+        if(iscan>=nburn) rejbeta[k]+=1.0;
+      }
     }
   }
 }
@@ -367,8 +377,9 @@ void spCopula_sample_beta_block(arma::mat& beta, Rcpp::NumericVector& rejbeta, a
 
 //Sample simga2;
 void spCopula_sample_sigma2(Rcpp::NumericVector& tau2, Rcpp::NumericVector& rejsigma, arma::mat& zPhi, arma::vec& z, 
-      arma::vec w, const Rcpp::NumericVector& y, const arma::mat& Xbeta, const Rcpp::IntegerVector& nK, 
-      const Rcpp::IntegerMatrix& Kind, double nua, double nub, const arma::mat& Cinv, int n, int N){
+                            arma::vec w, const Rcpp::NumericVector& y, const arma::mat& Xbeta, const Rcpp::IntegerVector& nK, 
+                            const Rcpp::IntegerMatrix& Kind, double nua, double nub, const arma::mat& Cinv, int n, int N, 
+                            int iscan, int nburn){
   for (int k=0; k<N; ++k){
     if (nK[k]>0){
       double sumtemp=0;
@@ -390,7 +401,10 @@ void spCopula_sample_sigma2(Rcpp::NumericVector& tau2, Rcpp::NumericVector& rejs
       double tempnew = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
       double ratio = std::exp(tempnew-tempold);
       double uu = unif_rand();
-      if (uu>ratio) {tau2[k] = tau2kold; ++rejsigma[k]; zPhi.col(k)=zPhikold; z=zold; }
+      if (uu>ratio) {
+        tau2[k] = tau2kold; zPhi.col(k)=zPhikold; z=zold; 
+        if(iscan>=nburn) rejsigma[k]+=1.0;
+      }
     } else{
       double tau2kold = tau2[k];
       arma::vec zold = z;
@@ -404,7 +418,10 @@ void spCopula_sample_sigma2(Rcpp::NumericVector& tau2, Rcpp::NumericVector& rejs
       double tempnew = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
       double ratio = std::exp(tempnew-tempold);
       double uu = unif_rand();
-      if (uu>ratio) {tau2[k] = tau2kold; ++rejsigma[k]; zPhi.col(k)=zPhikold; z=zold; }
+      if (uu>ratio) {
+        tau2[k] = tau2kold; zPhi.col(k)=zPhikold; z=zold; 
+        if(iscan>=nburn) rejsigma[k]+=1.0;
+      }
     }
   }
 }
@@ -446,7 +463,7 @@ void spCopula_sample_sigma2_block(Rcpp::NumericVector& tau2, Rcpp::NumericVector
 
 //Sample V;
 void spCopula_sample_V(Rcpp::NumericVector& V, Rcpp::NumericVector& rejV, arma::mat& zPhi, arma::vec& z, arma::vec& w, 
-      const Rcpp::IntegerVector& nK, double alpha, const arma::mat& Cinv, int N){
+                       const Rcpp::IntegerVector& nK, double alpha, const arma::mat& Cinv, int N, int iscan, int nburn){
   arma::vec nkk = as<vec>(nK);
   for (int k=0; k<(N-1); ++k){
     double alphak = alpha + arma::sum(nkk.subvec(k+1, N-1))+ESMALL;
@@ -460,7 +477,10 @@ void spCopula_sample_V(Rcpp::NumericVector& V, Rcpp::NumericVector& rejV, arma::
     double tempnew = -0.5*arma::dot(z, Cinv*z) + 0.5*arma::dot(z, z);
     double ratio = std::exp(tempnew-tempold);
     double uu = unif_rand();
-    if (uu>ratio) {V[k] = Vkold; ++rejV[k]; z=zold; }    
+    if (uu>ratio) {
+      V[k] = Vkold; z=zold; 
+      if(iscan>=nburn) rejV[k]+=1.0;
+    }    
   }
 }
 
@@ -588,30 +608,31 @@ void spCopulaInitial(Rcpp::IntegerVector& K, Rcpp::NumericVector& y, arma::mat& 
 }
 
 // Get density or survival Plots for DDP
-SEXP DDPplots(SEXP xpred_, SEXP ygrid_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP probs_){
+SEXP DDPplots(SEXP xpred_, SEXP tgrid_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP CI_){
   BEGIN_RCPP
   // Transfer R variables into C++;
   arma::mat xpred = as<mat>(xpred_); 
-  arma::vec ygrid = as<vec>(ygrid_);
+  arma::vec tgrid = as<vec>(tgrid_);
   arma::mat sigma2 = as<mat>(sigma2_);
   arma::mat w = as<mat>(w_);
   NumericVector vecArray(beta_);
   IntegerVector arrayDims = vecArray.attr("dim");
   arma::cube beta(vecArray.begin(), arrayDims[0], arrayDims[1], arrayDims[2], false);
-  NumericVector probs(probs_);
+  double CI = as<double>(CI_);
   int nsave = w.n_cols;
-  int ngrid = ygrid.size();
+  int ngrid = tgrid.size();
   int npred = xpred.n_rows;
-  int low = nsave*probs[0]-1;
-  int up = nsave*probs[1]-1;
+  int low = nsave*(1.0-CI)*0.5 - 1;
+  int up = nsave*(CI+(1.0-CI)*0.5) - 1;
   
   // Temp variables
-  NumericVector estfArray(nsave*ngrid*npred);
+  arma::vec ygrid = arma::log(tgrid);
+  Rcpp::NumericVector estfArray(nsave*ngrid*npred);
   arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false);
-  NumericVector estSArray(nsave*ngrid*npred);
+  Rcpp::NumericVector estSArray(nsave*ngrid*npred);
   arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false);
-  NumericVector estHArray(nsave*ngrid*npred);
-  arma::cube estH(estHArray.begin(), ngrid, nsave, npred, false);
+  Rcpp::NumericVector esthArray(nsave*ngrid*npred);
+  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false);
   
   // things to save;
   arma::mat fhat(ngrid, npred);
@@ -620,43 +641,43 @@ SEXP DDPplots(SEXP xpred_, SEXP ygrid_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP 
   arma::mat Shat(ngrid, npred);
   arma::mat Shatup(ngrid, npred);
   arma::mat Shatlow(ngrid, npred);
-  arma::mat Hhat(ngrid, npred);
-  arma::mat Hhatup(ngrid, npred);
-  arma::mat Hhatlow(ngrid, npred);
+  arma::mat hhat(ngrid, npred);
+  arma::mat hhatup(ngrid, npred);
+  arma::mat hhatlow(ngrid, npred);
   
   for(int i=0; i<nsave; ++i){
     arma::vec wei = w.col(i);
     arma::mat xbeta = arma::trans( xpred*beta.slice(i) );
     arma::vec sig = arma::sqrt(sigma2.col(i));
     for(int j=0; j<npred; ++j){
-      (estf.slice(j)).col(i) = fmix(ygrid, xbeta.col(j), sig, wei);
+      (estf.slice(j)).col(i) = fmix(ygrid, xbeta.col(j), sig, wei)/tgrid;
       (estS.slice(j)).col(i) = 1.0 - Fmix(ygrid, xbeta.col(j), sig, wei);
-      (estH.slice(j)).col(i) = (estf.slice(j)).col(i) / (estS.slice(j)).col(i);
+      (esth.slice(j)).col(i) = (estf.slice(j)).col(i) / (estS.slice(j)).col(i);
     }
   }
   for(int j=0; j<npred; ++j){
     fhat.col(j) = arma::mean(estf.slice(j), 1);
     Shat.col(j) = arma::mean(estS.slice(j), 1);
-    Hhat.col(j) = arma::mean(estH.slice(j), 1);
+    hhat.col(j) = arma::mean(esth.slice(j), 1);
     arma::mat temp = arma::sort(estf.slice(j),"ascend", 1);
     fhatlow.col(j) = temp.col(low);
     fhatup.col(j) = temp.col(up);
     temp = arma::sort(estS.slice(j),"ascend", 1);
     Shatlow.col(j) = temp.col(low);
     Shatup.col(j) = temp.col(up);
-    temp = arma::sort(estH.slice(j),"ascend", 1);
-    Hhatlow.col(j) = temp.col(low);
-    Hhatup.col(j) = temp.col(up);
+    temp = arma::sort(esth.slice(j),"ascend", 1);
+    hhatlow.col(j) = temp.col(low);
+    hhatup.col(j) = temp.col(up);
   }
   return List::create(Named("fhat")=fhat,
                       Named("Shat")=Shat,
-                      Named("Hhat")=Hhat,
+                      Named("hhat")=hhat,
                       Named("fhatlow")=fhatlow,
                       Named("fhatup")=fhatup,
                       Named("Shatlow")=Shatlow,
                       Named("Shatup")=Shatup,
-                      Named("Hhatlow")=Hhatlow,
-                      Named("Hhatup")=Hhatup);
+                      Named("hhatlow")=hhatlow,
+                      Named("hhatup")=hhatup);
   END_RCPP
 }
 
@@ -684,10 +705,14 @@ SEXP PredMapsZ(SEXP ds0n_, SEXP dnn_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP th
   // things to save;
   NumericMatrix Zpred(npred, nsave);
   
-  GetRNGstate();
+  RNGScope scope;
+  arma::mat clustindx=arma::eye(n,n);
   for(int i=0; i<nsave; ++i){
     R_CheckUserInterrupt();
-    GetCinv(n, theta1[i], theta2[i], dnn, Cinv, logdetC);
+    arma::mat Cnn = arma::exp(-theta2(i)*dnn); 
+    arma::mat Cnm = arma::exp(-theta2(i)*dnn);
+    arma::mat Cmm = arma::exp(-theta2(i)*dnn);
+    inv_FSA(theta1[i], Cnn, Cnm, Cmm, clustindx, Cinv, logdetC);
     arma::vec wei = w.col(i);
     arma::vec sig = arma::sqrt(sigma2.col(i));
     for(int j=0; j<npred; ++j){
@@ -698,6 +723,5 @@ SEXP PredMapsZ(SEXP ds0n_, SEXP dnn_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP th
     }
   }
   return List::create(Named("Zpred")=Zpred);
-  PutRNGstate();
   END_RCPP
 }

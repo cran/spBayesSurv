@@ -1,71 +1,57 @@
 \name{spCopulaCoxph}
 \alias{spCopulaCoxph}
+\alias{print.spCopulaCoxph}
+\alias{summary.spCopulaCoxph}
+\alias{print.summary.spCopulaCoxph}
 
-\title{Fit Marginal Bayesian Proportional Hazards Model}
+\title{Marginal Bayesian Proportional Hazards Model via Spatial Copula}
 \description{
 This function fits a marginal Bayesian proportional hazards model for point-referenced right censored time-to-event data.
 }
    
 \usage{
-spCopulaCoxph(y, delta, x=NULL, s, prediction, prior, mcmc, state, 
-              RandomIntervals=FALSE, data=sys.frame(sys.parent()), 
-              na.action=na.fail, work.dir=NULL)
+spCopulaCoxph(formula, data, na.action, prediction=NULL, 
+              mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
+              prior=NULL, state=NULL, scale.designX=TRUE,
+              Coordinates, DIST=NULL, Knots=NULL)
 }
 
 \arguments{
-   \item{y}{         an n by 1 vector giving the survival times.}
+   \item{formula}{a formula expression with the response returned by the \code{Surv} function in the \code{survival} package. It currently only supports right-censoring.}
    
-   \item{delta}{	 an n by 1 vector indicating whether it is right censored (=0) or not (=1).}
+   \item{data}{a data frame in which to interpret the variables named in the \code{formula} argument.}
    
-   \item{x}{         an n by p matrix of covariates without intercept. The default is NULL, 
-					 indicating no covariates included.} 
-					 
-   \item{s}{         an n by d matrix of UMT coordinates, where d is the dimension of space.}
-
-   \item{prediction}{a list giving the information used to obtain conditional
-                     inferences. The list includes the following
-                     elements: \code{spred} and \code{xpred} giving the n by 2 new locations 
-					 and corresponding n by p covariates matrix, respectively, used for prediction .}
+   \item{na.action}{a missing-data filter function, applied to the \code{model.frame}.}
+   
+   \item{prediction}{a list giving the information used to obtain conditional inferences. The list includes the following elements: \code{spred} and \code{xpred} giving the n by 2 new locations and corresponding npred by p covariates matrix, respectively, used for prediction. If \code{prediction=NULL}, \code{xpred} will be set to be the design matrix used in \code{formula}, and \code{spred} will be set to be in \code{Coordinates}.}
+   
+   \item{mcmc}{a list giving the MCMC parameters. The list must include the following elements: \code{nburn} an integer giving the number of burn-in scans, \code{nskip} an integer giving the thinning interval, \code{nsave} an integer giving the total number of scans to be saved, \code{ndisplay} an integer giving the number of saved scans to be displayed on screen (the function reports on the screen when every \code{ndisplay} iterations have been carried out).}
     
-    \item{prior}{    a list giving the prior information. The list includes the following
-                     parameter: \code{M} an integer giving the total number of cut points for 
-                     baseline hazard. See Zhou, Hanson and Knapp (2015) 
-                     for more detailed hyperprior specifications.}
+    \item{prior}{a list giving the prior information. The list includes the following elements: \code{M} an integer giving the total number of cut points for baseline hazard. See Zhou, Hanson and Zhang (2017) for more detailed hyperprior specifications.}
 
-    \item{mcmc}{     a list giving the MCMC parameters. The list must include
-                     the following elements: \code{nburn} an integer giving the number of burn-in 
-                     scans, \code{nskip} an integer giving the thinning interval, \code{nsave} an integer 
-                     giving the total number of scans to be saved, \code{ndisplay} an integer giving
-                     the number of saved scans to be displayed on screen (the function reports 
-                     on the screen when every \code{ndisplay} iterations have been carried
-                     out).}   
-
-    \item{state}{    a list giving the current value of the parameters. This list is used
-                     if the current analysis is the continuation of a previous analysis.} 
-    \item{RandomIntervals}{ indicate if random cut ponts for baseline hazard is need. The default is TRUE.}
-
-    \item{data}{     data frame.}     
+    \item{state}{a list giving the current value of the parameters. This list is used if the current analysis is the continuation of a previous analysis.}  
     
-    \item{na.action}{a function that indicates what should happen when the data
-                     contain \code{NA}s. The default action (\code{na.fail}) causes 
-                     \code{spCopulaCoxph} to print an error message and terminate if there are any
-                     incomplete observations.}       
-
-    \item{work.dir}{working directory.} 
+    \item{scale.designX}{flag to indicate wheter the design matrix X will be centered by column means and scaled by column standard deviations, where \code{TRUE} indicates yes. The default is \code{TRUE} for improving numerical stability. Even when it is scaled, the reported regression coefficients are in original scales. Note if we want to specify informative priors for regression coefficients, these priors should correspond to scaled predictors when \code{scale.designX=TRUE}.}
+    
+    \item{Coordinates}{an n by 2 coordinates matrix, where n is the sample size, 2 is the dimension of coordiantes. Note all cocordinates should be distinct. }
+    
+    \item{DIST}{This is a function argument, used to calculate the distance. The default is Euclidean distance (\code{fields::rdist}). This function should have two arguments (X1,X2), where X1 and X2 are matrices with coordinates as the rows. The returned value of this function should be the pairwise distance matrix. If nrow(X1)=m and nrow(X2)=n then the function should return an m by n matrix of all distances between these two sets of points.}
+    
+    \item{Knots}{an nknots by 2 matrix, where nknots is the number of selected knots for FSA, and 2 is the dimension of each location. If \code{Knots} is not specified, the space-filling algorithm will be used to find the knots.}
 
 }
 
 \details{
-This function fits a marginal Bayesian proportional hazards model (Zhou, Hanson and Knapp, 2015) for point-referenced right censored time-to-event data.
+This function fits a marginal Bayesian proportional hazards model (Zhou, Hanson and Zhang, 2017) for point-referenced right censored time-to-event data.
 }
 
 \value{
-  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Knapp (2015). 
+  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Zhang (2017).
   Use \code{names} to find out what they are.
 }
 
 \seealso{
-\code{\link{spCopulaDDP}}
+\code{\link{spCopulaDDP}, \link{GetCurves}}
 }
 
 \references{
@@ -88,165 +74,119 @@ rm(list=ls())
 library(survival)
 library(spBayesSurv)
 library(coda)
-library(MASS)
 ## True parameters 
-betaT = c(-1); 
+betaT = c(1,1); 
 theta1 = 0.98; theta2 = 0.1;
+n=50; npred=3; ntot = n+npred;
+## Baseline Survival
+f0oft = function(t) 0.5*dlnorm(t, -1, 0.5)+0.5*dlnorm(t,1,0.5);
+S0oft = function(t) (0.5*plnorm(t, -1, 0.5, lower.tail=FALSE)+
+                       0.5*plnorm(t, 1, 0.5, lower.tail=FALSE))
+## The Survival function:
+Sioft = function(t,x)  exp( log(S0oft(t))*exp(sum(x*betaT)) ) ;
+fioft = function(t,x) exp(sum(x*betaT))*f0oft(t)/S0oft(t)*Sioft(t,x);
+Fioft = function(t,x) 1-Sioft(t,x);
+## The inverse for Fioft
+Finv = function(u, x) uniroot(function (t) Fioft(t,x)-u, lower=1e-100, 
+                              upper=1e100, extendInt ="yes", tol=1e-6)$root
 
 ## generate coordinates: 
 ## npred is the # of locations for prediction
-n = 50; npred = 3; ntot = n + npred;
 ldist = 100; wdist = 40;
 s1 = runif(ntot, 0, wdist); s2 = runif(ntot, 0, ldist);
-s = rbind(s1,s2); #plot(s[1,], s[2,]);
-
+s = cbind(s1,s2); #plot(s[,1], s[,2]);
 ## Covariance matrix
 corT = matrix(1, ntot, ntot);
 for (i in 1:(ntot-1)){
   for (j in (i+1):ntot){
-    dij = sqrt(sum( (s[,i]-s[,j])^2 ));
+    dij = sqrt(sum( (s[i,]-s[j,])^2 ));
     corT[i,j] = theta1*exp(-theta2*dij);
     corT[j,i] = theta1*exp(-theta2*dij);
   }
 }
 
-## Generate x 
-x = runif(ntot,-1.5,1.5);
-## Generate transformed log of survival times
-z = mvrnorm(1, rep(0, ntot), corT);
-## The CDF of Ti: 
-Lambda = function(t) t;
-Fi = function(t, xi){
-  res = 1-exp(-Lambda(t)*exp(sum(xi*betaT)));
-  res[which(t<0)] = 0;
-  res
-}
-## The pdf of Ti:
-fi = function(t, xi){
-  res=(1-Fi(t,xi))*(1)*exp(sum(xi*betaT));
-  res[which(t<0)] = 0;
-  res
-}
-#integrate(function(x) fi(x, 0), -Inf, Inf) 
-## true plot
-xx = seq(0, 5, 0.1)
-#plot(xx, fi(xx, -1), "l", lwd=2, col=2)
-#lines(xx, fi(xx, 1), "l", lwd=2, col=3)
-
-## The inverse for CDF of Ti
-Finvsingle = function(u, xi) {
-  res = uniroot(function (x) Fi(x, xi)-u, lower=0, upper=5000, 
-                tol=.Machine$double.eps^0.5);
-  res$root
-}
-Finv = function(u, xi) {sapply(u, Finvsingle, xi)};
-## Generate survival times t
+## generate x 
+x1 = rbinom(ntot, 1, 0.5); x2 = rnorm(ntot, 0, 1); X = cbind(x1, x2);
+## generate transformed log of survival times
+z = MASS::mvrnorm(1, rep(0, ntot), corT);
+## generate survival times
 u = pnorm(z);
-t = rep(0, ntot);
+tT = rep(0, ntot);
 for (i in 1:ntot){
-  t[i] = Finv(u[i], x[i]);
+  tT[i] = Finv(u[i], X[i,]);
 }
-tTrue = t; #plot(x,t);
 
-## Censoring scheme
-Centime = runif(ntot, 1, 5);
-Centime = 10000;
-delta = (t<=Centime) +0 ;
-sum(delta)/ntot;
-cen = which(delta==0);
-t[cen] = Centime[cen];
-
+### ----------- right-censored -------------###
+t_obs=tT 
+Centime = runif(ntot, 2, 6);
+delta = (tT<=Centime) +0 ; 
+length(which(delta==0))/ntot; # censoring rate
+rcen = which(delta==0);
+t_obs[rcen] = Centime[rcen]; ## observed time 
 ## make a data frame
-dtotal = data.frame(s1=s1, s2=s2, t=t, logt=log(t), x=x, delta=delta, 
-                    tTrue=tTrue, logtTrue=log(tTrue));
-## Hold out npred=3 for prediction purpose
+dtot = data.frame(tobs=t_obs, x1=x1, x2=x2, delta=delta, tT=tT,
+                  s1=s1, s2=s2); 
+## Hold out npred for prediction purpose
 predindex = sample(1:ntot, npred);
-dpred = dtotal[predindex,];
-dtrain = dtotal[-predindex,];
-
+dpred = dtot[predindex,];
+d = dtot[-predindex,];
 # Prediction settings 
-xpred = dpred$x;
-s0 = cbind( dpred$s1, dpred$s2 );
-prediction = list(spred=s0, xpred=xpred);
+prediction = list(xpred=cbind(dpred$x1, dpred$x2), 
+                  spred=cbind(dpred$s1, dpred$s2));
 
 ###############################################################
-# spatial Copula Cox PH
+# Independent Cox PH
 ###############################################################
-# rename the variables 
-d = dtrain;n=nrow(d); n;
-s = cbind(d$s1, d$s2);
-t = d$t;
-x = d$x;
-X = cbind(x);
-p = ncol(X); # number of covariates + 1
-delta =d$delta;
-
-# Initial Exp Cox PH
-fit0 = survreg( Surv(t, delta) ~ x, dist="weibull", data=d );
-h0 = as.vector( exp( -fit0$coefficients[1] ) );
-beta = as.vector( -fit0$coefficients[-1]/fit0$scale ); beta;
-
-# Prior information
-prior = list(M = 10);
-
-# current state values
-state <- list(theta = c(0.98, 0.5));
-
 # MCMC parameters
-nburn <- 500
-nsave <- 500
-nskip <- 0
-ndisplay <- 1000
-mcmc <- list(nburn=nburn,
-             nsave=nsave,
-             nskip=nskip,
-             ndisplay=ndisplay)
+nburn=500; nsave=500; nskip=0;
 # Note larger nburn, nsave and nskip should be used in practice.
-# Fit the spatial Cox PH model
-res2 = spCopulaCoxph( y = t,
-                    delta =delta, 
-                    s = s,
-                    x = X, 
-                    RandomIntervals=FALSE,
-                    prediction=prediction, 
-                    prior=prior, 
-                    mcmc=mcmc,
-                    state=state);
-par(mfrow = c(2,2))
-#traceplot(mcmc(res2$hcen), main="hcen")
-beta.save = res2$beta; rowMeans(beta.save);
-traceplot(mcmc(beta.save[1,]), main="beta")
-traceplot(mcmc(res2$theta1), main="theta1")
-traceplot(mcmc(res2$theta2), main="theta2")
-res2$ratebeta;
-res2$ratetheta;
-## LPML
-LPML2 = sum(log(res2$cpo)); LPML2;
+mcmc=list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=1000);
+prior = list(M=10, r0=1, nknots=10, nblock=n);
+# here nknots=10<n, so FSA will be used with nblock=n.
+# As nknots is getting larger, the FSA is more accurate but slower
+# As nblock is getting smaller, the FSA is more accurate but slower. 
+# In most applications, setting nblock=n works fine, which is the
+# setting by not specifying nblock. 
+# If nknots is not specified or nknots=n, the exact covariance is used. 
+# Fit the Cox PH model
+res1 = spCopulaCoxph(formula = Surv(tobs, delta)~x1+x2, data=d, 
+                     prior=prior, mcmc=mcmc, prediction=prediction,
+                     Coordinates=cbind(d$s1,d$s2), Knots=NULL);
+# here if prediction=NULL, prediction$xpred will be set as the design matrix
+# in formula, and prediction$spred will be set as the Coordinates argument. 
+# Knots=NULL is the defualt setting, for which the knots will be generated 
+# using fields::cover.design() with number of knots equal to prior$nknots. 
+sfit1=summary(res1); sfit1;
 ## MSPE
-mean((dpred$tTrue-apply(res2$Tpred, 1, median))^2); 
-## plots
-par(mfrow = c(2,1))
-xnew = c(-1, 1)
-xpred = cbind(xnew); 
-nxpred = nrow(xpred);
-ygrid = seq(-5, 1.1, 0.4);tgrid = exp(ygrid);
-ngrid = length(ygrid);
-estimates = GetCurves(res2, xpred, ygrid, CI=c(0.05, 0.95));
-fhat = estimates$fhat; 
+mean((dpred$tT-apply(res1$Tpred, 1, median))^2); 
+
+## traceplot
+par(mfrow = c(2,2))
+traceplot(mcmc(res1$beta[1,]), main="beta1")
+traceplot(mcmc(res1$beta[2,]), main="beta2")
+traceplot(mcmc(res1$theta[1,]), main="sill")
+traceplot(mcmc(res1$theta[2,]), main="range")
+
+############################################
+## Curves
+############################################
+wide=0.1;
+tgrid = seq(1e-10,4,wide);
+ngrid = length(tgrid);
+p = length(betaT); # number of covariates
+xpred = rbind(c(0,0), c(0,1)); 
+estimates=plot(res1, xpred=xpred, tgrid=tgrid);
 Shat = estimates$Shat;
-## density in t
-plot(tgrid, fi(tgrid, xnew[1]), "l", lwd=2,  xlim=c(0,6), main="density in y")
-for(i in 1:nxpred){
-  lines(tgrid, fi(tgrid, xnew[i]), lwd=2)
-  lines(tgrid, fhat[,i], lty=2, lwd=2, col=4);
-}
-## survival in t
-plot(tgrid, 1-Fi(tgrid, xnew[1]), "l", lwd=2, xlim=c(0,6), main="survival in y")
-for(i in 1:nxpred){
-  lines(tgrid, 1-Fi(tgrid, xnew[i]), lwd=2)
-  lines(tgrid, Shat[,i], lty=2, lwd=2, col=4);
-  lines(tgrid, estimates$Shatup[,i], lty=2, lwd=1, col=4);
-  lines(tgrid, estimates$Shatlow[,i], lty=2, lwd=1, col=4);
-}
+
+## plot
+par(mfrow = c(1,1))
+plot(tgrid, Sioft(tgrid, xpred[2,]), "l", lwd=3);
+lines(tgrid, Sioft(tgrid, xpred[1,]), "l", lwd=3);
+lines(estimates$tgrid, estimates$Shat[,1], lty=2, lwd=3)
+lines(estimates$tgrid, estimates$Shatlow[,1], lty=3, lwd=1)
+lines(estimates$tgrid, estimates$Shatup[,1], lty=3, lwd=1)
+lines(estimates$tgrid, estimates$Shat[,2], lty=2, lwd=3)
+lines(estimates$tgrid, estimates$Shatlow[,2], lty=3, lwd=1)
+lines(estimates$tgrid, estimates$Shatup[,2], lty=3, lwd=1)
 }
 

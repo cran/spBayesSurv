@@ -59,7 +59,9 @@ survregbayes2(formula, data, na.action, survmodel="PH", dist="loglogistic",
 }
 
 \references{
-Zhou, H. and Hanson, T. (2015). Bayesian spatial survival models. In \emph{Nonparametric Bayesian Inference in Biostatistics} (pp. 215-246). Springer International Publishing.
+Zhou, H. and Hanson, T. (2017). A unified framework for fitting Bayesian semiparametric models to arbitrarily censored spatial survival data. \emph{arXiv preprint arXiv:1701.06976}.
+
+Zhao, L. and Hanson, T. (2011). Spatially dependent Polya tree modeling for survival data. \emph{Biometrics}, 67(2), 391-403.
 }
 
 
@@ -143,11 +145,10 @@ nburn=500; nsave=500; nskip=0; niter = nburn+nsave
 # Note larger nburn, nsave and nskip should be used in practice.
 mcmc=list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=500);
 prior = list(maxL=4, a0=1, b0=1);
-state <- list(cpar=1);
 ptm<-proc.time()
 res = survregbayes2(formula = Surv(t1, t2, type="interval2")~x1+x2, data=d, 
                      survmodel="PH", prior=prior, mcmc=mcmc, 
-                    state=state, dist="loglogistic", InitParamMCMC=FALSE);
+                    dist="loglogistic", InitParamMCMC=FALSE);
 ## Note InitParamMCMC=FALSE is used only speeding,
 ## InitParamMCMC=TRUE is recommended in general. 
 sfit=summary(res); sfit;

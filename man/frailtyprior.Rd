@@ -17,7 +17,7 @@ frailtyprior(prior="car", ...)
 }
 
 \references{
-Zhou, H. and Hanson, T. (2016). Bayesian semiparametric models for spatially correlated arbitrarily censored data. In preparation.
+Zhou, H. and Hanson, T. (2017). A unified framework for fitting Bayesian semiparametric models to arbitrarily censored spatial survival data. \emph{arXiv preprint arXiv:1701.06976}.
 }
 
 
