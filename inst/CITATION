@@ -1,53 +1,17 @@
 citHeader("To cite spBayesSurv in publications use:")
 
 citEntry(entry = "Article",
-  title        = "A unified framework for fitting Bayesian semiparametric models to arbitrarily censored spatial survival data",
+  title        = "{spBayesSurv}: Fitting Bayesian Spatial Survival Models Using {R}",
   author       = personList(as.person("Haiming Zhou"),
-                   as.person("Timothy Hanson")),
-  journal      = "arXiv preprint arXiv:1701.06976",
-  year         = "2017",
-  url          = "https://arxiv.org/abs/1701.06976",
-
-  textVersion  =
-  paste("Zhou, H. and Hanson, T. (2017).",
-        "A unified framework for fitting Bayesian semiparametric models to arbitrarily censored spatial survival data.",
-        "arXiv preprint arXiv:1701.06976.",
-        "URL https://arxiv.org/abs/1701.06976.")
-)
-
-citEntry(entry = "Article",
-  title        = "Generalized accelerated failure time spatial frailty model for arbitrarily censored data",
-  author       = personList(as.person("Haiming Zhou"),
-                   as.person("Timothy Hanson"),
+                   as.person("Timothy Hanson"), 
                    as.person("Jiajia Zhang")),
-  journal      = "Lifetime Data Analysis",
-  year         = "2016",
-  volume       = "in press",
-  pages        = "1-21",
-  url          = "http://dx.doi.org/10.1007/s10985-016-9361-4",
+  journal      = "arXiv preprint arXiv:1705.04584",
+  year         = "2017",
+  url          = "http://arxiv.org/abs/1705.04584",
 
   textVersion  =
   paste("Zhou, H., Hanson, T., and Zhang, J. (2017).",
-        "Generalized accelerated failure time spatial frailty model for arbitrarily censored data.",
-        "Lifetime Data Analysis, in press.",
-        "URL http://dx.doi.org/10.1007/s10985-016-9361-4.")
-)
-
-citEntry(entry = "Article",
-  title        = "Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations",
-  author       = personList(as.person("Haiming Zhou"),
-                   as.person("Timothy Hanson"),
-                   as.person("Roland Knapp")),
-  journal      = "Biometrics",
-  year         = "2015",
-  volume       = "71",
-  number       = "4",
-  pages        = "1101-1110",
-  url          = "http://dx.doi.org/10.1111/biom.12345",
-
-  textVersion  =
-  paste("Zhou, H., Hanson, T., and Knapp, R. (2015).",
-        "Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations.",
-        "Biometrics, 71(4): 1101-1110.",
-        "URL http://dx.doi.org/10.1111/biom.12345.")
+        "spBayesSurv: Fitting Bayesian Spatial Survival Models Using R.",
+        "arXiv preprint arXiv:1705.04584.",
+        "URL http://arxiv.org/abs/1705.04584.")
 )

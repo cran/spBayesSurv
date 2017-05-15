@@ -278,12 +278,12 @@ RcppExport SEXP AFT_MPT(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, S
           if(iscan>=nburn) rejv[i]+=1.0;
         }
         v_r = v_r - arma::mean(v_r);
-        // transfter from v to vn
-        for(int i=0; i<m; ++i){
-          int ind1 = blocki[i];
-          int ind2 = blocki[i+1]-1;
-          (vn_r.subvec(ind1, ind2)).fill(v[i]);
-        }
+      }
+      // transfter from v to vn
+      for(int i=0; i<m; ++i){
+        int ind1 = blocki[i];
+        int ind2 = blocki[i+1]-1;
+        (vn_r.subvec(ind1, ind2)).fill(v[i]);
       }
       // lambda
       double a0lambdastar = a0lambda+0.5*(m-1.0);

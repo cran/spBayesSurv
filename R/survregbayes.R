@@ -221,7 +221,7 @@
     Drr = matrix(1000, 1,1);
   }
   phi = state$phi; if(is.null(phi)) phi=1;
-  phib0_prior = 1;
+  phia0_prior = 2;
   nu = prior$nu; if(is.null(nu)) nu=1;
   if(!is.null(frail.prior)){
     if((frail.prior=="grf")){
@@ -229,13 +229,14 @@
       #phi_min = (-log(0.001))^(1/nu)/maxdis; phib0_prior = -log(.95)/phi_min; phi = 1/phib0_prior;
       #cc = sqrt((-log(0.001))^(1/nu)/maxdis); phi = maxdis*cc;
       phi = (-log(0.001))^(1/nu)/maxdis; 
-      phib0_prior = 1;
+      phia0_prior = 2;
       if(!is.null(state$phi)){
         phi = state$phi;
       }
       if (phi<=0) stop("phi in state arguement should be greater than 0.")
     }
   }
+  phi0=phi;
   # frailty initials
   if(is.null(state$frail)) {
     v <- rep(0, length(blocki)-1);
@@ -420,8 +421,8 @@
   gamma0 = rep(1.0, p);
   taua0 = prior$taua0; if(is.null(taua0)) taua0=.001;
   taub0 = prior$taub0; if(is.null(taub0)) taub0=.001;
-  phib0 = prior$phib0; if(is.null(phib0)) phib0=phib0_prior;
-  phia0 = prior$phia0; if(is.null(phia0)) phia0=phib0*phi+1;
+  phia0 = prior$phia0; if(is.null(phia0)) phia0=phia0_prior;
+  phib0 = prior$phib0; if(is.null(phib0)) phib0=(phia0-1)/phi0;
   mcmc = list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=ndisplay)
   theta_initial=theta+0;
   beta_initial=beta+0;
@@ -460,6 +461,7 @@
   if(selection){
     prior$p0gamma=p0gamma; prior$M=M; prior$q=q;
   }
+  #if((5*(length(blocki)-1))<n) phi=phi*10;
   
   #########################################################################################
   # calling the c++ code and # output

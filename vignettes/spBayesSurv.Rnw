@@ -1,4 +1,4 @@
-%\VignetteIndexEntry{Intro to spBayesSurv}
+%\VignetteIndexEntry{spBayesSurv}
 %\VignetteDepends{MASS}
  %\VignetteEngine{knitr::knitr}
 \documentclass[article,nojss]{jss}
@@ -8,20 +8,22 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% almost as usual
-\author{Haiming Zhou\\Northern Illinois University 
+\author{Haiming Zhou\\Northern Illinois University  \And 
+        Timothy Hanson\\University of South Carolina 
+        \And Jiajia Zhang \\ University of South Carolina
     }
-\title{Introduction to \pkg{spBayesSurv}}
+\title{\pkg{spBayesSurv}: Fitting Bayesian Spatial Survival Models Using \proglang{R}}
 %% for pretty printing and a nice hypersummary also set:
-\Plainauthor{Haiming Zhou} %% comma-separated
-\Plaintitle{Introduction to spBayesSurv} %% without formatting
-\Shorttitle{\pkg{spBayesSurv} version 1.1.0} %% a short title (if necessary)
+\Plainauthor{Zhou, Hanson, Zhang} %% comma-separated
+\Plaintitle{spBayesSurv: Fitting Bayesian Spatial Survival Models Using R} %% without formatting
+\Shorttitle{\pkg{spBayesSurv, version 1.1.1}} %% a short title (if necessary)
 
 %% an abstract and keywords
 \Abstract{
-This tutorial provides an introduction to a set of programs for implementing Bayesian spatial survival models in \proglang{R} using the package \pkg{spBayesSurv}. The function \texttt{survregbayes} includes three most commonly-used semiparametric models: proportional hazards, proportional odds, and accelerated failure time. All manner of censored survival times are simultaneously accommodated including uncensored, interval censored, current-status, left and right censored, and mixtures of these. Left-truncated data are also accommodated leading to models for time-dependent covariates. Both georeferenced and areally observed spatial locations are handled via frailties. Model fit is assessed with conditional Cox-Snell residual plots, and model choice is carried out via LPML and DIC. The function \texttt{frailtyGAFT} extends the accelerated failure time frailty model to allow covariates-dependent baseline. The package can also fit two marginal survival models: proportional hazards (\texttt{spCopulaCoxph}) and linear dependent Dirichlet process mixture (\texttt{spCopulaDDP}), where the spatial dependence is modeled via spatial copulas. Note that all these models can also accommodate non-spatial data. 
+  Spatial survival analysis has received a great deal of attention over the last 20 years due to the important role that geographical information can play in predicting survival. This paper provides an introduction to a set of programs for implementing some Bayesian spatial survival models in \proglang{R} using the package \pkg{spBayesSurv, version 1.1.1}. The function \texttt{survregbayes} includes three most commonly-used semiparametric models: proportional hazards, proportional odds, and accelerated failure time. All manner of censored survival times are simultaneously accommodated including uncensored, interval censored, current-status, left and right censored, and mixtures of these. Left-truncated data are also accommodated leading to models for time-dependent covariates. Both georeferenced and areally observed spatial locations are handled via frailties. Model fit is assessed with conditional Cox-Snell residual plots, and model choice is carried out via LPML and DIC. The accelerated failure time frailty model with a covariate-dependent baseline is included in the function \texttt{frailtyGAFT}. In addition, the package also provides two marginal survival models: proportional hazards and linear dependent Dirichlet process mixture, where the spatial dependence is modeled via spatial copulas. Note that the package can also handle non-spatial data using non-spatial versions of aforementioned models. 
 }
-\Keywords{Bayesian survival analysis,  spatial dependence, semiparametric models, parametric models, interval-censored data}
-\Plainkeywords{Bayesian survival analysis,  spatial dependence, semiparametric models, parametric models, interval-censored data} %% without formatting
+\Keywords{Bayesian nonparametric, survival analysis,  spatial dependence, semiparametric models, parametric models}
+\Plainkeywords{Bayesian nonparametric, survival analysis,  spatial dependence, semiparametric models, parametric models} %% without formatting
 %% at least one keyword must be supplied
 
 %% publication information
@@ -158,48 +160,58 @@ This tutorial provides an introduction to a set of programs for implementing Bay
 %% Note that you should use the \pkg{}, \proglang{} and \code{} commands.
 
 \section{Introduction}
-Due to the development of geographical information systems, many survival (time-to-event) data are spatially referenced. Spatial location plays a key role in survival prediction, serving as a proxy for unmeasured regional characteristics such as socioeconomic status, access to health care, pollution, etc. Literature on the spatial analysis of survival data has flourished over the last decade, including the study of leukemia survival \citep{Henderson.etal2002}, childhood mortality \citep{Kneib2006}, asthma \citep{Li.Lin2006}, breast cancer \citep{Banerjee.Dey2005,Zhou.etal2015}, political event processes \citep{Darmofal2009}, prostate cancer \citep{Wang.etal2012,Zhou.etal2016}, pine trees \citep{Li.etal2015}, threatened frogs \citep{Zhou.etal2015b}, health and pharmaceutical firms \citep{Arbia.etal2016}, and many others. In this tutorial we introduce a set of programs for implementing Bayesian spatial survival models in \proglang{R} using the package \pkg{spBayesSurv}, version 1.1.0. Note that the function syntaxes for \texttt{spCopulaCoxph}, \texttt{indeptCoxph}, \texttt{spCopulaDDP} and \texttt{anovaDDP} have changed in comparison to previous versions, and old syntaxes are no longer supported; see Section~\ref{sec:copulas}. 
+Spatial location plays a key role in survival prediction, serving as a proxy for unmeasured regional characteristics such as socioeconomic status, access to health care, pollution, etc. Literature on the spatial analysis of survival data has flourished over the last decade, including the study of leukemia survival \citep{Henderson.etal2002}, childhood mortality \citep{Kneib2006}, asthma \citep{Li.Lin2006}, breast cancer \citep{Banerjee.Dey2005,Zhou.etal2015}, political event processes \citep{Darmofal2009}, prostate cancer \citep{Wang.etal2012,Zhou.etal2017}, pine trees \citep{Li.etal2015}, threatened frogs \citep{Zhou.etal2015b}, health and pharmaceutical firms \citep{Arbia.etal2016}, emergency service response times \citep{Taylor2017}, and many others. 
 
-Suppose subjects are observed at $m$ distinct spatial locations $\bfs_1,\dots,\bfs_m$. Let $t_{ij}$ be a random event time associated with the $j$th subject in $\bfs_i$ and $\bx_{ij}$ be a related $p$-dimensional vector of covariates, $i=1, \ldots, m, j=1,\ldots,n_i$. Then $n=\sum_{i=1}^{m}n_i$ is the total number of subjects under consideration. Assume the survival time $t_{ij}$ lies in the interval $(a_{ij},b_{ij})$, $0\leq a_{ij}\leq b_{ij}\leq \infty$, and $t_{ij}$ is independent with $(a_{ij},b_{ij})$. Here left censored data are of the form $(0,b_{ij})$, right censored $(a_{ij},\infty)$, interval censored $(a_{ij},b_{ij})$ and uncensored values simply have $a_{ij}=b_{ij}$, i.e., we define $(x,x)=\{x\}$. Therefore, the observed data will be $\mathcal{D}=\{(a_{ij},b_{ij},\bx_{ij},\bfs_i); i=1,\ldots, m, j=1,\ldots,n_i\}$. For areally-observed outcomes, e.g. county-level, there is typically replication (i.e. $n_i>1$); for georeferenced, there may or may not be replication. Note although the models below are developed for spatial survival data,  non-spatial data are also accommodated. 
+Here we introduce the \pkg{spBayesSurv} package for fitting various survival models to spatially-referenced survival data.  Note that all models included in this package can also be fit without spatial information, including nonparametric models as well as semiparametric proportional hazards (PH), proportional odds (PO), and accelerated failure time (AFT) models. The model parameters and statistical inference are carried out via self-tuning adaptive Markov chain Monte Carlo (MCMC)  methods; no manual tuning is needed. The \proglang{R} syntax is essentially the same as for existing \proglang{R} \pkg{survival} functions.  Sensible, well-tested default priors are used throughout, however, the user can easily implement informative priors if such information is available.  The primary goal of this paper is to introduce \pkg{spBayesSurv} and provide extensive examples of its use.  Comparisons to other models and \proglang{R} packages can be found in \cite{Zhou.etal2015b}, \cite{Zhou.etal2017}, and \cite{Zhou.Hanson2017}.
 
-The tutorial is organized as follows. Section 2 introduces three commonly-used semiparametric frailty models, a test for parametric baseline, variable selection, left-truncation and time-dependent covariates. Section 3 describes a generalized accelerated failure time frailty model which allows covariates-dependent baseline function. Section 4 provides two spatial copula survival models for georeferenced, right-censored data. 
+Section 2 discusses \pkg{spBayesSurv}'s implementation of PH, PO, and AFT frailty models for georeferenced (e.g. latitude and longitude are recorded) and areally-referenced (e.g. county of residence recorded) spatial survival data; the functions also work very well for exchangeable or no frailties.  The models are centered at a parametric family through a novel transformed Bernstein polynomial prior and the centering family can be tested versus the Bernstein extension via Bayes factors.  All manner of censoring is accommodated as well as left-truncated data; left-truncation also allows for the inclusion of time-dependent covariates.  Both the DIC and LPML statistics are available for model selection; spike-and-slab variable selection is also implemented.
+
+In Section 3, a generalized AFT model is implemented allowing for \emph{continuous stratification}.  That is, the baseline survival function is itself a function of covariates: baseline survival changes smoothly as a function of continuous predictors; for categorical predictors the usual stratified AFT model is obtained.  Note that even for the usual stratified semiparametric AFT model with one discrete predictor (e.g. clinic) it is extremely difficult to obtain inference using frequentist approaches; see \cite{Chiou.etal2015} for a recent development.  The model fit in \pkg{spBayesSurv} actually extends discrete stratification to continuous covariates, allowing for very general models to be fit.  The generalized AFT model includes the easy computation of Bayes factors for determining which covariates affect baseline survival and whether a parametric baseline is adequate.  
+
+Finally, Section 4 offers a spatial implementation of the completely nonparametric linear dependent Dirichlet process mixture (LDDPM) model of \cite{DeIorio.etal2009} for georeferenced data.  The LDDPM does not have one simple ``linear predictor'' as do the models in Sections 2 and 3, and therefore a marginal copula approach was taken to incorporate spatial dependence.  A piecewise-constant baseline hazard PH model is also implemented via spatial copula for comparison purposes, i.e. a Bayesian version of the model presented in \cite{Li.Lin2006}.  Section 5 concludes the paper with a discussion.
+
+Although there are many \proglang{R} packages for implementing survival models, there are only a handful of that allow the inclusion of spatial information and these focus almost exclusively on variants of the PH model.  \proglang{BayesX} \citep{Belitz.etal2015} is an immensely powerful standalone program for fitting various generalized additive mixed models, including both georeferenced and areally-referenced frailties in the PH model.  The package \pkg{R2BayesX} \citep{Umlauf.etal2015} interfaces \proglang{BayesX} with \proglang{R}, but does not appear to include the full functionality of \proglang{BayesX}, e.g. a Bayesian approach for interval-censored data is not included.  For georeferenced frailties \proglang{BayesX} uses what have been termed ``Matern splines,'' first introduced in an applied context by \cite{Kammann.Wand2003}.  Several authors have used this approach including \cite{Kneib2006}, \cite{Hennerfeind.etal2006}, and \cite{Kneib.Fahrmeir2007}.  This approximation was termed a ``predictive process'' and given a more formal treatment by \cite{Banerjee.etal2008} and \cite{Finley.etal2009}.  In our experience, the predictive process tends to give biased regression effects and prediction when the rank (i.e. the number of knots) was chosen too low; the problem worsened with no replication and/or when spatial correlation was high.  In \pkg{spBayesSurv} the full-scale approximation (FSA) of \cite{Sang.Huang2012} is used to fix the predictive process via tapering; see Section \ref{sec:fsa}.  
+
+The package \pkg{spatsurv} \citep{Taylor.Rowlingson2017} includes an implementation of PH allowing for georeferenced Gaussian process frailties.  The frailty process is approximated on a fine grid and the covariance matrix inverted via the discrete Fourier transform on block circulent matrices; see \cite{Taylor2015} for details.  Taylor's approach vastly improves computation time over a fully-specified Gaussian process.  Both \pkg{R2BayesX} and \pkg{spatsurv} focus on the PH model with right-censored data.  The \pkg{spBayesSurv} includes several other spatial frailty models for general interval-censored and/or left-truncated data, and two marginal copula models for right-censored data, which have been shown to provide dramatically improved fit over frailty models \citep{Zhou.etal2015b,Li.etal2015b}. 
+
+To set notation, suppose subjects are observed at $m$ distinct spatial locations $\bfs_1,\dots,\bfs_m$. Let $t_{ij}$ be a random event time associated with the $j$th subject in $\bfs_i$ and $\bx_{ij}$ be a related $p$-dimensional vector of covariates, $i=1, \ldots, m, j=1,\ldots,n_i$. Then $n=\sum_{i=1}^{m}n_i$ is the total number of subjects under consideration. Assume the survival time $t_{ij}$ lies in the interval $(a_{ij},b_{ij})$, $0\leq a_{ij}\leq b_{ij}\leq \infty$. Here left censored data are of the form $(0,b_{ij})$, right censored $(a_{ij},\infty)$, interval censored $(a_{ij},b_{ij})$ and uncensored values simply have $a_{ij}=b_{ij}$, i.e., we define $(x,x)=\{x\}$. Therefore, the observed data will be $\mathcal{D}=\{(a_{ij},b_{ij},\bx_{ij},\bfs_i); i=1,\ldots, m, j=1,\ldots,n_i\}$. For areally-observed outcomes, e.g. county-level, there is typically replication (i.e. $n_i>1$); for georeferenced data, there may or may not be replication. Note although the models are discussed for spatial survival data,  non-spatial data are also accommodated. All code below is run in \proglang{R} version 3.3.3 under the platform x86\_64-apple-darwin13.4.0 (64-bit).
 
 \section{Semiparametric Frailty Models}
-\subsection{The Model}\label{sec:semi:frailty}
-The function \texttt{survregbayes} supports three commonly-used semiparametric spatial frailty models: accelerated failure time (AFT), proportional hazards (PH), and proportional odds (PO). The AFT model has survival and density functions 
+\subsection{Models}\label{sec:semi:frailty}
+The function \texttt{survregbayes} supports three commonly-used semiparametric frailty models: AFT, PH, and PO. The AFT model has survival and density functions 
 \begin{equation} \label{aft}
 S_{\bx_{ij}}(t)=S_0(e^{\bx_{ij}'\bbeta+v_i} t), \ f_{\bx_{ij}}(t)=e^{\bx_{ij}'\bbeta+v_i} f_0(e^{\bx_{ij}'\bbeta+v_i}t), 
 \end{equation}
-while the PH model has survival and density functions
+while the PH model has survival and density 
 \begin{equation} \label{ph} 
 S_{\bx_{ij}}(t)=S_0(t)^{e^{\bx_{ij}'\bbeta+v_i}}, \ f_{\bx_{ij}}(t)=e^{\bx_{ij}'\bbeta+v_i} S_0(t)^{e^{\bx_{ij}'\bbeta+v_i}-1} f_0(t), 
 \end{equation}  
-and the PO model has survival and density functions
+and the PO model has survival and density 
 \begin{equation} \label{po}
 S_{\bx_{ij}}(t)=\frac{e^{-\bx_{ij}'\bbeta-v_i}S_0(t)}{1+(e^{-\bx_{ij}'\bbeta-v_i}-1)S_0(t)}, \ f_{\bx_{ij}}(t)=\frac{e^{-\bx_{ij}'\bbeta-v_i}f_0(t)}{[1+(e^{-\bx_{ij}'\bbeta-v_i}-1)S_0(t)]^2},
 \end{equation}
-where $\bbeta=(\beta_1, \ldots, \beta_p)'$ is a vector of regression coefficients, $v_i$ is an unobserved frailty associated with $\bfs_i$, and $S_0(t)$ is the baseline survival with density $f_0(t)$ corresponding to $\bx_{ij}=\bzero$ and $v_i=0$. The \texttt{survregbayes} function considers the following prior distributions: 
+where $\bbeta=(\beta_1, \ldots, \beta_p)'$ is a vector of regression coefficients, $v_i$ is an unobserved frailty associated with $\bfs_i$, and $S_0(t)$ is the baseline survival with density $f_0(t)$ corresponding to $\bx_{ij}=\bzero$ and $v_i=0$. Let $\Gamma(a, b)$ denote a gamma distribution with mean $a/b$. The \texttt{survregbayes} function implements the following prior distributions: 
 \begin{equation}\label{eq:semi:priors}
 \begin{aligned}
 \bbeta &\sim N_p(\bbeta_0, \bS_0),\\
-S_0 |\alpha, \btheta &\sim \TBP_L(\alpha, S_{\btheta}), ~\alpha \sim {\Gamma} (a_0, b_0), ~\btheta\sim N_2(\btheta_0, \bV_0),\\
+S_0(\cdot) |\alpha, \btheta &\sim \TBP_L(\alpha, S_{\btheta}(\cdot)), ~\alpha \sim {\Gamma} (a_0, b_0), ~\btheta\sim N_2(\btheta_0, \bV_0),\\
 (v_1, \ldots, v_m)'|\tau &\sim \ICAR(\tau^2), ~\tau^{-2}\sim \Gamma(a_\tau, b_\tau) , \text{ or}\\
 (v_1, \ldots, v_m)'|\tau,\phi &\sim \GRF(\tau^2, \phi), ~\tau^{-2}\sim \Gamma(a_\tau, b_\tau),  ~\phi\sim \Gamma(a_\phi, b_\phi), \text{ or}\\
 (v_1, \ldots, v_m)'|\tau &\sim \IID(\tau^2), ~\tau^{-2}\sim \Gamma(a_\tau, b_\tau)
 \end{aligned}
 \end{equation}
-where $\TBP_L$, $\ICAR$, $\GRF$ and $\IID$ refer to the transformed Bernstein polynomial (TBP) \citep{Chen.etal2014, Zhou.Hanson2017}, intrinsic conditionally autoregressive (ICAR) \citep{Besag1974}, Gaussian random field (GRF) prior, and independent Gaussian (IID) prior distributions, respectively. We briefly introduce these priors but leave details to \cite{Zhou.Hanson2017}.
+where $\TBP_L$, $\ICAR$, $\GRF$ and $\IID$ refer to the transformed Bernstein polynomial (TBP) \citep{Chen.etal2014, Zhou.Hanson2017} prior, intrinsic conditionally autoregressive (ICAR) \citep{Besag1974} prior, Gaussian random field (GRF) prior, and independent Gaussian (IID) prior distributions, respectively. We briefly introduce these priors but leave details to \cite{Zhou.Hanson2017}.
 
 \subsubsection{TBP prior}
-In semiparametric survival analysis, a wide variety of Bayesian nonparametric priors can be used to model $S_0$;
-see \cite{Mueller.etal2015} and \cite{Zhou.Hanson2015} for reviews. The TBP prior is attractive in that it is centered at a given parametric family and it selects smooth densities.  For a fixed positive integer $L$, the prior $\TBP_L(\alpha, S_{\btheta})$ is defined as  
+In semiparametric survival analysis, a wide variety of Bayesian nonparametric priors can be used to model $S_0(\cdot)$;
+see \cite{Mueller.etal2015} and \cite{Zhou.Hanson2015} for reviews. The TBP prior is attractive in that it is centered at a given parametric family and it selects only smooth densities.  For a fixed positive integer $L$, the prior $\TBP_L(\alpha, S_{\btheta}(\cdot))$ is defined as  
 \begin{equation}\label{bp:S0}
 S_0(t) = \sum_{j=1}^{L} w_{j} I(S_{\btheta}(t)|j, L-j+1), ~\bw_L \sim \textrm{Dirichlet}(\alpha, \ldots, \alpha),
 \end{equation}
-where $\bw_L=(w_{1}, \ldots, w_{L})'$ is a vector of positive weights, $I(\cdot| a, b)$ denotes a beta cumulative distribution function (cdf) with parameters $(a,b)$, $\{S_{\btheta}:\btheta \in \boldsymbol{\Theta}\}$ is a parametric family of survival functions with support on positive reals $\mathR^+$. The log-logistic  $S_{\btheta}(t)=\{1+(e^{\theta_1} t)^{\exp(\theta_2)}\}^{-1}$, the log-normal $S_{\btheta}(t)=1-\Phi\{(\log t+\theta_1)\exp(\theta_2)\}$, and the Weibull $S_{\btheta}(t)=1-\exp\left\{-(e^{\theta_1} t)^{\exp(\theta_2)} \right\}$ families are considered, where $\btheta=(\theta_1, \theta_2)'$. In our experience, the three centering distributions yield almost identical posterior inferences. Clearly, the random distribution $S_0$ is centered at $S_{\btheta}$, that is, $E[S_0(t)|\alpha, \btheta]=S_{\btheta}(t)$. The parameter $\alpha$ controls the weights $\bw_L$ to ``adjust'' the shape of the baseline survival $S_0$ relative to the prior guess $S_{\btheta}$. Large values of $\alpha$ indicate a strong belief that $S_0$ is close to $S_{\btheta}$; as $\alpha \rightarrow \infty$, $S_0 \rightarrow S_{\btheta}$ with probability 1. Smaller values of $\alpha$ allow more pronounced deviations of $S_0$ from $S_{\btheta}$. This adaptability makes the TBP prior attractive in its flexibility, but also anchors the random $S_0$ firmly about $S_{\btheta}$: $w_j=1/L$ for $j=1,\dots,L$ implies $S_0(t)=S_{\btheta}(t)$ for $t \ge0$. Moreover, unlike the mixture of Polya trees \citep{Lavine1992} or mixture of Dirichlet process \citep{Antoniak1974} priors, the TBP prior selects smooth densities, leading to efficient posterior sampling.
+where $\bw_L=(w_{1}, \ldots, w_{L})'$ is a vector of positive weights, $I(\cdot| a, b)$ denotes a beta cumulative distribution function (cdf) with parameters $(a,b)$, and $\{S_{\btheta}(\cdot):\btheta \in \boldsymbol{\Theta}\}$ is a parametric family of survival functions with support on positive reals $\mathR^+$. The log-logistic  $S_{\btheta}(t)=\{1+(e^{\theta_1} t)^{\exp(\theta_2)}\}^{-1}$, the log-normal $S_{\btheta}(t)=1-\Phi\{(\log t+\theta_1)\exp(\theta_2)\}$, and the Weibull $S_{\btheta}(t)=1-\exp\left\{-(e^{\theta_1} t)^{\exp(\theta_2)} \right\}$ families are implemented in \texttt{survregbayes}, where $\btheta=(\theta_1, \theta_2)'$. In our experience, the three centering distributions yield almost identical posterior inferences but in small samples one might be preferred. The random distribution $S_0(\cdot)$ is centered at $S_{\btheta}(\cdot)$, i.e. $E[S_0(t)|\alpha, \btheta]=S_{\btheta}(t)$. The parameter $\alpha$ controls how close the weights $\bw_j$ are to $1/L$, i.e. how close the shape of the baseline survival $S_0(\cdot)$ is relative to the prior guess $S_{\btheta}(\cdot)$. Large values of $\alpha$ indicate a strong belief that $S_0(\cdot)$ is close to $S_{\btheta}(\cdot)$; as $\alpha \rightarrow \infty$, $S_0(\cdot) \rightarrow S_{\btheta}(\cdot)$ with probability 1. Smaller values of $\alpha$ allow more pronounced deviations of $S_0(\cdot)$ from $S_{\btheta}(\cdot)$. This adaptability makes the TBP prior attractive in its flexibility, but also anchors the random $S_0(\cdot)$ firmly about $S_{\btheta}(\cdot)$: $w_j=1/L$ for $j=1,\dots,L$ implies $S_0(t)=S_{\btheta}(t)$ for $t \ge0$. Moreover, unlike the mixture of Polya trees \citep{Lavine1992} or mixture of Dirichlet process \citep{Antoniak1974} priors, the TBP prior selects smooth densities, leading to efficient posterior sampling.
 
 \subsubsection{ICAR and IID priors}
-For areal data, the ICAR prior can be assumed on $\bv=(v_1, \ldots, v_m)'$. Let $e_{ij}$ be $1$ if regions $i$ and $j$ share a common boundary and 0 otherwise; set $e_{ii}=0$. Then the $m\times m$ matrix $\bE=[e_{ij}]$ is called the adjacency matrix for the $m$ regions. The prior $\ICAR(\tau^2)$ on $\bv$ is defined through the set of the conditional distributions
+For areal data, the ICAR prior smooths neighboring geographic-unit frailties $\bv=(v_1, \ldots, v_m)'$. Let $e_{ij}$ be $1$ if regions $i$ and $j$ share a common boundary and 0 otherwise; set $e_{ii}=0$. Then the $m\times m$ matrix $\bE=[e_{ij}]$ is called the adjacency matrix for the $m$ regions. The prior $\ICAR(\tau^2)$ on $\bv$ is defined through the set of the conditional distributions
 \begin{equation}\label{eq:areal-prior}
 v_i | \{v_j\}_{j \neq i} \sim N\left(\sum_{j=1}^m e_{ij}v_j/e_{i+}, ~\tau^2/e_{i+} \right), ~ i=1,\ldots,m,
 \end{equation}
@@ -218,13 +230,13 @@ v_i | \{v_j\}_{j \neq i} \sim N\left(-\sum_{\{j:j\neq i\}} p_{ij}v_j/p_{ii}, ~\t
 \end{equation}
 where $p_{ij}$ is the $(i,j)$ element of $\bR^{-1}$.  
 
-\subsubsection{Full-scale approximation}
-As $m$ increases evaluating $\bR^{-1}$ from $\bR$ becomes computationally impractical. To overcome this computational issue, we consider the full-scale approximation \citep{Sang.Huang2012} (FSA) due to its capability of capturing both large- and small-scale spatial dependence. Consider a fixed set of ``knots'' $\calS^* = \{\bfs^*_1, \ldots, \bfs^*_K\}$ chosen from the study region. These knots are chosen using the function \texttt{cover.design} within the R package \texttt{fields}, which computes space-filling coverage designs using the swapping algorithm \citep{Johnson.etal1990}. Let $\rho(\bfs,\bfs')$ be the correlation between locations $\bfs$ and $\bfs'$. The FSA approach approximates the correlation function $\rho(\bfs,\bfs')$ with
+\subsubsection{Full-scale approximation} \label{sec:fsa}
+As $m$ increases evaluating $\bR^{-1}$ from $\bR$ becomes computationally impractical. To overcome this computational issue, we consider the FSA \citep{Sang.Huang2012} due to its capability of capturing both large- and small-scale spatial dependence. Consider a fixed set of ``knots'' $\calS^* = \{\bfs^*_1, \ldots, \bfs^*_K\}$ chosen from the study region. These knots are chosen using the function \texttt{cover.design} within the R package \pkg{fields}, which computes space-filling coverage designs using the swapping algorithm \citep{Johnson.etal1990}. Let $\rho(\bfs,\bfs')$ be the correlation between locations $\bfs$ and $\bfs'$. The FSA approach approximates the correlation function $\rho(\bfs,\bfs')$ with
 \begin{equation}\label{FSA}
 	\rho^\dag (\bfs, \bfs') = \rho_l(\bfs, \bfs') + \rho_s(\bfs, \bfs').
 \end{equation}
 The $\rho_l(\bfs,\bfs')$ in (\ref{FSA}) is the reduced-rank part capturing the long-scale spatial dependence, defined as $ \rho_l(\bfs, \bfs') = \rho'(\bfs, \calS^*)\rho_{KK}^{-1}(\calS^*, \calS^*)\rho(\bfs', \calS^*)$,
-where $\rho(\bfs, \calS^*) = [\rho(\bfs, \bfs_i^*)]_{i=1}^K$ is an $K\times 1$ vector, and $\rho_{KK}(\calS^*, \calS^*)=[\rho(\bfs_i^*, \bfs_j^*)]_{i,j=1}^K$ is an $K\times K$ correlation matrix at knots $\calS^*$. However, $\rho_l(\bfs,\bfs')$ cannot well capture the short-scale dependence due to the fact that it discards entirely the residual part $\rho(\bfs,\bfs')-\rho_l(\bfs,\bfs')$. The idea of FSA is to add a small-scale part $\rho_s(\bfs,\bfs')$ as a sparse approximate of the residual part, defined by $\rho_s(\bfs, \bfs') = \left\{ \rho(\bfs,\bfs')-\rho_l(\bfs,\bfs') \right\}\Delta(\bfs,\bfs')$, where $\Delta(\bfs,\bfs')$ is a modulating function, which is specified so that the $\rho_s(\bfs,\bfs')$ can well capture the local residual spatial dependence while still permits efficient computations. Motivated by \cite{Konomi.etal2014}, we first partition the total input space into $B$ disjoint blocks, and then specify $\Delta(\bfs,\bfs')$ in a way such that the residuals are independent across input blocks, but the original residual dependence structure within each block is retained. Specifically, the function $\Delta(\bfs,\bfs')$ is taken to be $1$ if $\bfs$ and $\bfs'$ belong to the same block and $0$ otherwise. The approximated correlation function $\rho^\dag (\bfs, \bfs')$ in (\ref{FSA}) provides an exact recovery of the true correlation within each block, and the approximation errors are $\rho(\bfs,\bfs')-\rho_l(\bfs,\bfs')$ for locations $\bfs$ and $\bfs'$ in different blocks. Those errors are expected to be small for most entries because most of these location pairs are farther apart. To determine the blocks, we first use the R function \texttt{cover.design} to choose $B\leq m$ locations among the $m$ locations forming $B$ blocks, then assign each $\bfs_i$ to the block that is closest to $\bfs_i$. Here $B$ does not need to be equal to $K$. When $B=1$, no approximation is applied to the correlation $\rho$. When $B=m$, it reduces to the approach of \cite{Finley.etal2009}, so the local residual spatial dependence may not be well captured. 
+where $\rho(\bfs, \calS^*) = [\rho(\bfs, \bfs_i^*)]_{i=1}^K$ is a $K\times 1$ vector, and $\rho_{KK}(\calS^*, \calS^*)=[\rho(\bfs_i^*, \bfs_j^*)]_{i,j=1}^K$ is a $K\times K$ correlation matrix at knots $\calS^*$. However, $\rho_l(\bfs,\bfs')$ cannot well capture the short-scale dependence due to the fact that it discards entirely the residual part $\rho(\bfs,\bfs')-\rho_l(\bfs,\bfs')$. The idea of FSA is to add a small-scale part $\rho_s(\bfs,\bfs')$ as a sparse approximate of the residual part, defined by $\rho_s(\bfs, \bfs') = \left\{ \rho(\bfs,\bfs')-\rho_l(\bfs,\bfs') \right\}\Delta(\bfs,\bfs')$, where $\Delta(\bfs,\bfs')$ is a modulating function, which is specified so that $\rho_s(\bfs,\bfs')$ can well capture the local residual spatial dependence while still permitting efficient computation. Motivated by \cite{Konomi.etal2014}, we first partition the total input space into $B$ disjoint blocks, and then specify $\Delta(\bfs,\bfs')$ in a way such that the residuals are independent across input blocks, but the original residual dependence structure within each block is retained. Specifically, the function $\Delta(\bfs,\bfs')$ is taken to be $1$ if $\bfs$ and $\bfs'$ belong to the same block and $0$ otherwise. The approximated correlation function $\rho^\dag (\bfs, \bfs')$ in (\ref{FSA}) provides an exact recovery of the true correlation within each block, and the approximation errors are $\rho(\bfs,\bfs')-\rho_l(\bfs,\bfs')$ for locations $\bfs$ and $\bfs'$ in different blocks. Those errors are expected to be small for most entries because most of these location pairs are farther apart. To determine the blocks, we first use the R function \texttt{cover.design} to choose $B\leq m$ locations among the $m$ locations forming $B$ blocks, then assign each $\bfs_i$ to the block that is closest to $\bfs_i$. Here $B$ does not need to be equal to $K$. When $B=1$, no approximation is applied to the correlation $\rho$. When $B=m$, it reduces to the approach of \cite{Finley.etal2009}, so the local residual spatial dependence may not be well captured. 
 
 Applying the above FSA approach to approximate the correlation function $\rho(\bfs,\bfs')$, we can approximate the correlation matrix $\bR$ with
 \begin{equation}\label{FSA:rho}
@@ -232,7 +244,7 @@ Applying the above FSA approach to approximate the correlation function $\rho(\b
 \brho_{mm}^\dag &= \brho_l + \brho_s = \brho_{mK}\brho_{KK}^{-1}\brho_{mK}' + \left(\brho_{mm} - \brho_{mK}\brho_{KK}^{-1}\brho_{mK}' \right) \circ \bDelta,
 \end{aligned}
 \end{equation}
-where $\brho_{mK} = [\rho(\bfs_i, \bfs_j^*)]_{i=1:m,j=1:K}$, $\brho_{KK}=[\rho(\bfs_i^*, \bfs_j^*)]_{i,j=1}^K$, and $\bDelta=[\Delta(\bfs_i, \bfs_j)]_{i,j=1}^m$. Here, the notation ``$\circ$'' represents the element-wise matrix multiplication. To avoid numerical instability, we add a small nugget effect $\epsilon=0.001$ when define $\bR$, that is, $\bR=(1-\epsilon)\brho_{mm}+\epsilon \bI_m$.  It follows from equation (\ref{FSA:rho}) that $\bR$ can be approximated by
+where $\brho_{mK} = [\rho(\bfs_i, \bfs_j^*)]_{i=1:m,j=1:K}$, $\brho_{KK}=[\rho(\bfs_i^*, \bfs_j^*)]_{i,j=1}^K$, and $\bDelta=[\Delta(\bfs_i, \bfs_j)]_{i,j=1}^m$. Here, the notation ``$\circ$'' represents the element-wise matrix multiplication. To avoid numerical instability, we add a small nugget effect $\epsilon=10^{-10}$ when defining $\bR$, that is, $\bR=(1-\epsilon)\brho_{mm}+\epsilon \bI_m$.  It follows from equation (\ref{FSA:rho}) that $\bR$ can be approximated by
 $$\bR^\dag = (1-\epsilon)\brho_{mm}^\dag+\epsilon\bI_m = (1-\epsilon)\brho_{mK}\brho_{KK}^{-1}\brho_{mK}'  + \bR_s,$$
 where $\bR_s=(1-\epsilon)\left(\brho_{mm} - \brho_{mK}\brho_{KK}^{-1}\brho_{mK}' \right) \circ \bDelta + \epsilon\bI_m$. Applying the Sherman-Woodbury-Morrison formula for inverse matrices, we can approximate $\bR^{-1}$ by 
 \begin{equation}\label{FSA:inv}
@@ -253,14 +265,15 @@ The likelihood function for $(\bw_L, \btheta, \bbeta, \bv)$ is given by
 \begin{equation} 
 \calL(\bw_L, \btheta, \bbeta, \bv)=\prod_{i=1}^m \prod_{j=1}^{n_i} \left[S_{\bx_{ij}}(a_{ij})-S_{\bx_{ij}}(b_{ij})\right]^{I\{a_{ij}<b_{ij}\}} f_{\bx_{ij}}(a_{ij})^{I\{a_{ij}=b_{ij}\}}. \label{like} 
 \end{equation}
-MCMC is carried out through an empirical Bayes approach coupled with adaptive Metropolis samplers \citep{Haario.etal2001}.  Recall that $w_{j}=1/L$ implies the underlying parametric model with $S_0(t)=S_{\btheta}(t)$.  Thus, the parametric model provides good starting values for the TBP survival model. Let $\hat{\btheta}$ and $\hat{\bbeta}$ denote the parametric estimates of $\btheta$ and $\bbeta$, and let $\hat{\bV}$ and $\hat{\bS}$ denote their estimated covariance matrices, respectively. Set $\bz_{L-1}=(z_1,\ldots,z_{L-1})'$ with $z_j=\log(w_{j})-\log(w_{L})$. The $\bbeta$, $\btheta$, $\bz_{L-1}$, $\alpha$ and $\phi$ are all updated using adaptive Metropolis samplers, where the initial proposal variance is $\hat{\bS}$ for $\bbeta$, $\hat{\bV}$ for $\btheta$, $0.16\bI_{L-1}$ for $\bz_{L-1}$ and $0.16$ for $\alpha$ and $\phi$. Each frailty term $v_i$ is updated via Metropolis-Hastings, with proposal variance as the conditional prior variance of $v_i | \{v_j\}_{j \neq i}$; $\tau^{-2}$ is updated via a Gibbs step from its full conditional. A complete description and derivation of the updating steps are available in \cite{Zhou.Hanson2017}. 
+MCMC is carried out through an empirical Bayes approach coupled with adaptive Metropolis samplers \citep{Haario.etal2001}.  Recall that $w_{j}=1/L$ implies the underlying parametric model with $S_0(t)=S_{\btheta}(t)$.  Thus, the parametric model provides good starting values for the TBP survival model. Let $\hat{\btheta}$ and $\hat{\bbeta}$ denote the parametric estimates of $\btheta$ and $\bbeta$, e.g. maximum likelihood estimates, and let $\hat{\bV}$ and $\hat{\bS}$ denote their estimated covariance matrices, respectively. Set $\bz_{L-1}=(z_1,\ldots,z_{L-1})'$ with $z_j=\log(w_{j})-\log(w_{L})$. The $\bbeta$, $\btheta$, $\bz_{L-1}$, $\alpha$ and $\phi$ are all updated using adaptive Metropolis samplers, where the initial proposal variance is $\hat{\bS}$ for $\bbeta$, $\hat{\bV}$ for $\btheta$, $0.16\bI_{L-1}$ for $\bz_{L-1}$ and $0.16$ for $\alpha$ and $\phi$. Each frailty term $v_i$ is updated via Metropolis-Hastings, with proposal variance as the conditional prior variance of $v_i | \{v_j\}_{j \neq i}$; $\tau^{-2}$ is updated via a Gibbs step from its full conditional. A complete description and derivation of the updating steps are available in \cite{Zhou.Hanson2017}. 
 
-The function \texttt{survregbayes} sets the following hyperparameters as defaults: $\bbeta_0=\bzero$, $\bS_0=10^{10}\bI_p$, $\btheta_0=\hat{\btheta}$, $\bV_0=10\hat{\bV}$, $a_0=b_0=1$, and $a_\tau=b_\tau=.001$. Note here we assume a somewhat informative prior on $\btheta$ to obviate confounding between $\btheta$ and $\bw_L$. For georeferenced data, we set and $a_\phi={\phi}_0b_\phi+1$ and $b_\phi=1$ so that the prior of $\phi$ has mode at ${\phi}_0$. Here $\phi_0$ satisfies $\rho(\bfs',\bfs''; \phi_0)=0.001$, where $\|\bfs'-\bfs''\|=\max_{ij}\|\bfs_i-\bfs_j\|$. Note that \cite{Kneib.Fahrmeir2007} simply fix $\phi$ at $\phi_0$, while we allow $\phi$ to be random around $\phi_0$. 
+The function \texttt{survregbayes} sets the following hyperparameters as defaults: $\bbeta_0=\bzero$, $\bS_0=10^{10}\bI_p$, $\btheta_0=\hat{\btheta}$, $\bV_0=10\hat{\bV}$, $a_0=b_0=1$, and $a_\tau=b_\tau=.001$. Note here we assume a somewhat informative prior on $\btheta$ to obviate confounding between $\btheta$ and $\bw_L$. For the GRF prior, we set $a_\phi=2$ and $b_{\phi}=(a_{\phi}-1)/\phi_0$ so that the prior of $\phi$ has mode at ${\phi}_0$ and the prior mean of $1/\phi$ is $1/\phi_0$ with infinite variance. Here $\phi_0$ satisfies $\rho(\bfs',\bfs''; \phi_0)=0.001$, where $\|\bfs'-\bfs''\|=\max_{ij}\|\bfs_i-\bfs_j\|$. Note that \cite{Kneib.Fahrmeir2007} simply fix $\phi$ at $\phi_0$, while we allow $\phi$ to be random around $\phi_0$. 
+
 
 \subsection{Model Diagnostics and Comparison}\label{sec:semi:diagnoistics}
-For model diagnostics, we consider a general residual of \cite{Cox.Snell1968}, defined as $r(t_{ij}) = - \log  \{ S_{\bx_{ij}}(t_{ij}) | \calD \}$, where the residual depends on the posterior $[\bbeta,\btheta,\bw_L,v_i|\calD]$. Given $S_{\bx_{ij}}(\cdot)$, $-\log S_{\bx_{ij}}(t_{ij})$ has a standard exponential distribution. If the model is ``correct,'' and under the arbitrary censoring, the pairs $\{ r(a_{ij}), r(b_{ij}) \}$ are approximately a random arbitrarily censored sample from an $\textrm{Exp}(1)$ distribution, and the estimated \citep{Turnbull1974} integrated hazard plot should be approximately straight with slope 1. Uncertainty in the plot is assessed through several cumulative hazards based on a random sample from $[\bbeta,\btheta,\bw_J,v_i|\calD]$.  This is in contrast to typical Cox-Snell plots which only use point estimates.
+For model diagnostics, we consider a general residual of \cite{Cox.Snell1968}, defined as $r(t_{ij}) = - \log S_{\bx_{ij}}(t_{ij}) $. Given $S_{\bx_{ij}}(\cdot)$, $r(t_{ij})$ has a standard exponential distribution. If the model is ``correct,'' and under the arbitrary censoring, the pairs $\{ r(a_{ij}), r(b_{ij}) \}$ are approximately a random arbitrarily censored sample from an $\textrm{Exp}(1)$ distribution, and the estimated \citep{Turnbull1974} integrated hazard plot should be approximately straight with slope 1. Uncertainty in the plot is assessed through several cumulative hazards based on a random sample from $[\bbeta,\btheta,\bw_L,\bv|\calD]$.  This is in contrast to typical Cox-Snell plots which only use point estimates.
 
-For model comparison, we consider two popular model choice criteria: the deviance information criterion (DIC) \citep{Spiegelhalter.etal2002} and the log pseudo marginal likelihood (LPML) \citep{Geisser.Eddy1979}, where the former places emphasis on the relative quality of model fitting and the latter focuses on the predictive performance. Both criteria are readily computed from the MCMC output; see \cite{Zhou.Hanson2017} for more details.
+For model comparison, we consider two popular model choice criteria: the deviance information criterion (DIC) \citep{Spiegelhalter.etal2002} and the log pseudo marginal likelihood (LPML) \citep{Geisser.Eddy1979}, where where DIC (smaller is better) places emphasis on the relative quality of model fitting and LPML (larger is better) focuses on the predictive performance. Both criteria are readily computed from the MCMC output; see \cite{Zhou.Hanson2017} for more details.
 
 \subsection{Leukemia Survival Data}\label{sec:semi:leukemia}
 A dataset on the survival of acute myeloid leukemia in $n=1,043$ patients \citep{Henderson.etal2002} is considered, named as \code{LeukSurv} in the package. It is of interest to investigate possible spatial variation in survival after accounting for known subject-specific prognostic factors, which include \code{age}, \code{sex}, white blood cell count (\code{wbc}) at diagnosis, and the Townsend score (\code{tpi}) for which higher values indicates less affluent areas. Both exact residential locations of all patients and their administrative districts (the boundary file is named as \code{nwengland.bnd} in the package) are available, so we can fit both geostatistical and areal models. 
@@ -292,8 +305,9 @@ We first need to sort the dataset by \code{district}, then obtain the adjacency 
 > E = diag(diag(adj.mat)) - as.matrix(adj.mat);
 \end{Code}
 
-The following code is used to fit the PO model with ICAR frailties using the TBP prior with $L=15$ and default settings for other priors. A burn-in period of 5,000 iterates was considered and the Markov chain was subsampled every 5 iterates to get a final chain size of 2,000. The argument \code{ndisplay=1000}  will display the number of saved scans after every 1,000 saved iterates. If the argument \code{InitParamMCMC=TRUE} (not used here as it is the default setting), then an initial chain with \code{nburn=5000}, \code{nsave=5000}, \code{nkip=0} and \code{ndisplay=1000} will be run; otherwise, the initial values are obtained from fitting parametric non-frailty models via \texttt{survreg}. The total running time is 172 seconds. 
+The following code is used to fit the PO model with ICAR frailties using the TBP prior with $L=15$ and default settings for other priors. A burn-in period of 5,000 iterates was considered and the Markov chain was subsampled every 5 iterates to get a final chain size of 2,000. The argument \code{ndisplay=1000}  will display the number of saved scans after every 1,000 saved iterates. If the argument \code{InitParamMCMC=TRUE} (not used here as it is the default setting), then an initial chain with \code{nburn=5000}, \code{nsave=5000}, \code{nkip=0} and \code{ndisplay=1000} will be run; otherwise, the initial values are obtained from fitting parametric non-frailty models via \texttt{survreg}. The total running time is 166 seconds. 
 \begin{Code}
+> set.seed(1)
 > mcmc=list(nburn=5000, nsave=2000, nskip=4, ndisplay=1000);
 > prior=list(maxL=15);
 > ptm<-proc.time()
@@ -311,9 +325,9 @@ scan = 1000
 scan = 2000
 > systime1=proc.time()-ptm; systime1;
    user  system elapsed 
-168.930   0.950 171.507 
+165.919   0.296 166.354 
 \end{Code}
-The term \code{frailtyprior("car",district)} indicates that the ICAR prior in (\ref{eq:areal-prior}) is used. One can also incorporate the IID prior in (\ref{eq:iid-prior}) via \code{frailtyprior("iid",district)}. The non-frailty model can be fit by removing the \code{frailtyprior} term. The argument \code{survmodel} is used to indicate which model will be fit; choices include \code{"PH"}, \code{"PO"}, and \code{"AFT"}. The argument \code{dist} is used to specify the distribution family of $S_{\btheta}$ defined in Section \ref{sec:semi:frailty}, and the choices include \code{"loglogistic"}, \code{"lognormal"}, and \code{"weibull"}. The argument \code{prior} is used to specify user-defined hyperparameters, e.g., for $p=3$, $L=15$, $\bbeta_0=\bzero$, $\bS_0=10\bI_p$, $\btheta_0=\bzero$, $\bV_0=10\bI_2$, $a_0=b_0=1$, and $a_\tau=b_\tau=1$, the prior can be specified as below.
+The term \code{frailtyprior("car",district)} indicates that the ICAR prior in (\ref{eq:areal-prior}) is used. One can also incorporate the IID prior in (\ref{eq:iid-prior}) via \code{frailtyprior("iid",district)}. The non-frailty model can be fit by removing the \code{frailtyprior} term. The argument \code{survmodel} is used to indicate which model will be fit; choices include \code{"PH"}, \code{"PO"}, and \code{"AFT"}. The argument \code{dist} is used to specify the distribution family of $S_{\btheta}(\cdot)$ defined in Section \ref{sec:semi:frailty}, and the choices include \code{"loglogistic"}, \code{"lognormal"}, and \code{"weibull"}. The argument \code{prior} is used to specify user-defined hyperparameters, e.g., for $p=3$, $L=15$, $\bbeta_0=\bzero$, $\bS_0=10\bI_p$, $\btheta_0=\bzero$, $\bV_0=10\bI_2$, $a_0=b_0=1$, and $a_\tau=b_\tau=1$, the prior can be specified as below.
 \begin{Code}
 > prior=list(maxL=15,beta0=rep(0,3),S0=diag(10,3),theta0=rep(0,2), 
 +            V0=diag(10,2),a0=1,b0=1,taua0=1,taub0=1)
@@ -330,27 +344,27 @@ survregbayes(formula = Surv(time, cens) ~ age + sex + wbc + tpi +
     dist = "loglogistic", mcmc = mcmc, prior = prior, Proximity = E)
 
 Posterior inference of regression coefficients
-(Adaptive M-H acceptance rate: 0.2806):
+(Adaptive M-H acceptance rate: 0.2731):
       Mean        Median      Std. Dev.   95%CI-Low   95%CI-Upp 
-age   0.0515312   0.0513855   0.0034000   0.0448747   0.0582174
-sex   0.1238992   0.1227971   0.1129346  -0.0996123   0.3539006
-wbc   0.0059400   0.0059837   0.0007868   0.0043236   0.0074710
-tpi   0.0616777   0.0614836   0.0165983   0.0310655   0.0945423
+age   0.0519835   0.0518955   0.0034329   0.0455544   0.0589767
+sex   0.1238558   0.1241657   0.1061961  -0.0854203   0.3274537
+wbc   0.0059439   0.0059223   0.0008163   0.0043996   0.0074789
+tpi   0.0598826   0.0597254   0.0159244   0.0286519   0.0904957
 
 Posterior inference of precision parameter
-(Adaptive M-H acceptance rate: 0.1856):
+(Adaptive M-H acceptance rate: 0.2723):
        Mean    Median  Std. Dev.  95%CI-Low  95%CI-Upp
-alpha  0.9596  0.8766  0.4511     0.3387     2.0669   
+alpha  1.2910  1.1227  0.7158     0.4364     3.1922   
 
 Posterior inference of conditional CAR frailty variance
           Mean      Median    Std. Dev.  95%CI-Low  95%CI-Upp
-variance  0.074520  0.050776  0.085125   0.001517   0.283800 
+variance  0.080346  0.056350  0.082950   0.001709   0.299395 
 
-Log pseudo marginal likelihood: LPML=-5923.603
-Deviance Information Criterion: DIC=11847.01
+Log pseudo marginal likelihood: LPML=-5925.194
+Deviance Information Criterion: DIC=11849.82
 Number of subjects: n=1043
 \end{Code}
-We can see that \code{age}, \code{wbc} and \code{tpi} are significant risk factors for leukemia survival. For example, lower \code{age} decreases the odds of a patient dying by any time; holding other predictors constant, a 10-year decrease in age cuts the odds of dying by $\exp(-10\times 0.0515312)\approx 60\%$. The posterior mean for $\tau^2$ is $0.074520$, and is $0.9596$ for precision parameter $\alpha$. The LPML and DIC are -5924 and 11847, respectively. 
+We can see that \code{age}, \code{wbc} and \code{tpi} are significant risk factors for leukemia survival. For example, lower \code{age} decreases the odds of a patient dying by any time; holding other predictors constant, a 10-year decrease in age cuts the odds of dying by $\exp(-10\times 0.05)\approx 60\%$. The posterior mean for $\tau^2$ is $0.08$, and is $1.29$ for precision parameter $\alpha$. The LPML and DIC are -5925 and 11850, respectively. 
 
 The following code is used to produce trace plots (Figure~\ref{leukemia:trace}) for $\bbeta$, $\tau^2$ and $\alpha$. Note that the mixing for $\tau^2$ is not very satisfactory. This is not surprising, since we are using very vague gamma prior $\Gamma(0.001, 0.001)$ and the total number of districts is only $24$. 
 \begin{Code}
@@ -373,6 +387,7 @@ The following code is used to produce trace plots (Figure~\ref{leukemia:trace}) 
 
 The code below is used to generate the Cox-Snell plots with $10$ posterior residuals (Figure~\ref{leukemia:snell:surv:map}, panel a). 
 \begin{Code}
+> set.seed(1)
 > nrand = 10;
 > Resid = cox.snell.survregbayes(res1, ncurves=nrand);
 > r.max = ceiling(quantile(res1$Surv.cox.snell[,1], .99))+1
@@ -395,7 +410,7 @@ The code below is used to generate the Cox-Snell plots with $10$ posterior resid
 	\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-PO-CAR-Cox-Snell.pdf} }
 	\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-PO-CAR-age.pdf} }
 	\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-PO-CAR-Map.pdf} }
-	\caption{Leukemia survival data. PO model with ICAR frailties. (a) Cox-Snell plot. (b) Survival curves with $95\%$ credit interval bands for female patients with \code{wbc}=38.59 and \code{tpi}=0.3398 at different ages. (c) Map for the posterior mean frailties; larger frailties mean higher mortality rate overall.}
+	\caption{Leukemia survival data. PO model with ICAR frailties. (a) Cox-Snell plot. (b) Survival curves with $95\%$ credible interval bands for female patients with \code{wbc}=38.59 and \code{tpi}=0.3398 at different ages. (c) Map for the posterior mean frailties; larger frailties mean higher mortality rate overall.}
 	\label{leukemia:snell:surv:map}
 \end{figure}
 
@@ -438,8 +453,9 @@ The code below is used to generate the map of posterior means of frailties for e
 \end{Code}
 
 \subsubsection{PO model with GRF frailties}
-Note that all coordinates are distinct, so we have $m=1043$ and $n_i=1$ in terms of our notations. To use \code{frailtyprior} specify the prior, we need to create an \code{ID} variables consisting of $1043$ distinct values. The powered exponential correlation function with $\nu=1$ is used. To specify the number of knots and blocks for the FSA of $\bR$, we consider $K=100$ and $B=1043$. The code below is used to fit a PO model with GRF frailties under above settings. The running time is 10478 seconds.  
+Note that all coordinates are distinct, so we have $m=1043$ and $n_i=1$ in terms of our notations. To use \code{frailtyprior} to specify the prior, we need to create an \code{ID} variables consisting of $1043$ distinct values. The powered exponential correlation function with $\nu=1$ is used. To specify the number of knots and blocks for the FSA of $\bR$, we consider $K=100$ and $B=1043$. The code below is used to fit a PO model with GRF frailties under above settings. The running time is 10177 seconds.  
 \begin{Code}
+> set.seed(1)
 > mcmc=list(nburn=5000, nsave=2000, nskip=4, ndisplay=1000);
 > prior=list(maxL=15, nu=1, nknots=100, nblock=1043);
 > d$ID=1:nrow(d); #$
@@ -452,32 +468,32 @@ Note that all coordinates are distinct, so we have $m=1043$ and $n_i=1$ in terms
 > sfit2=summary(res2); sfit2
 
 Posterior inference of regression coefficients
-(Adaptive M-H acceptance rate: 0.2838):
+(Adaptive M-H acceptance rate: 0.2726):
       Mean        Median      Std. Dev.   95%CI-Low   95%CI-Upp 
-age   0.0529726   0.0530458   0.0034661   0.0461137   0.0595578
-sex   0.1068712   0.1057764   0.1114583  -0.1039998   0.3221860
-wbc   0.0060615   0.0060646   0.0007782   0.0045370   0.0075862
-tpi   0.0592036   0.0599728   0.0157041   0.0276731   0.0889597
+age   0.0526668   0.0527180   0.0034351   0.0460261   0.0596917
+sex   0.1310119   0.1318825   0.1069728  -0.0748948   0.3457847
+wbc   0.0060590   0.0060293   0.0008156   0.0044876   0.0077388
+tpi   0.0606026   0.0609221   0.0158076   0.0300292   0.0918792
 
 Posterior inference of precision parameter
-(Adaptive M-H acceptance rate: 0.2431):
+(Adaptive M-H acceptance rate: 0.1867):
        Mean    Median  Std. Dev.  95%CI-Low  95%CI-Upp
-alpha  1.0894  0.9871  0.4984     0.4190     2.3426   
+alpha  0.8931  0.7675  0.5354     0.2479     2.3162   
 
 Posterior inference of frailty variance
           Mean    Median  Std. Dev.  95%CI-Low  95%CI-Upp
-variance  0.1468  0.1302  0.0604     0.0754     0.3084   
+variance  0.06179  0.05290  0.03261    0.02376    0.14086  
 
 Posterior inference of correlation function range phi
         Mean    Median  Std. Dev.  95%CI-Low  95%CI-Upp
-range   7.924   7.705   2.157      4.229     12.402   
+range  19.138  17.245   7.305      8.701     35.094   
 
-Log pseudo marginal likelihood: LPML=-5921.707
-Deviance Information Criterion: DIC=11842.45
+Log pseudo marginal likelihood: LPML=-5923.402
+Deviance Information Criterion: DIC=11845.78
 Number of subjects: n=1043
 > systime2=proc.time()-ptm; systime2;
      user    system   elapsed 
-10393.707    79.944 10478.230 
+10079.006    97.039 10176.650 
 \end{Code}
 
 The trace plots for $\bbeta$, $\tau^2$ and $\phi$ (Figure~\ref{leukemia:GRF:trace}), Cox-Snell residuals and survival curves (Figure~\ref{leukemia:GRF:snell:surv:map}) can be obtained using the same code used for the PO model with ICAR frailties. The code below is used to generate the map of posterior means of frailties for each location (Figure~\ref{leukemia:GRF:snell:surv:map}).
@@ -506,39 +522,40 @@ The trace plots for $\bbeta$, $\tau^2$ and $\phi$ (Figure~\ref{leukemia:GRF:trac
 	\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-PO-GRF-Cox-Snell.pdf} }
 	\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-PO-GRF-age.pdf} }
 	\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-PO-GRF-Map.pdf} }
-	\caption{Leukemia survival data. PO model with GRF frailties. (a) Cox-Snell plot. (b) Survival curves with $95\%$ credit interval bands for female patients with \code{wbc}=38.59 and \code{tpi}=0.3398 at different ages. (c) Map for the posterior mean frailties; larger frailties mean higher mortality rate overall.}
+	\caption{Leukemia survival data. PO model with GRF frailties. (a) Cox-Snell plot. (b) Survival curves with $95\%$ credible interval bands for female patients with \code{wbc}=38.59 and \code{tpi}=0.3398 at different ages. (c) Map for the posterior mean frailties; larger frailties mean higher mortality rate overall.}
 	\label{leukemia:GRF:snell:surv:map}
 \end{figure}
 
 \subsection{Variable Selection}\label{sec:selection}
-The most direct approach is to multiply $\beta_k$ by a latent Bernoulli variable $\gamma_k$, where $\gamma_k=1$ indicates presence of covariate $x_k$ in the model, and then assume an appropriate prior on $(\bbeta, \bgamma)$, where $\bgamma=(\gamma_1, \ldots, \gamma_p)$. Following  \cite{Kuo.Mallick1998} and \cite{Hanson.etal2014}, we consider below independent priors 
+Let $\bx=(x_1,\ldots,x_p)'$ denote the $p$-vector of covariates in general. The most direct approach is to multiply $\beta_\ell$ by a latent Bernoulli variable $\gamma_\ell$ for $\ell=1,\ldots,p$, where $\gamma_\ell=1$ indicates the presence of covariate $x_\ell$ in the model, and then assume an appropriate prior on $(\bbeta, \bgamma)$, where $\bgamma=(\gamma_1, \ldots, \gamma_p)'$. Following  \cite{Kuo.Mallick1998} and \cite{Hanson.etal2014}, we consider below independent priors 
 \begin{equation} \label{eq:semi:gprior}
 	\gamma_1, \ldots, \gamma_p\overset{iid}{\sim} \textrm{Bern}(0.5) \text{ and } \bbeta \sim N_p(\mathbf{0}, g n (\bX'\bX)^{-1}),  
 \end{equation}
 where $\bX$ is the usual design matrix, but with mean-centered covariates, i.e. 
 $\mathbf{1}_n' \bX = \mathbf{0}_p'$, and $g$ is chosen by picking a number $M$ such that a random $e^{\bx'\bbeta}$ is less than $M$ with probability $q$, i.e. approximately $g = \left[ {\log M}/{\Phi^{-1}(q)} \right]^2/{p}$. The function \texttt{survregbayes} sets $M=10$ and $q=0.9$ as the defaults.  The MCMC procedure is described in \cite{Zhou.Hanson2017}. 
 
-To perform variable selection for the leukemia survival data, we simply need to add the argument \code{selection=TRUE} to the function \code{survregbayes}. A part of the output from \code{summary} is also shown. The model with \code{age}, \code{wbc} and \code{tpi} has the highest proportion (85.9\%), and thus can be served as the final model. 
+To perform variable selection for the leukemia survival data, we simply need to add the argument \code{selection=TRUE} to the function \code{survregbayes}. A part of the output from \code{summary} is also shown. The model with \code{age}, \code{wbc} and \code{tpi} has the highest proportion (89.8\%), and thus can be served as the final model. 
 \begin{Code}
+> set.seed(1)
 > res3 = survregbayes(formula=Surv(time,cens)~age+sex+wbc+tpi
 +                     +frailtyprior("car",district),data=d,survmodel="PO",
 +                     dist="loglogistic",mcmc=mcmc,prior=prior,Proximity=E,
 +                     selection=TRUE);
 > systime3=proc.time()-ptm; systime3;
    user  system elapsed 
-312.111   1.632 316.392
+308.490   0.585 309.524
 > sfit3=summary(res3); sfit3
 Variable selection:
-age,wbc,tpi  age,sex,wbc,tpi  age,wbc  age,sex,wbc
-prop.  0.8590       0.0985           0.0375   0.0050     
+       age,wbc,tpi  age,sex,wbc,tpi  age,wbc
+prop.  0.8975       0.1010           0.0015 
 
-Log pseudo marginal likelihood: LPML=-5925.228
-Deviance Information Criterion: DIC=11849.45
+Log pseudo marginal likelihood: LPML=-5924.529
+Deviance Information Criterion: DIC=11847.91
 Number of subjects: n=1043
 \end{Code}
 
 \subsection{Parametric vs. Semiparametric}
-Many authors have found parametric models to fit as well or better than competing semiparametric models (\citealp[p. 123]{Cox.Oakes1984}; \citealp{Nardi.Schemper2003}).  The semiparametric TBP models have their baseline survival functions centered at a parametric family $S_{\btheta}(t)$. Note that $\bz_{J-1}=\bzero$ implies $S_0(t)=S_{\btheta}(t)$. Therefore, testing $H_0:\bz_{J-1}=\bzero$ versus $H_1:\bz_{J-1}\neq\bzero$ leads to the comparison of the semiparametric model with the underlying parametric model. Let $BF_{10}$ be the Bayes factor between $H_1$ and $H_0$. \cite{Zhou.etal2016} proposed to estimate $BF_{10}$ by a large-sample approximation to the generalized Savage-Dickey density ratio \citep{Verdinelli.Wasserman1995}. Adapting their approach $BF_{10}$ is estimated
+Many authors have found parametric models to fit as well or better than competing semiparametric models (\citealp[p. 123]{Cox.Oakes1984}; \citealp{Nardi.Schemper2003}).  The proposed semiparametric models have their baseline survival functions centered at a parametric family $S_{\btheta}(t)$. Note that $\bz_{J-1}=\bzero$ implies $S_0(t)=S_{\btheta}(t)$. Therefore, testing $H_0:\bz_{J-1}=\bzero$ versus $H_1:\bz_{J-1}\neq\bzero$ leads to the comparison of the semiparametric model with the underlying parametric model. Let $BF_{10}$ be the Bayes factor between $H_1$ and $H_0$. \cite{Zhou.etal2017} proposed to estimate $BF_{10}$ by a large-sample approximation to the generalized Savage-Dickey density ratio \citep{Verdinelli.Wasserman1995}. Adapting their approach $BF_{10}$ is estimated
 \begin{equation}
 \widehat{BF}_{10} = \frac{p(\bzero|\hat{\alpha})}{N_{J-1}(\bzero; \hat{\bfm}, \hat{\bSigma})},
 \end{equation}
@@ -547,12 +564,13 @@ where $p(\bzero|\alpha)=\Gamma(\alpha J)/[J^{\alpha}\Gamma(\alpha) ]^J$ is the p
 The Bayes factor $BF_{10}$ under the semiparametric PO model with ICAR frailties can be obtained using the code below (here the object \code{res1} is obtained in Section~\ref{sec:semi:leukemia}).
 \begin{Code}
 > BF.survregbayes(res1)
-[1] 2330.477
+[1] 82.12799
 \end{Code}
-The $BF_{10}=2330\gg1$ indicates that the semiparametric model significantly outperforms the loglogistic parametric model. 
+The $BF_{10}=82>1$ indicates that the semiparametric model outperforms the loglogistic parametric model. 
 
-The function \texttt{survregbayes} also supports efficient parametric frailty models with loglogistic, lognormal or Weibull baseline function. For example, the following code fits a parametric loglogistic PO model with ICAR frailties for the leukemia survival data. 
+The function \texttt{survregbayes} also supports the efficient fitting of parametric frailty models with loglogistic, lognormal or Weibull baseline functions. In parametric models, the prior for $\btheta$ can be set to be relatively vague. Setting $a_0$ at any negative value will force the $\alpha$ to be fixed at the value specified in the argument \code{state}. For example, setting \code{prior=list(a0=-1)} and \code{state=list(alpha=1)} will fix $\alpha=1$ throughout the MCMC; setting \code{prior=list(a0=-1)} and \code{state=list(alpha=Inf)} will fit a parametric model. The following code fits a parametric loglogistic PO model with ICAR frailties to the leukemia survival data. The LPML is -5950, much worse than the value under the semiparametric PO model. 
 \begin{Code}
+> set.seed(1)
 > prior=list(maxL=15, a0=-1,thete0=rep(0,2),V0=diag(1e10,2));
 > state=list(alpha=Inf);
 > ptm<-proc.time()
@@ -571,56 +589,57 @@ dist = "loglogistic", mcmc = mcmc, prior = prior, state = state,
 Proximity = E, InitParamMCMC = FALSE)
 
 Posterior inference of regression coefficients
-(Adaptive M-H acceptance rate: 0.2903):
+(Adaptive M-H acceptance rate: 0.2844):
       Mean        Median      Std. Dev.   95%CI-Low   95%CI-Upp 
-age   0.0504202   0.0505329   0.0034000   0.0437902   0.0570289
-sex   0.1146655   0.1110484   0.1136106  -0.0962541   0.3412315
-wbc   0.0062118   0.0062088   0.0007854   0.0046620   0.0077172
-tpi   0.0596343   0.0592660   0.0155276   0.0303326   0.0912814
+age   0.0504253   0.0504362   0.0033318   0.0439945   0.0568477
+sex   0.1187297   0.1134544   0.1109109  -0.0912841   0.3374972
+wbc   0.0062192   0.0062147   0.0007395   0.0048068   0.0076600
+tpi   0.0602207   0.0603376   0.0156038   0.0299010   0.0915584
 
 Posterior inference of baseline parameters
 Note: the baseline estimates are based on scaled covariates
-(Adaptive M-H acceptance rate: 0.2811):
+(Adaptive M-H acceptance rate: 0.2723):
          Mean      Median    Std. Dev.  95%CI-Low  95%CI-Upp
-theta1  -5.12357  -5.12354   0.06320   -5.24813   -5.00353 
-theta2  -0.10715  -0.10640   0.02826   -0.16283   -0.05271 
+theta1  -5.12778  -5.12791   0.06432   -5.25384   -5.00723 
+theta2  -0.10741  -0.10619   0.02759   -0.16125   -0.05445 
 
 Posterior inference of conditional CAR frailty variance
           Mean     Median   Std. Dev.  95%CI-Low  95%CI-Upp
-variance  0.07614  0.06035  0.07411    0.00150    0.26608  
+variance  0.078627  0.055078  0.082164   0.002005   0.305202 
 
-Log pseudo marginal likelihood: LPML=-5950.056
-Deviance Information Criterion: DIC=11899.71
+Log pseudo marginal likelihood: LPML=-5949.919
+Deviance Information Criterion: DIC=11899.46
 Number of subjects: n=1043
 > systime11=proc.time()-ptm; systime11;
   user  system elapsed 
-25.123   0.112  25.369 
+25.037   0.115  25.239 
 \end{Code}
-In parametric models, the prior for $\btheta$ can be set to be relatively vague. The LPML is -5950, much worse than the value under the semiparametric PO model. Note that setting $a_0$ at any negative value will force the $\alpha$ to be fixed at the value specified in the argument \code{state}. For example, setting \code{prior=list(a0=-1)} and \code{state=list(alpha=1)} will fix $\alpha=1$ throughout the MCMC; setting \code{prior=list(a0=-1)} and \code{state=list(alpha=Inf)} will fit a parametric model.
 
 \subsection{Left-Truncation and Time-Dependent Covariates}
-The survival time $t_{ij}$ is left-truncated at $u_{ij}\geq 0$ when $u_{ij}$ is the time when the $ij$th subject is first observed. Left-truncation often occurs when age is used as the time scale. Given the observed left-truncated data $\calD=\{ (u_{ij}, a_{ij}, b_{ij}, \bx_{ij}, \bfs_i)\}$, the likelihood function (\ref{like}) becomes 
+The survival time $t_{ij}$ is left-truncated at $u_{ij}\geq 0$ if $u_{ij}$ is the time when the $ij$th subject is first observed. Left-truncation often occurs when age is used as the time scale. Given the observed left-truncated data $\{ (u_{ij}, a_{ij}, b_{ij}, \bx_{ij}, \bfs_i)\}$, where $a_{ij}\geq u_{ij}$, the likelihood function (\ref{like}) becomes 
 \begin{equation*}\label{like-truncation}
 L(\bw_J, \btheta, \bbeta, \bv)=\prod_{i=1}^m \prod_{j=1}^{n_i} \left[S_{\bx_{ij}}(a_{ij})-S_{\bx_{ij}}(b_{ij})\right]^{I\{a_{ij}<b_{ij}\}} f_{\bx_{ij}}(a_{ij})^{I\{a_{ij}=b_{ij}\}}/S_{\bx_{ij}}(u_{ij}).
 \end{equation*}
+Note that the left censored data under left-truncation are of the form $(u_{ij}, b_{ij})$. 
 Allowing for left-truncation allows the semiparametric AFT, PH and PO models to be easily extended to handle time-dependent covariates. Following \cite{Kneib2006} and \cite{Hanson.etal2009}, assume the covariate vector $\bx_{ij}(t)$ is a step function that changes at $o_{ij}$ ordered times $t_{ij,1}<\ldots<t_{ij,o_{ij}}\leq a_{ij}$,  i.e., 
 \[ \bx_{ij}(t) = \sum_{k=1}^{o_{ij}} \bx_{ij,k} I(t_{ij,k}\leq t < t_{ij,k+1}),
 \] where $t_{ij,1}=u_{ij}$ and $t_{ij,o_{ij}+1}=\infty$.  Assuming one of PH, PO, or AFT holds conditionally on each interval, the survival function for the $ij$th individual at time $a_{ij}$ is
 \begin{align*} 
 P(t_{ij}>a_{ij}) %& = P \left( \{t_{ij}>a_{ij}\} \cap_{k=1}^{o_{ij}} \{t_{ij}>t_{ij,k}\} \right) \\
-%& = P(t_{ij}>a_{ij}|t_{ij}>t_{ij,1},\dots,t_{ij}>t_{ij,o_{ij}}) \prod_{k=1}^{o_{ij}} P(t_{ij}>t_{ij,k}|t_{ij}>t_{ij,1},\dots,t_{ij}>t_{ij,k-1})  \\
-& = P(t_{ij}>a_{ij}|t_{ij}>t_{ij,o_{ij}}) \prod_{k=1}^{o_{ij}}P(t_{ij}>t_{ij,k}|t_{ij}>t_{ij,k-1}) \\
+%& = P(t_{ij}>a_{ij}|t_{ij}>t_{ij,1},\dots,t_{ij}>t_{ij,o_{ij}}) \prod_{k=1}^{o_{ij}-1} P(t_{ij}>t_{ij,k+1}|t_{ij}>t_{ij,1},\dots,t_{ij}>t_{ij,k})  \\
+& = P(t_{ij}>a_{ij}|t_{ij}>t_{ij,o_{ij}}) \prod_{k=1}^{o_{ij}-1}P(t_{ij}>t_{ij,k+1}|t_{ij}>t_{ij,k}) \\
 & = \frac{S_{\bx_{ij,o_{ij}}}(a_{ij})}{S_{\bx_{ij,o_{ij}}}(t_{ij,o_{ij}})}
-\prod_{k=1}^{o_{ij}} \frac{S_{\bx_{ij,k}}(t_{ij,k})}{S_{\bx_{ij,k}}(t_{ij,k-1})}, 
+\prod_{k=1}^{o_{ij}-1} \frac{S_{\bx_{ij,k}}(t_{ij,k+1})}{S_{\bx_{ij,k}}(t_{ij,k})}.
 \end{align*} 
-where $t_{ij,0}=0$.  This leads to the usual PH model for time-dependent covariates \citep{Cox1972}, the AFT model first proposed by \cite{Prentice.Kalbfleisch1979} and developed by \cite{Hanson.etal2009}, and particular piecewise PO model.  Thus one can replace the observation $(u_{ij}, a_{ij}, b_{ij}, \bx_{ij}(t), \bfs_i)$ by a set of new $o_{ij}$ observations $(t_{ij,1}, t_{ij,2}, \infty, \bx_{ij,1}, \bfs_i)$, $(t_{ij,2}, t_{ij,3}, \infty, \bx_{ij,2}, \bfs_i)$, $\ldots$, $(t_{ij,o_{ij}}, a_{ij}, b_{ij}, \bx_{ij,o_{ij}}, \bfs_i)$. This way we get a new left-truncated data set of size $N=\sum_{i=1}^{m}\sum_{j=1}^{n_i} o_{ij}$.  Then the likelihood function becomes
+Thus one can replace the observation $(u_{ij}, a_{ij}, b_{ij}, \bx_{ij}(t), \bfs_i)$ by a set of new $o_{ij}$ observations $(t_{ij,1}, t_{ij,2}, \infty, \bx_{ij,1}, \bfs_i)$, $(t_{ij,2}, t_{ij,3}, \infty, \bx_{ij,2}, \bfs_i)$, $\ldots$, $(t_{ij,o_{ij}}, a_{ij}, b_{ij}, \bx_{ij,o_{ij}}, \bfs_i)$. This way we get a new left-truncated data set of size $\sum_{i=1}^{m}\sum_{j=1}^{n_i} o_{ij}$.  Then the likelihood function becomes
 \begin{align*}
-L(\bw_J, \btheta, \bbeta, \bv) = & \prod_{i=1}^m \prod_{j=1}^{n_i} \bigg\{ \left[S_{\bx_{ij,o_{ij}}}(a_{ij})-S_{\bx_{ij,o_{ij}}}(b_{ij})\right]^{I\{a_{ij}<b_{ij}\}}  f_{\bx_{ij,o_{ij}}}(a_{ij})^{I\{a_{ij}=b_{ij}\}}  \\
-&\times \prod_{k=1}^{o_{ij}} \frac{S_{\bx_{ij,k}}(t_{ij,k})}{S_{\bx_{ij,k}}(t_{ij,k-1})}\bigg\} . 
+L(\bw_J, \btheta, \bbeta, \bv) = & \prod_{i=1}^m \prod_{j=1}^{n_i} \bigg\{ \left[S_{\bx_{ij,o_{ij}}}(a_{ij})-S_{\bx_{ij,o_{ij}}}(b_{ij})\right]^{I\{a_{ij}<b_{ij}\}}  f_{\bx_{ij,o_{ij}}}(a_{ij})^{I\{a_{ij}=b_{ij}\}}/S_{\bx_{ij,o_{ij}}}(t_{ij,o_{ij}})  \\
+&\times \prod_{k=1}^{o_{ij}-1} \frac{S_{\bx_{ij,k}}(t_{ij,k+1})}{S_{\bx_{ij,k}}(t_{ij,k})}\bigg\} . 
 \end{align*}
+Note that the derivations above still hold for time-dependent covariates without left-truncation (i.e. $u_{ij}=0$ for all $i$ and $j$).
 
 \subsubsection{PBC data}
-We use the primary biliary cirrhosis (PBC) dataset (available in the package \texttt{survival} as \code{pbc}) as an example to show how to incorporate time-dependent covariates in the function \texttt{survregbayes}. Although this is not a spatial dataset, spatial frailties can be added similarly as in Section~\ref{sec:semi:leukemia}. The following code is copied from \cite{Therneau.etal2016} to create the data frame with time-dependent covariates. 
+We use the primary biliary cirrhosis (PBC) dataset (available in the package \texttt{survival} as \code{pbc}) as an example to show how to incorporate time-dependent covariates in the function \texttt{survregbayes}. Although this is not a spatial dataset, spatial frailties can be added similarly as in Section~\ref{sec:semi:leukemia}. The following code is copied from \cite{Therneau.etal2017} to create the data frame with time-dependent covariates. 
 \begin{Code}
 > temp <- subset(pbc, id <= 312, select=c(id:sex, stage)) # baseline data
 > pbc2 <- tmerge(temp, temp, id=id, endpt = event(time, status))
@@ -651,6 +670,7 @@ n= 1807, number of events= 125
 
 We can fit the Bayesian PH model with TBP baseline as follows. The output for regression coefficients is partial. 
 \begin{Code}
+> set.seed(1)
 > mcmc=list(nburn=5000, nsave=2000, nskip=4, ndisplay=1000);
 > ptm<-proc.time()
 > fit1 = survregbayes(Surv(tstart,tstop,endpt==2)~log(bili)+log(protime), 
@@ -665,14 +685,14 @@ survregbayes(formula = Surv(tstart, tstop, endpt == 2) ~ log(bili) +
 
 Posterior means for regression coefficients:
    log(bili)  log(protime)  
-       1.315         4.217  
+       1.299         4.185  
 
-LPML: -1018.964
-DIC: 2033.276
+LPML: -1018.496
+DIC: 2032.754
 n=1807
 > systime1=proc.time()-ptm; systime1;
    user  system elapsed 
-234.975   1.108 237.089 
+227.626   0.434 228.243 
 \end{Code}
 Equivalently, one can also run the following code to obtain the same analysis. The argument \code{truncation_time} is used to specify the start time point for each time interval, i.e. \code{tstart}. The end time point \code{tstop} together with \code{endpt} are formulated as interval censored data using \code{type="interval2"} of \code{Surv}. This format is more general than the former one, as one can easily incorporate interval censored data.
 \begin{Code}
@@ -686,7 +706,7 @@ Equivalently, one can also run the following code to obtain the same analysis. T
 
 \section{GAFT Frailty Models}
 \subsection{The Model}
-The generalized accelerated failure time (GAFT) frailty model \citep{Zhou.etal2016} generalizes the AFT model (\ref{aft}) to allow the baseline survival function $S_0(t)$ to depend on certain covariates, say a $q$-dimensional vector $\bz_{ij}$ which is usually a subset of $\bx_{ij}$. Specifically, the GAFT frailty model is given by 
+The generalized accelerated failure time (GAFT) frailty model \citep{Zhou.etal2017} generalizes the AFT model (\ref{aft}) to allow the baseline survival function $S_0(t)$ to depend on certain covariates, say a $q$-dimensional vector $\bz_{ij}$ which is usually a subset of $\bx_{ij}$. Specifically, the GAFT frailty model is given by 
 \begin{equation}\label{eq:GAFT}
 S_{\bx_{ij}}(t)=S_{0,\bz_{ij}}\left(e^{-\bx_{ij}'{\bbeta} - v_i}t\right), 
 \end{equation}
@@ -702,12 +722,13 @@ where $G_{\bz}$ is a probability measure defined on $\mathR$ for every $\bz\in\c
 \tilde{\bbeta} & \sim N_{p+1}(\bfm_0, \bS_0)\\
 G_{\bz} |\alpha, \sigma^2 &\sim \LDTFP_L(\alpha, \sigma^2), ~\alpha \sim {\Gamma} (a_0, b_0), ~\sigma^{-2} \sim \Gamma (a_\sigma, b_\sigma),\\
 (v_1, \ldots, v_m)'|\tau &\sim \ICAR(\tau^2), ~\tau^{-2}\sim \Gamma(a_\tau, b_\tau) , \text{ or}\\
-(v_1, \ldots, v_m)'|\tau,\phi &\sim \GRF(\tau^2, \phi), ~\tau^{-2}\sim \Gamma(a_\tau, b_\tau),  ~\phi\sim \Gamma(a_\phi, b_\phi), 
+(v_1, \ldots, v_m)'|\tau,\phi &\sim \GRF(\tau^2, \phi), ~\tau^{-2}\sim \Gamma(a_\tau, b_\tau),  ~\phi\sim \Gamma(a_\phi, b_\phi), \text{ or}\\
+(v_1, \ldots, v_m)'|\tau &\sim \IID(\tau^2), ~\tau^{-2}\sim \Gamma(a_\tau, b_\tau)
 \end{aligned}
 \end{equation}
-where $\LDTFP_L$ refers to the linear dependent tailfree process prior (LDTFP) prior as described in \citep{Zhou.etal2016}. 
+where $\LDTFP_L$ refers to the linear dependent tailfree process prior (LDTFP) prior as described in \citep{Zhou.etal2017}. 
 
-The LDTFP prior considered in \cite{Zhou.etal2016} is centered at a normal distribution $\Phi_\sigma$ with mean $0$ and variance $\sigma^2$, that is, $E(G_{\bz}) = N(0, \sigma^2)$ for every $\bz\in\calX$. Define the function $k_\sigma(x)=\lceil 2^L \Phi_\sigma(x) \rceil$, where $\lceil x \rceil$ is the ceiling function, the smallest integer greater than or equal to $x$. Further define probability $p_{\bz}(k)$ for $k=1, \ldots, 2^L$ as
+The LDTFP prior considered in \cite{Zhou.etal2017} is centered at a normal distribution $\Phi_\sigma$ with mean $0$ and variance $\sigma^2$, that is, $E(G_{\bz}) = \Phi_\sigma$ for every $\bz\in\calX$. Define the function $k_\sigma(x)=\lceil 2^L \Phi_\sigma(x) \rceil$, where $\lceil x \rceil$ is the ceiling function, the smallest integer greater than or equal to $x$. Further define probability $p_{\bz}(k)$ for $k=1, \ldots, 2^L$ as
 \[ p_{\bz}(k) = \prod_{l=1}^L Y_{l,\lceil k2^{l-L}  \rceil}(\bz),\] 
 where $ Y_{j+1,2k-1}(\bz) = \left(1+\exp\{-\tilde{\bz}' \bgamma_{j,k} \}\right)^{-1}$ and  $Y_{j+1,2k}(\bz)=1-Y_{j+1,2k-1}(\bz)$ for $j=0,\ldots,L-1$, $k=1,\ldots,2^{j}$, where $\tilde{\bz}=(1,\bz')'$ includes an intercept, and $\bgamma_{j,k}=(\gamma_{j,k,0}, \ldots, \gamma_{j,k,q})'$ is a vector of coefficients. Note there are $2^L-1$ regression coefficient vectors $\bgamma=\{\bgamma_{j,k}\}$, e.g. for $L=3$, $\bgamma=\{\bgamma_{0,1},\bgamma_{1,1},\bgamma_{1,2},\bgamma_{2,1},\bgamma_{2,2},\bgamma_{2,3},\bgamma_{2,4}\}$. For a fixed integer $L>0$, the random density associated with $\LDTFP_L(\alpha, \sigma^2)$ is defined as 
 \begin{equation}\label{ldtfp:f0}
@@ -720,9 +741,9 @@ G_{\bz}(e) =  p_{\bz}\{k_\sigma(e)\}\left\{2^L\Phi_\sigma(e)-k_\sigma(e)\right\}
 where $\bZ$ is the $n\times (q+1)$ design matrix with mean-centered covariates $\tilde{\bz}_{ij}$s.  Furthermore, the LDTFP is specified by setting $\bgamma_{0,1}\equiv \bzero$, such that for every $\bz\in\calX$, $G_{\bz}$ is almost surely a median-zero probability measure. This is important to avoid identifiability issues. As shown by  \cite{Jara.Hanson2011}, the LDTFP has appealing theoretical properties such as continuity as a function of the covariates, large support on the space of conditional density functions, straightforward posterior computation relying on algorithms for fitting generalized linear models, and the process closely matches conventional Polya tree priors \citep[see, e.g.,][]{Hanson2006} at each value of the covariate, which justify its choice here.
 
 \subsection{MCMC}
-Let $\Omega=(\by_c, \tilde{\bbeta}, \bv, \tau^2, \sigma^2, \bgamma, \alpha)$ denote collectively the model parameters to be updated, where $\by_c=\{y_{ij}: a_{ij}<b_{ij}\}$ are censored log-survival times. The $y_{ij}\in\by_c$, each component of $\tilde{\bbeta}$,  $v_i$ and $\sigma$ are all sampled using the single-variable slice sampling method \citep{Neal2003}. For the LDTFP regression parameters $\gamma_{j,k}$, we utilize Metropolis-Hastings steps with Gaussian proposals based on iterative weighted least squares \citep{Gamerman1997}, recognizing that the $\gamma_{j,k}$ full conditionals are proportional to logistic regression likelihoods. The hyperparameter $\tau^2$ and $\alpha$ are sampled according to their conjugate full conditional distributions. A complete description of updating steps is available in \cite{Zhou.etal2016}.
+Let $\Omega=(\by_c, \tilde{\bbeta}, \bv, \tau^2, \sigma^2, \bgamma, \alpha)$ denote collectively the model parameters to be updated, where $\by_c=\{y_{ij}: a_{ij}<b_{ij}\}$ are censored log-survival times. The $y_{ij}\in\by_c$, each component of $\tilde{\bbeta}$,  $v_i$ and $\sigma$ are all sampled using the single-variable slice sampling method \citep{Neal2003}. For the LDTFP regression parameters $\gamma_{j,k}$, we utilize Metropolis-Hastings steps with Gaussian proposals based on iterative weighted least squares \citep{Gamerman1997}, recognizing that the $\gamma_{j,k}$ full conditionals are proportional to logistic regression likelihoods. The hyperparameters $\tau^2$ and $\alpha$ are sampled according to their conjugate full conditional distributions. A complete description of updating steps is available in \cite{Zhou.etal2017}.
 
-The function \texttt{frailtyGAFT} sets the following hyperparameters as defaults: $\bfm_0=\bzero$, $\bS_0=10^{5}\bI_p$, $a_0=b_0=1$, $a_\tau=b_\tau=.001$, and $a_\sigma=2+\hat{\sigma}^4_0/(100\hat{v}_0)$, $b_\sigma=\hat{\sigma}_0^2(a_\sigma-1)$, where $\hat{\sigma}_0^2$ and $\hat{v}_0$ are the estimates of $\sigma^2$ and its asymptotic variance from fitting the parametric lognormal AFT model, respectively. Note here we assume a somewhat informative prior on $\sigma^2$ so that its mean is $\hat{\sigma}_0^2$ and variance is $100\hat{v}_0$. For georeferenced data, we set and $a_\phi={\phi}_0b_\phi+1$ and $b_\phi=1$ so that the prior of $\phi$ has mode at ${\phi}_0$. Here $\phi_0$ satisfies $\rho(\bfs',\bfs''; \phi_0)=0.001$, where $\|\bfs'-\bfs''\|=\max_{ij}\|\bfs_i-\bfs_j\|$. Note that \cite{Kneib.Fahrmeir2007} simply fix $\phi$ at $\phi_0$, while we allow $\phi$ to be random around $\phi_0$. Again, the user-defined hyperparameters can be specified via the argument \code{prior}, e.g., for $p=3$, $L=5$, $\bfm_0=\bzero$, $\bS_0=10\bI_{p+1}$, $a_0=b_0=1$, and $a_\sigma=b_\sigma=2$, the prior can be specified as below.
+The function \texttt{frailtyGAFT} sets the following hyperparameters as defaults: $\bfm_0=\bzero$, $\bS_0=10^{5}\bI_{p+1}$, $a_0=b_0=1$, $a_\tau=b_\tau=.001$, and $a_\sigma=2+\hat{\sigma}^4_0/(100\hat{v}_0)$, $b_\sigma=\hat{\sigma}_0^2(a_\sigma-1)$, where $\hat{\sigma}_0^2$ and $\hat{v}_0$ are the estimates of $\sigma^2$ and its asymptotic variance from fitting the parametric lognormal AFT model, respectively. Note here we assume a somewhat informative prior on $\sigma^2$ so that its mean is $\hat{\sigma}_0^2$ and variance is $100\hat{v}_0$. For the GRF prior, we again set $a_\phi=2$ and $b_{\phi}=(a_{\phi}-1)/\phi_0$ so that the prior of $\phi$ has mode at ${\phi}_0$ and the prior mean of $1/\phi$ is $1/\phi_0$ with infinite variance. Here $\phi_0$ satisfies $\rho(\bfs',\bfs''; \phi_0)=0.001$, where $\|\bfs'-\bfs''\|=\max_{ij}\|\bfs_i-\bfs_j\|$. Again, the user-defined hyperparameters can be specified via the argument \code{prior}, e.g., for $p=3$, $L=5$, $\bfm_0=\bzero$, $\bS_0=10\bI_{p+1}$, $a_0=b_0=1$, and $a_\sigma=b_\sigma=2$, the prior can be specified as below.
 \begin{Code}
 > prior=list(maxL=5,m0=rep(0,4),S0=diag(10,4),siga0=1,sigb0=1,a0=1,b0=1)
 \end{Code}
@@ -734,17 +755,18 @@ S_{0,\bz}(t) = \frac{1}{S}\sum_{s=1}^{S} \left\{ 1-G_{\bz}^{(s)}\left(\log t - \
 where $G_{\bz}^{(s)}(\cdot)$ is given in (\ref{ldtfp:S0}) with all unknown parameters replaced by corresponding posterior values in the $s$th iterate.
 
 \subsection{Bayesian Hypothesis Testing}\label{subsec:BF}
-The GAFT frailty model includes the following as important special cases: an AFT frailty model with nonparametric baseline where $G_{\bz}=G_{\bz'}$ for all $\bz=\bz'$ and parametric baseline model $G_{\bz}=N(0,\sigma^2)$ for all $\bz\in\calX$. Hypothesis tests can be constructed based on the LDTFP coefficients $\{\bgamma_{l,k}: k=1,\ldots,2^l, l=1,\ldots,L-1\}$, where $\bgamma_{l,k}=(\gamma_{l,k,0}, \ldots, \gamma_{l,k,q})'$. Let $\bgamma_{l,k,-j}$ denote the subvector of $\bgamma_{l,k}$ without element $\gamma_{l,k,j}$ for $j=0, \ldots, q$. Set $\bUpsilon_j=(\gamma_{l,k,j}, k=1,\ldots,2^l, l=1,\ldots,L-1)'$, $\bUpsilon_{-j}=(\bgamma_{l,k,-j}', k=1,\ldots,2^l, l=1,\ldots,L-1)'$ and $\bUpsilon=(\bgamma_{l,k}', k=1,\ldots,2^l, l=1,\ldots,L-1)'$. Testing the hypotheses $H_0:\bUpsilon_{-0}=\bzero$ and $H_0:\bUpsilon=\bzero$ leads to global comparisons of the proposed model with the above two special cases respectively. Similarly, we may also test the null hypothesis $H_0: \bUpsilon_j=\bzero$ for the $j$th covariate effect of $\bz$ on the baseline survival, $j=1, \ldots, q$.  
+The GAFT frailty model includes the following as important special cases: an AFT frailty model with nonparametric baseline where $G_{\bz}=G_{\bz'}$ for all $\bz=\bz'$ and parametric baseline model $G_{\bz}=\Phi_\sigma$ for all $\bz\in\calX$. Hypothesis tests can be constructed based on the LDTFP coefficients $\{\bgamma_{l,k}: k=1,\ldots,2^l, l=1,\ldots,L-1\}$, where $\bgamma_{l,k}=(\gamma_{l,k,0}, \ldots, \gamma_{l,k,q})'$. Let $\bgamma_{l,k,-j}$ denote the subvector of $\bgamma_{l,k}$ without element $\gamma_{l,k,j}$ for $j=0, \ldots, q$. Set $\bUpsilon_j=(\gamma_{l,k,j}, k=1,\ldots,2^l, l=1,\ldots,L-1)'$, $\bUpsilon_{-j}=(\bgamma_{l,k,-j}', k=1,\ldots,2^l, l=1,\ldots,L-1)'$ and $\bUpsilon=(\bgamma_{l,k}', k=1,\ldots,2^l, l=1,\ldots,L-1)'$. Testing the hypotheses $H_0:\bUpsilon_{-0}=\bzero$ and $H_0:\bUpsilon=\bzero$ leads to global comparisons of the proposed model with the above two special cases respectively. Similarly, we may also test the null hypothesis $H_0: \bUpsilon_j=\bzero$ for the $j$th covariate effect of $\bz$ on the baseline survival, $j=1, \ldots, q$.  
 
-Suppose we wish to test $H_0:\bUpsilon_j=\bzero$ versus $H_1:\bUpsilon_j\ne\bzero$, for fixed $j\in\{1,\ldots,q\}$. Following \cite{Zhou.etal2016}, the Bayes factor between hypotheses $H_1$ and $H_0$ can be approximated by
+Suppose we wish to test $H_0:\bUpsilon_j=\bzero$ versus $H_1:\bUpsilon_j\ne\bzero$, for fixed $j\in\{1,\ldots,q\}$. Following \cite{Zhou.etal2017}, the Bayes factor between hypotheses $H_1$ and $H_0$ can be approximated by
 \begin{equation}\label{eq:BFhat}
 \hat{BF}_{10} =  \frac{\ds\prod_{l=1}^{L-1}\prod_{k=1}^{2^l} N\left(0\bigg|0, \frac{2n}{\hat{\alpha} (l+1)^2} (\bZ'\bZ)_{jj}^{-1}\right)}{N_{2^{L}-2}(\bUpsilon_j=\bzero; \hat{\bfm}_{j}, \hat{\bS}_{j})},
 \end{equation}
 where  $N_{p}(\cdot; \bfm,\bS)$ denotes a $p$-variate normal density with mean $\bfm$ and covariance matrix $\bS$, and $\hat{\bfm}_{j}$ and $\hat{\bS}_{j}$ are the sample mean and covariance for $\bUpsilon_j$.  
 
 \subsection{Leukemia Survival Data}
-The code below is used to fit the GAFT model with ICAR frailties for the leukemia survival data. As suggested by \cite{Zhou.etal2016}, the gamma prior $\Gamma(a_0=5, b_0=1)$ is used for $\alpha$. We include all four covariates affect the baseline survival. 
+The code below is used to fit the GAFT model with ICAR frailties for the leukemia survival data. As suggested by \cite{Zhou.etal2017}, the gamma prior $\Gamma(a_0=5, b_0=1)$ is used for $\alpha$. We include all four covariates in modeling the baseline survival function. 
 \begin{Code}
+> set.seed(1)
 > mcmc=list(nburn=5000, nsave=2000, nskip=4, ndisplay=1000);
 > prior=list(maxL=4, a0=5, b0=1);
 > ptm<-proc.time()
@@ -762,35 +784,35 @@ frailtyGAFT(formula = Surv(time, cens) ~ age + sex + wbc + tpi +
 
 Posterior inference of regression coefficients
             Mean       Median     Std. Dev.  95%HPD-Low  95%HPD-Upp
-intercept   8.561833   8.559441   0.139238   8.297258    8.843160 
-age        -0.050588  -0.050576   0.001988  -0.054635   -0.046877 
-sex        -0.263716  -0.275361   0.151775  -0.545586    0.009187 
-wbc        -0.004093  -0.004278   0.001013  -0.005650   -0.001764 
-tpi        -0.063257  -0.065633   0.022226  -0.099564   -0.019121 
+intercept   8.814068   8.854485   0.346621   8.097035    9.401137 
+age        -0.054063  -0.054041   0.004926  -0.063937   -0.045553 
+sex        -0.299306  -0.317065   0.145519  -0.531467    0.030991 
+wbc        -0.004581  -0.004553   0.001457  -0.007829   -0.001803 
+tpi        -0.060635  -0.062607   0.021067  -0.100791   -0.019597 
 
 Posterior inference of scale parameter
        Mean    Median  Std. Dev.  95%HPD-Low  95%HPD-Upp
-scale  2.1299  2.1250  0.0985     1.9640      2.3529    
+scale  2.10578  2.09632  0.09638    1.93813     2.30722  
 
 Posterior inference of precision parameter of LDTFP
         Mean    Median  Std. Dev.  95%HPD-Low  95%HPD-Upp
-alpha   6.618   6.350   2.007      3.214      10.738    
+alpha   6.894   6.684   2.153      3.131      11.171    
 
 Posterior inference of conditional CAR frailty variance
           Mean    Median  Std. Dev.  95%HPD-Low  95%HPD-Upp
-variance  0.3167  0.2880  0.1394     0.1093      0.5818    
+variance  0.3126  0.2860  0.1283     0.1124      0.5664    
 
 Bayes factors for LDTFP covariate effects:
 intercept        age        sex        wbc        tpi    overall  normality  
-   1.9716    44.0512     1.1188    44.0041     0.5366    44.0503  6372.6117  
+   0.5495     4.6231     1.2374     5.5556     0.5740     1.6032   103.1727
 
-Log pseudo marginal likelihood: LPML=-5936.359
+Log pseudo marginal likelihood: LPML=-5939.093
 Number of subjects:=1043
 > systime1=proc.time()-ptm; systime1;
 user  system elapsed 
-508.686   0.518 509.806 
+505.052   0.606 506.547 
 \end{Code}
-The Bayes factors for testing \code{age} and \code{wbc} effects on LDTFP are both 44, indicating that the baseline survival function under the AFT model significantly depends on \code{age} and \code{wbc}, and thus GAFT should be considered.  The trace plots, survival curves and frailty map (Figure~\ref{leukemia:GAFTcar:surv:map}) can be obtained using the code similarly to Section~\ref{sec:semi:leukemia}. The only difference is that we need to specify the baseline covariates for plotting survival curves by including the arguement \code{xtfpred=xpred} into the \code{plot} function.  
+The Bayes factors for testing \code{age} and \code{wbc} effects on LDTFP are 4.6 and 1.6, respectively, indicating that the baseline survival function under the AFT model depends on \code{age} and \code{wbc}, and thus GAFT should be considered.  The trace plots, survival curves and frailty map (Figure~\ref{leukemia:GAFTcar:surv:map}) can be obtained using the code similarly to Section~\ref{sec:semi:leukemia}. The only difference is that we need to specify the baseline covariates for plotting survival curves by including the argument \code{xtfpred=xpred} into the \code{plot} function. We see that the mixing for covariate effects is poor due to the non-smoothness of Polya trees. In this case, we need to run a much longer chain with higher thinning. 
 \begin{Code}
 > estimates=plot(res1, xpred=xpred, xtfpred=xpred, tgrid=tgrid);
 \end{Code}
@@ -799,11 +821,11 @@ The Bayes factors for testing \code{age} and \code{wbc} effects on LDTFP are bot
 	\centering\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-GAFT-CAR-trace.pdf} }
 	\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-GAFT-CAR-age.pdf} }
 	\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-GAFT-CAR-Map.pdf} }
-	\caption{Leukemia survival data. GAFT model with ICAR frailties. (a) Trace plots for $\bbeta$, $\tau^2$ and $\alpha$. (b) Survival curves with $95\%$ credit interval bands for female patients with \code{wbc}=38.59 and \code{tpi}=0.3398 at different ages. (c) Map for the posterior mean frailties; larger frailties mean higher mortality rate overall.}
+	\caption{Leukemia survival data. GAFT model with ICAR frailties. (a) Trace plots for $\bbeta$, $\tau^2$ and $\alpha$. (b) Survival curves with $95\%$ credible interval bands for female patients with \code{wbc}=38.59 and \code{tpi}=0.3398 at different ages. (c) Map for the negative posterior mean frailties; larger values mean higher mortality rate overall.}
 	\label{leukemia:GAFTcar:surv:map}
 \end{figure}
 
-\section{Survival Models via Spatial Copulas}\label{sec:copulas}
+\section{Survival Models via Spatial Copulas}
 Currently the package only supports spatial copula models for georeferenced (without replication, i.e. $n_i=1$), right-censored spatial data. Suppose subjects are observed at $n$ distinct spatial locations $\bfs_1,\dots,\bfs_n$. Let $t_{i}$ be a random event time associated with the subject at $\bfs_i$ and $\bx_{i}$ be a related $p$-dimensional vector of covariates, $i=1, \ldots, n$. For right-censored data, we only observe $t_i^o$ and a censoring indicator $\delta_i$ for each subject, where $\delta_i$ equals 1 if $t_i^o=t_i$ and equals 0 if $t_i$ is censored at $t_i^o$. Therefore, the observed data will be $\mathcal{D}=\{(t_{i}^o,\delta_{i},\bx_i, \bfs_i); i=1,\ldots, n\}$. Note although the models below are developed for spatial survival data, non-spatial data are also accommodated. 
 
 The use of copulas in the spatial context was first proposed by \cite{Bardossy2006}, where the empirical variogram is replaced by empirical copulas to investigate the spatial dependence structure. Copulas completely describe association among random variables separately from their univariate distributions and thus capture joint dependence without the influence of the marginal distribution \citep{Li2010}. In the context of survival models, the idea of spatial copula approach is to first assume that the survival time $t_i$ at location $\bfs_i$ marginally follows a model $S_{\bx_i}(t)$, then model the joint distribution of $(t_1, \ldots, t_n)'$ as 
@@ -816,7 +838,7 @@ The current package assumes a spatial version of the Gaussian copula \citep{Li20
 \begin{equation}\label{GaussianCopula:cdf}
 C(u_1, \ldots, u_n) = \Phi_n\left( \Phi^{-1}\{u_1\}, \ldots, \Phi^{-1}\{u_n\}; \bR\right),
 \end{equation}
-where $\Phi_n(\cdot,\ldots,\cdot; \bR)$ denotes the distribution function of $N_n(\mathbf{0}, \bR)$. To allow for a nugget effect, we consider  $\bR[i,j]=\theta_1\rho(d_{ij};\theta_2)+(1-\theta_1)I(\bfs_i=\bfs_j)$, where $\rho(d_{ij};\theta_2)=\exp\{-\theta_2d_{ij}\}$. Here $\theta_1\in[0,1]$, also known as a ``partial sill'' in \cite{Waller.Gotway2004}, is a scale parameter measuring a local maximum correlation, and $\theta_2$ controls the spatial decay over distance. Note that all the diagonal elements of $\bR$ are ones, so it is also a correlation matrix. Under the above spatial Gaussian copula, the likelihood function based on upon the complete data $\{(t_i, \bx_i, \bfs_i), i=1, \ldots, n\}$ is
+where $\Phi_n(\cdot,\ldots,\cdot; \bR)$ denotes the distribution function of $N_n(\mathbf{0}, \bR)$. To allow for a nugget effect, we consider  $\bR[i,j]=\theta_1\rho(\bfs_i, \bfs_j;\theta_2)+(1-\theta_1)I(\bfs_i=\bfs_j)$, where $\rho(\bfs_i, \bfs_j;\theta_2)=\exp\{-\theta_2\|\bfs_i-\bfs_j\|\}$. Here $\theta_1\in[0,1]$, also known as a ``partial sill'' in \cite{Waller.Gotway2004}, is a scale parameter measuring a local maximum correlation, and $\theta_2$ controls the spatial decay over distance. Note that all the diagonal elements of $\bR$ are ones, so it is also a correlation matrix. Under the above spatial Gaussian copula, the likelihood function based on upon the complete data $\{(t_i, \bx_i, \bfs_i), i=1, \ldots, n\}$ is
 \begin{equation}\label{Likelihood}
 \calL = |\bR|^{-1/2}\exp\left\{-\frac{1}{2}\bz'(\bR^{-1}-\bI_n)\bz\right\}\prod_{i=1}^n f_{\bx_i}(t_i),
 \end{equation}
@@ -831,7 +853,7 @@ and density
 \begin{equation*}
 f_{\bx_i}(t) = \exp\left\{-\Lambda_0(t)e^{\bx_i'\bbeta}\right\}\lambda_0(t)e^{\bx_i'\bbeta},
 \end{equation*}
-where $\bbeta$ is a $p\times 1$ vector of regression coefficients, $\lambda_0(t)$ is the baseline hazard function and $\Lambda_0(t)=\int_0^t \lambda_0(s)ds$ is the cumulative baseline hazard function. The piecewise exponential model provides a flexible framework to deal with the baseline hazard \citep[e.g.][]{Walker.Mallick1997}. We partition the time period $\mathbb{R}^+$ into $M$ intervals, say $I_k=(d_{k-1}, d_k], k=1, \ldots, M$, where $d_0=0$ and $d_M=\infty$. Specifically, we set $d_k=F_h^{-1}(k/M), k=0, \ldots, M$, where $F_h(\cdot)$ is the cdf of exponential distribution with rate parameter $h$. The baseline hazard is then assumed to be constant within each interval, i.e.
+where $\bbeta$ is a $p\times 1$ vector of regression coefficients, $\lambda_0(t)$ is the baseline hazard function and $\Lambda_0(t)=\int_0^t \lambda_0(s)ds$ is the cumulative baseline hazard function. The piecewise exponential model provides a flexible framework to deal with the baseline hazard \citep[e.g.][]{Walker.Mallick1997}. We partition the time period $\mathbb{R}^+$ into $M$ intervals, say $I_k=(d_{k-1}, d_k], k=1, \ldots, M$, where $d_0=0$ and $d_M=\infty$. Specifically, we set $d_k$ to be the $\frac{k}{M}$th quantile of the empirical distribution of the observed survival times for $k=1,\ldots,M-1$. The baseline hazard is then assumed to be constant within each interval, i.e.
 \begin{equation*}
 \lambda_0(t) = \sum_{k=1}^M h_k I\{t\in I_k \},
 \end{equation*}
@@ -851,7 +873,7 @@ h_k|h &\overset{iid}{\sim}\mathrm{\Gamma}(r_0h, r_0), k=1, \ldots, M, \\
 The \texttt{spCopulaCoxph} function sets the following default hyperparameter values: $M=10$, $r_0=1$, $h=\hat{h}$, $\bbeta_0=\bzero$, $\bS_0=10^5\bI_p$, $\theta_{1a}=\theta_{1b}=\theta_{2a}=\theta_{2b}=1$, where $\hat{h}$ is the maximum likelihood estimate of the rate parameter from fitting an exponential PH model. A function \texttt{indeptCoxph} is also provided to fit the non-spatial standard PH model with above baseline and prior settings. 
 
 \subsection{Bayesian Nonparametric Survival Model via Spatial Copulas}
-We assume that $y_i=\log t_i$ given $\bx_i$ marginally follows a linear dependent Dirichlet process mixture (LDDPM) model \citep{DeIorio.etal2009} with cdf,
+We assume that $y_i=\log t_i$ given $\bx_i$ marginally follows a LDDPM model \citep{DeIorio.etal2009} with cdf,
 \begin{equation}\label{eq:LDDPM}
 F_{\bx_i}(t) = \int \Phi\left(\frac{\log t-\bx_i'\bbeta}{\sigma}\right) d G\{\bbeta, \sigma^2\},
 \end{equation}
@@ -869,8 +891,9 @@ The following default hyperpriors are considered in \texttt{spCopulaDDP}: $a_0=b
 
 \subsection{Leukemia Survival Data}
 \subsubsection{PH model with spatial copula}
-The following code is used to fit the piecewise exponential PH model (\ref{spCopulaCoxph}) with the Gaussian spatial copula (\ref{GaussianCopula:cdf}) using $M=20$ and default priors. We consider $K=100$ and $B=1043$ for the number of knots and blocks in the FSA of $\bR$. The total running time is 15075 seconds. 
+The following code is used to fit the piecewise exponential PH model (\ref{spCopulaCoxph}) with the Gaussian spatial copula (\ref{GaussianCopula:cdf}) using $M=20$ and default priors. We consider $K=100$ and $B=1043$ for the number of knots and blocks in the FSA of $\bR$. The total running time is 15445 seconds. 
 \begin{Code}
+> set.seed(1)
 > mcmc=list(nburn=5000, nsave=2000, nskip=4, ndisplay=1000);
 > prior=list(M=20, nknots=100, nblock=1043);
 > ptm<-proc.time()
@@ -885,24 +908,24 @@ spCopulaCoxph(formula = Surv(time, cens) ~ age + sex + wbc +
      d$ycoord))
 
 Posterior inference of regression coefficients
-(Adaptive M-H acceptance rate: 0.2438):
+(Adaptive M-H acceptance rate: 0.2501):
       Mean        Median      Std. Dev.   95%CI-Low   95%CI-Upp 
-age   0.0282502   0.0282043   0.0018892   0.0246622   0.0319507
-sex   0.0568409   0.0558295   0.0612507  -0.0663804   0.1774189
-wbc   0.0028199   0.0028274   0.0004191   0.0020218   0.0036204
-tpi   0.0265696   0.0265197   0.0089057   0.0084522   0.0442770
+age   0.0277864   0.0278065   0.0019297   0.0240332   0.0315580
+sex   0.0522938   0.0527421   0.0588919  -0.0625843   0.1662136
+wbc   0.0027808   0.0027899   0.0003767   0.0020071   0.0034546
+tpi   0.0257918   0.0257969   0.0081385   0.0087972   0.0411955
 
 Posterior inference of spatial sill and range parameters
-(Adaptive M-H acceptance rate: 0.1932):
+(Adaptive M-H acceptance rate: 0.2112):
        Mean     Median   Std. Dev.  95%CI-Low  95%CI-Upp
-sill   0.19922  0.20228  0.05963    0.07301    0.29884  
-range  0.43634  0.33631  0.37704    0.02665    1.48672  
+sill   0.23051  0.23352  0.05587    0.10222    0.32903  
+range  0.41801  0.34165  0.34272    0.03715    1.31802  
 
-Log pseudo marginal likelihood: LPML=-5931.167
+Log pseudo marginal likelihood: LPML=-5929.357
 Number of subjects: n=1043
 > systime1=proc.time()-ptm; systime1;
      user    system   elapsed 
-14875.147   180.753 15075.110 
+15262.274   177.716 15444.913 
 \end{Code}
 
 The trace plots (Figure~\ref{leukemia:PHcopula:trace}) and survival curves (Figure~\ref{leukemia:PHcopula:surv:map}, panel a) can be obtained using the code similarly to Section~\ref{sec:semi:leukemia}, where the only difference is that we also present the trace plots for partial sill $\theta_1$ and range $\theta_2$. 
@@ -922,7 +945,7 @@ The trace plots (Figure~\ref{leukemia:PHcopula:trace}) and survival curves (Figu
 	\centering
 	\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-PH-copula-age.pdf} }
 	\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-PH-copula-Map.pdf} }
-	\caption{Leukemia survival data. PH model with spatial copula. (a) Survival curves with $95\%$ credit interval bands for female patients with \code{wbc}=38.59 and \code{tpi}=0.3398 at different ages. (b) Map for the posterior mean of $z_i$ values; smaller $z$ values mean higher mortality rate overall.}
+	\caption{Leukemia survival data. PH model with spatial copula. (a) Survival curves with $95\%$ credible interval bands for female patients with \code{wbc}=38.59 and \code{tpi}=0.3398 at different ages. (b) Map for the posterior mean of $z_i$ values; smaller $z$ values mean higher mortality rate overall.}
 	\label{leukemia:PHcopula:surv:map}
 \end{figure}
 
@@ -941,8 +964,9 @@ Note that the higher the value of $z_i=\Phi^{-1}\left\{ F_{\bx_i}(t_i) \right\}$
 \end{Code} 
 
 \subsubsection{LDDPM model with spatial copula}
-The following code is used to fit the LDDPM model (\ref{eq:LDDPM}) with the Gaussian spatial copula (\ref{GaussianCopula:cdf}) using $N=10$ and default priors. For the FSA, $K=100$ and $B=1043$ are used. The total running time is 19491 seconds. Note this is no \code{summary} output as before, as we are fitting a nonparametric model. 
+The following code is used to fit the LDDPM model (\ref{eq:LDDPM}) with the Gaussian spatial copula (\ref{GaussianCopula:cdf}) using $N=10$ and default priors. For the FSA, $K=100$ and $B=1043$ are used. The total running time is 20056 seconds. Note there is no \code{summary} output as before, as we are fitting a nonparametric model. 
 \begin{Code}
+> set.seed(1)
 > mcmc=list(nburn=5000, nsave=2000, nskip=4, ndisplay=1000);
 > prior=list(N=10, nknots=100, nblock=1043);
 > ptm<-proc.time()
@@ -951,12 +975,12 @@ The following code is used to fit the LDDPM model (\ref{eq:LDDPM}) with the Gaus
 +                    Coordinates=cbind(d$xcoord,d$ycoord));
 > systime1=proc.time()-ptm; systime1;
      user    system   elapsed 
-19310.243   177.188 19490.923 
+19876.947   178.595 20056.744 
 > sum(log(res1$cpo)); ## LPML $
-[1] -5931.866
+[1] -5931.5
 \end{Code} 
 
-The trace plots, survival curves, and map of $z_i$s (Figure~\ref{leukemia:LDDPMcopula:surv:map}) can be obtained using the same code used for the PH copula model, where the only difference is that we only present the trace plots for partial sill $\theta_1$ and range $\theta_2$. 
+The trace plots, survival curves, and map of $z_i$s (Figure~\ref{leukemia:LDDPMcopula:surv:map}) can be obtained using the same code used for the PH copula model, where the difference is that we only present the trace plots for partial sill $\theta_1$ and range $\theta_2$. 
 
 \begin{figure}
 	\centering\subfigure[]{ \includegraphics[width=0.3\textwidth]{Leukemia-LDDPM-copula-trace.pdf} }
@@ -966,8 +990,15 @@ The trace plots, survival curves, and map of $z_i$s (Figure~\ref{leukemia:LDDPMc
 	\label{leukemia:LDDPMcopula:surv:map}
 \end{figure}
 
-%\section{Super Survival Model for Non-spatial Data}
+\section{Conclusions}
 
+There is a wealth of \proglang{R} packages for non-spatial survival data, starting with \pkg{survival} \citep{survival-package}, included with all base installs of \proglang{R}.  The \pkg{survival} package fits (discretely) stratified semiparametric PH models to right-censored data with exchangeable gamma frailties, as well as left-truncated data, time-dependent covariates, etc.  Parametric log-logistic, Weibull and log-normal AFT models can also be fit by this package.  From there, there are many packages for various models and types of censoring; a partial review discussing several available \proglang{R} packages is given by \cite{Zhou.Hanson2015}; also see \cite{Zhou.Hanson2017}.  In comparison there are very few \proglang{R} packages for spatially correlated survival data, with the notable exceptions of \pkg{R2BayesX} and \pkg{spatsurv}, both of which focus on PH exclusively.  The \pkg{spBayesSurv} package allows the routine fitting of several popular semiparametric and nonparametric models to spatial survival data.
+
+Although examples were not provided here, \pkg{spBayesSurv} can also handle non-spatial survival data using either exchangeable Gaussian or no frailty models. Another unintroduced function is \texttt{survregbayes2} which implements the Polya tree based PH, PO, and AFT models of \cite{Hanson2006} and \cite{Zhao.etal2009} for areally-referenced data.  As pointed out in these papers, MCMC mixing for Polya tree models can be highly problematic when the true baseline survival function is very different from the parametric family that centers the Polya tree; the TBP prior provides much improved MCMC mixing with essentially the same quality of fit as Polya trees.
+
+Future additions to \pkg{spBayesSurv} include spatial copula (both georeferenced and areal) versions of the PH, PO, and AFT models using TBP priors, as well as continuously-stratified proportional hazards and proportional odds models.  An extension of all semiparametric models to additive linear structure, which is already incorporated into \pkg{BayesX}, is also planned.
+
+%\section{Super Survival Model for Non-spatial Data}
 %\bibliographystyle{jss}
 \pdfbookmark[1]{References}{References}
 \bibliography{bibliography}
