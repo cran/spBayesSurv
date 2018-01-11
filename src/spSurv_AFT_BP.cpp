@@ -120,7 +120,7 @@ RcppExport SEXP AFT_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SE
   arma::vec vn_r(vn.begin(), n, false);
   
   // Working temp variables
-  arma::mat Linv=arma::zeros<arma::mat>(n, nsave);
+  arma::mat logLik=arma::zeros<arma::mat>(n, nsave);
   arma::mat St1=arma::zeros<arma::mat>(nsub, nsave);
   arma::mat St2=arma::zeros<arma::mat>(nsub, nsave);
   arma::vec Dvalues = arma::zeros<arma::vec>(nsave);
@@ -502,8 +502,8 @@ RcppExport SEXP AFT_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SE
     if(iscan>=nburn){
       ++skiptally;
       if(skiptally>nskip){
-        // calculate 1.0/likelihood
-        Linv.col(isave) = AFT_BP_invLik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn);
+        // calculate loglikelihood
+        logLik.col(isave) = AFT_BP_logliki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn);
         // calculate -2loglikelihood
         double tempLik = 0;
         AFT_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, tempLik);
@@ -575,14 +575,15 @@ RcppExport SEXP AFT_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SE
   Rcpp::NumericVector ratev = 1.0 - rejv/totscans;
   double ratephi = 1.0 - rejphi/totscans;
   
-  // get CPO
-  arma::mat finv(nsub, nsave);
+  // get cpo
+  arma::mat logLik_subject(nsub, nsave);
   for(int i=0; i<nsub; ++i){
     int ind1 = subjecti[i];
     int ind2 = subjecti[i+1]-1;
-    finv.row(i) = arma::prod(Linv.rows(ind1, ind2), 0);
+    logLik_subject.row(i) = arma::sum(logLik.rows(ind1, ind2), 0);
   }
-  arma::vec Linvmean = arma::mean(finv, 1);
+  arma::mat fpostinv = arma::exp(-logLik_subject);
+  arma::vec Linvmean = arma::mean(fpostinv, 1);
   arma::vec cpo = 1.0/Linvmean;
   
   // get DIC
@@ -593,6 +594,22 @@ RcppExport SEXP AFT_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SE
                sumweight/(nsave+0.0), BP, dist, Xbeta+sumvn/(nsave+0.0), Dmean);
   double pD = meanD + 2.0*Dmean;
   double DIC = meanD + pD; 
+  arma::vec DIC_pD(2); DIC_pD[0]=DIC; DIC_pD[1]=pD;
+  
+  //get stabilized cpo
+  arma::mat fpost = arma::exp(logLik_subject);
+  arma::mat fpostinv_bd = arma::zeros<mat>(nsub, nsave);
+  fpostinv_bd.each_col() = std::sqrt(nsave+0.0)*Linvmean;
+  fpostinv_bd = arma::min(fpostinv, fpostinv_bd);
+  arma::vec cpo_stab = arma::mean(fpostinv_bd%fpost, 1)/arma::mean(fpostinv_bd, 1);
+  
+  // get WAIC
+  arma::vec fpostmean=arma::mean(fpost, 1);
+  double lpd = arma::sum(arma::log(fpostmean));
+  arma::vec logfpostvar=arma::var(logLik_subject, 0, 1);
+  double pwaic = arma::sum(logfpostvar);
+  double WAIC = -2.0*lpd + 2.0*pwaic;
+  arma::vec WAIC_pwaic(2); WAIC_pwaic[0]=WAIC; WAIC_pwaic[1]=pwaic;
   
   // get Cox-Snell residuals
   arma::vec r1 = -arma::log(arma::mean(St1, 1));
@@ -604,8 +621,9 @@ RcppExport SEXP AFT_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SE
                       Named("cpar")=cpar_save,
                       Named("weight")=weight_save,
                       Named("cpo")=cpo,
-                      Named("pD")=pD,
-                      Named("DIC")=DIC,
+                      Named("cpo_stab")=cpo_stab,
+                      Named("DIC_pD")=DIC_pD,
+                      Named("WAIC_pwaic")=WAIC_pwaic,
                       Named("resid1")=r1,
                       Named("resid2")=r2,
                       Named("ratetheta")=ratetheta,
@@ -617,6 +635,74 @@ RcppExport SEXP AFT_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SE
                       Named("ratev")=ratev,
                       Named("phi")=phi_save,
                       Named("ratephi")=ratephi);
+  END_RCPP
+}
+
+// Get LOO and WAIC
+RcppExport SEXP AFT_BP_loo_waic(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, SEXP type_, 
+                               SEXP X_, SEXP theta_, SEXP beta_, SEXP vn_, SEXP weight_, SEXP dist_){
+  BEGIN_RCPP
+  // Transfer R variables into C++;
+  const Rcpp::NumericVector ltr(ltr_); // n by 1;
+  const Rcpp::IntegerVector subjecti(subjecti_); //nsub+1 by 1;
+  const Rcpp::NumericVector t1(t1_); // n by 1;
+  const Rcpp::NumericVector t2(t2_); // n by 1;
+  const Rcpp::IntegerVector type(type_);// n by 1;
+  const arma::mat X=as<arma::mat>(X_); // n by p;
+  const int nsub = subjecti.size()-1;
+  const arma::mat theta=as<arma::mat>(theta_); // 2 by nsave;
+  const arma::mat beta=as<arma::mat>(beta_); // p by nsave;
+  const arma::mat vn=as<arma::mat>(vn_); // n by nsave;
+  const Rcpp::NumericMatrix weight(weight_); // maxL by nsave;
+  const int dist = as<int>(dist_);
+  int nsave = beta.n_cols;
+  int n = X.n_rows;
+  
+  // Temp variables
+  arma::mat logLik=arma::zeros<arma::mat>(n, nsave);
+  Rcpp::NumericVector xbeta(n, 0.0);
+  arma::vec xbeta_r(xbeta.begin(), n, false);
+  
+  // get LOO and WAIC
+  for(int isave=0; isave<nsave; ++isave){
+    double th1 = theta(0,isave);
+    double th2 = theta(1,isave);
+    Rcpp::NumericVector wi = weight(_,isave);
+    xbeta_r = X*beta.col(isave)+vn.col(isave);
+    // calculate loglikelihood
+    logLik.col(isave) = AFT_BP_logliki(t1, t2, ltr, type, th1, th2, wi, true, dist, xbeta);
+  }
+  
+  // get cpo
+  arma::mat logLik_subject(nsub, nsave);
+  for(int i=0; i<nsub; ++i){
+    int ind1 = subjecti[i];
+    int ind2 = subjecti[i+1]-1;
+    logLik_subject.row(i) = arma::sum(logLik.rows(ind1, ind2), 0);
+  }
+  arma::mat fpostinv = arma::exp(-logLik_subject);
+  arma::vec Linvmean = arma::mean(fpostinv, 1);
+  arma::vec cpo = 1.0/Linvmean;
+  
+  //get stabilized cpo
+  arma::mat fpost = arma::exp(logLik_subject);
+  arma::mat fpostinv_bd = arma::zeros<mat>(nsub, nsave);
+  fpostinv_bd.each_col() = std::sqrt(nsave+0.0)*Linvmean;
+  fpostinv_bd = arma::min(fpostinv, fpostinv_bd);
+  arma::vec cpo_stab = arma::mean(fpostinv_bd%fpost, 1)/arma::mean(fpostinv_bd, 1);
+  
+  // get WAIC
+  arma::vec fpostmean=arma::mean(fpost, 1);
+  double lpd = arma::sum(arma::log(fpostmean));
+  arma::vec logfpostvar=arma::var(logLik_subject, 0, 1);
+  double pwaic = arma::sum(logfpostvar);
+  double WAIC = -2.0*lpd + 2.0*pwaic;
+  arma::vec WAIC_pwaic(2); WAIC_pwaic[0]=WAIC; WAIC_pwaic[1]=pwaic;
+  
+  return List::create(Named("cpo")=cpo,
+                      Named("cpo_stab")=cpo_stab,
+                      Named("WAIC_pwaic")=WAIC_pwaic,
+                      Named("fpost")=fpostmean);
   END_RCPP
 }
 

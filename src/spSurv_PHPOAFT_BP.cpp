@@ -90,7 +90,7 @@ RcppExport SEXP PHPOAFT_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_
   arma::vec Ys_r(Ys.begin(), nYs, false);
   
   // Working temp variables
-  arma::mat Linv=arma::zeros<arma::mat>(n, nsave);
+  arma::mat logLik=arma::zeros<arma::mat>(n, nsave);
   arma::vec Dvalues = arma::zeros<arma::vec>(nsave);
   Rcpp::NumericVector sumtheta(2, 0.0); // 2 by 1
   Rcpp::NumericVector sumbeta_h(p, 0.0); // p by 1
@@ -269,7 +269,7 @@ RcppExport SEXP PHPOAFT_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_
       ++skiptally;
       if(skiptally>nskip){
         // calculate 1.0/likelihood
-        Linv.col(isave) = PHPOAFT_BP_invLik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta_h, Xbeta_o, Xbeta_q);
+        logLik.col(isave) = PHPOAFT_BP_logliki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta_h, Xbeta_o, Xbeta_q);
         // calculate -2loglikelihood
         double tempLik = 0;
         PHPOAFT_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta_h, Xbeta_o, Xbeta_q, tempLik);
@@ -307,14 +307,15 @@ RcppExport SEXP PHPOAFT_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_
   double rateYs = 1.0 - rejYs/totscans;
   double ratec = 1.0 - rejc/totscans;
   
-  // get CPO
-  arma::mat finv(nsub, nsave);
+  // get cpo
+  arma::mat logLik_subject(nsub, nsave);
   for(int i=0; i<nsub; ++i){
     int ind1 = subjecti[i];
     int ind2 = subjecti[i+1]-1;
-    finv.row(i) = arma::prod(Linv.rows(ind1, ind2), 0);
+    logLik_subject.row(i) = arma::sum(logLik.rows(ind1, ind2), 0);
   }
-  arma::vec Linvmean = arma::mean(finv, 1);
+  arma::mat fpostinv = arma::exp(-logLik_subject);
+  arma::vec Linvmean = arma::mean(fpostinv, 1);
   arma::vec cpo = 1.0/Linvmean;
   
   // get DIC

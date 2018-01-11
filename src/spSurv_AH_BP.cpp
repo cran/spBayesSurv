@@ -7,7 +7,7 @@ using namespace arma;
 using namespace Rcpp;
 using namespace std;
 
-RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEXP ltr_, SEXP subjecti_,
+RcppExport SEXP AH_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEXP ltr_, SEXP subjecti_,
                       SEXP t1_, SEXP t2_, SEXP type_, SEXP X_, SEXP theta_, SEXP beta_, 
                       SEXP weight_, SEXP cpar_, SEXP a0_, SEXP b0_, SEXP theta0_, 
                       SEXP V0inv_, SEXP Vhat_, SEXP beta0_, SEXP S0inv_, SEXP Shat_, 
@@ -220,7 +220,7 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
     // update BP weights
     //////////////////////////////////////////////
     if(BP){
-      PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
+      AH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
       llold += cpar*Rcpp::sum(Rcpp::log(weight)); 
       Ysold=Ys_r;
       if(iscan>l0){
@@ -229,7 +229,7 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
         Ys_r = mvrnorm(Ysold, YsShat);
       }
       Ys_to_weight(Ys, weight);
-      PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
+      AH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
       llnew += cpar*Rcpp::sum(Rcpp::log(weight));
       ratio = exp(llnew-llold);
       uu = unif_rand();
@@ -248,7 +248,7 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
     ///////////////////////////////////////////////
     // update beta
     //////////////////////////////////////////////
-    PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
+    AH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
     llold += -0.5*arma::dot( (beta_r-beta0), (S0inv*(beta_r-beta0)) );
     betaold = beta_r;
     if(iscan>l0){
@@ -257,7 +257,7 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
       beta_r = mvrnorm(betaold, Shat);
     }
     Xbeta_r = X_r*(beta_r%gamma_r);
-    PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
+    AH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
     llnew += -0.5*arma::dot( (beta_r-beta0), (S0inv*(beta_r-beta0)) );
     ratio = exp(llnew-llold);
     uu = unif_rand();
@@ -276,7 +276,7 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
     // update theta
     //////////////////////////////////////////////
     if(V0inv(0,0)<SYSMAX){
-      PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
+      AH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
       llold += -0.5*arma::dot( (theta_r-theta0), (V0inv*(theta_r-theta0)) );
       thetaold = theta_r;
       if(iscan>l0){
@@ -284,7 +284,7 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
       }else{
         theta_r = mvrnorm(thetaold, Vhat);
       }
-      PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
+      AH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
       llnew += -0.5*arma::dot( (theta_r-theta0), (V0inv*(theta_r-theta0)) );
       ratio = exp(llnew-llold);
       uu = unif_rand();
@@ -309,10 +309,10 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
         double meanvi = arma::as_scalar(W.row(i)*v_r)/D[i];
         double sdvi = std::sqrt(1.0/(D[i]*lambda));
         double viold = v[i];
-        PO_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llold, ind1, ind2, v[i]);
+        AH_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llold, ind1, ind2, v[i]);
         llold += -0.5*D[i]*lambda*std::pow(v[i]-meanvi,2);
         v[i] = Rf_rnorm(viold, sdvi);
-        PO_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llnew, ind1, ind2, v[i]);
+        AH_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llnew, ind1, ind2, v[i]);
         llnew += -0.5*D[i]*lambda*std::pow(v[i]-meanvi,2);
         ratio = exp(llnew-llold);
         uu = unif_rand();
@@ -337,10 +337,10 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
         int ind1 = blocki[i];
         int ind2 = blocki[i+1]-1;
         double viold = v[i];
-        PO_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llold, ind1, ind2, v[i]);
+        AH_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llold, ind1, ind2, v[i]);
         llold += -0.5*lambda*std::pow(v[i],2);
         v[i] = Rf_rnorm(viold, std::sqrt(1.0/lambda));
-        PO_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llnew, ind1, ind2, v[i]);
+        AH_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llnew, ind1, ind2, v[i]);
         llnew += -0.5*lambda*std::pow(v[i],2);
         ratio = exp(llnew-llold);
         uu = unif_rand();
@@ -367,10 +367,10 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
         double meanvi = -(arma::as_scalar(Rmminv.row(i)*v_r)-Rii*v[i])/Rii;
         double sdvi = std::sqrt(1.0/(Rii*lambda));
         double viold = v[i];
-        PO_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llold, ind1, ind2, v[i]);
+        AH_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llold, ind1, ind2, v[i]);
         llold += -0.5*Rii*lambda*std::pow(v[i]-meanvi,2);
         v[i] = Rf_rnorm(viold, sdvi);
-        PO_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llnew, ind1, ind2, v[i]);
+        AH_BP_loglikblocki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta, llnew, ind1, ind2, v[i]);
         llnew += -0.5*Rii*lambda*std::pow(v[i]-meanvi,2);
         ratio = exp(llnew-llold);
         uu = unif_rand();
@@ -451,10 +451,10 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
         arma::vec gamma_tmp = gamma_r;
         gamma_tmp[j] = 1.0;
         Xbeta_r = X_r*(beta_r%gamma_tmp);
-        PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
+        AH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
         gamma_tmp[j] = 0.0;
         Xbeta_r = X_r*(beta_r%gamma_tmp);
-        PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
+        AH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
         double pstar = p0gamma[j]/( p0gamma[j]+(1.0-p0gamma[j])*exp(llnew-llold) );
         uu = unif_rand();
         //Rprintf( "p = %f\n", pstar );
@@ -503,10 +503,10 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
       ++skiptally;
       if(skiptally>nskip){
         // calculate loglikelihood
-        logLik.col(isave) = PO_BP_logliki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn);
+        logLik.col(isave) = AH_BP_logliki(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn);
         // calculate -2loglikelihood
         double tempLik = 0;
-        PO_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, tempLik);
+        AH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, tempLik);
         Dvalues(isave) = -2.0*tempLik;
         // Cox-Snell residuals
         for(int i=0; i<nsub; ++i){
@@ -517,19 +517,19 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
           for(int j=ind1; j<=ind2; ++j){
             double logSt0tmp=0;
             if(ltr[j]>0){
-              logSt0tmp = -PO_BP_logsurv(ltr[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
+              logSt0tmp = -AH_BP_logsurv(ltr[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
             }
             if((type[j]==0)|(type[j]==1)){
-              double logtmp = PO_BP_logsurv(t1[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
+              double logtmp = AH_BP_logsurv(t1[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
               logSt1tmp += logtmp; logSt1tmp += logSt0tmp;
               logSt2tmp += logtmp; logSt2tmp += logSt0tmp;
             }else if(type[j]==2){
-              double logtmp = PO_BP_logsurv(t2[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
+              double logtmp = AH_BP_logsurv(t2[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
               logSt1tmp += logtmp; logSt1tmp += logSt0tmp;
               logSt2tmp += logtmp; logSt2tmp += logSt0tmp;
             }else{
-              double logtmp1 = PO_BP_logsurv(t1[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
-              double logtmp2 = PO_BP_logsurv(t2[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
+              double logtmp1 = AH_BP_logsurv(t1[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
+              double logtmp2 = AH_BP_logsurv(t2[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
               logSt1tmp += logtmp1; logSt1tmp += logSt0tmp;
               logSt2tmp += logtmp2; logSt2tmp += logSt0tmp;
             }
@@ -590,7 +590,7 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   double meanD = arma::mean(Dvalues);
   Xbeta_r = X_r*as<arma::vec>(sumbeta)/(nsave+0.0);
   double Dmean = 0;
-  PO_BP_loglik(t1, t2, ltr, type, sumtheta[0]/(nsave+0.0), sumtheta[1]/(nsave+0.0), 
+  AH_BP_loglik(t1, t2, ltr, type, sumtheta[0]/(nsave+0.0), sumtheta[1]/(nsave+0.0), 
                sumweight/(nsave+0.0), BP, dist, Xbeta+sumvn/(nsave+0.0), Dmean);
   double pD = meanD + 2.0*Dmean;
   double DIC = meanD + pD; 
@@ -639,7 +639,7 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
 }
 
 // Get LOO and WAIC
-RcppExport SEXP PO_BP_loo_waic(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, SEXP type_, 
+RcppExport SEXP AH_BP_loo_waic(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, SEXP type_, 
                                SEXP X_, SEXP theta_, SEXP beta_, SEXP vn_, SEXP weight_, SEXP dist_){
   BEGIN_RCPP
   // Transfer R variables into C++;
@@ -670,7 +670,7 @@ RcppExport SEXP PO_BP_loo_waic(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, SE
     Rcpp::NumericVector wi = weight(_,isave);
     xbeta_r = X*beta.col(isave)+vn.col(isave);
     // calculate loglikelihood
-    logLik.col(isave) = PO_BP_logliki(t1, t2, ltr, type, th1, th2, wi, true, dist, xbeta);
+    logLik.col(isave) = AH_BP_logliki(t1, t2, ltr, type, th1, th2, wi, true, dist, xbeta);
   }
   
   // get cpo
@@ -707,7 +707,7 @@ RcppExport SEXP PO_BP_loo_waic(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, SE
 }
 
 // Get Cox-Snell residuals
-RcppExport SEXP PO_BP_cox_snell(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, SEXP type_, 
+RcppExport SEXP AH_BP_cox_snell(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, SEXP type_, 
                                 SEXP X_, SEXP theta_, SEXP beta_, SEXP vn_, SEXP weight_, SEXP dist_){
   BEGIN_RCPP
   // Transfer R variables into C++;
@@ -743,19 +743,19 @@ RcppExport SEXP PO_BP_cox_snell(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, S
       for(int j=ind1; j<=ind2; ++j){
         double logSt0tmp=0;
         if(ltr[j]>0){
-          logSt0tmp = -PO_BP_logsurv(ltr[j], th1, th2, wi, true, dist, xbeta[j]);
+          logSt0tmp = -AH_BP_logsurv(ltr[j], th1, th2, wi, true, dist, xbeta[j]);
         }
         if((type[j]==0)|(type[j]==1)){
-          double logtmp = PO_BP_logsurv(t1[j], th1, th2, wi, true, dist, xbeta[j]);
+          double logtmp = AH_BP_logsurv(t1[j], th1, th2, wi, true, dist, xbeta[j]);
           logSt1tmp += logtmp; logSt1tmp += logSt0tmp;
           logSt2tmp += logtmp; logSt2tmp += logSt0tmp;
         }else if(type[j]==2){
-          double logtmp = PO_BP_logsurv(t2[j], th1, th2, wi, true, dist, xbeta[j]);
+          double logtmp = AH_BP_logsurv(t2[j], th1, th2, wi, true, dist, xbeta[j]);
           logSt1tmp += logtmp; logSt1tmp += logSt0tmp;
           logSt2tmp += logtmp; logSt2tmp += logSt0tmp;
         }else{
-          double logtmp1 = PO_BP_logsurv(t1[j], th1, th2, wi, true, dist, xbeta[j]);
-          double logtmp2 = PO_BP_logsurv(t2[j], th1, th2, wi, true, dist, xbeta[j]);
+          double logtmp1 = AH_BP_logsurv(t1[j], th1, th2, wi, true, dist, xbeta[j]);
+          double logtmp2 = AH_BP_logsurv(t2[j], th1, th2, wi, true, dist, xbeta[j]);
           logSt1tmp += logtmp1; logSt1tmp += logSt0tmp;
           logSt2tmp += logtmp2; logSt2tmp += logSt0tmp;
         }
@@ -774,8 +774,8 @@ RcppExport SEXP PO_BP_cox_snell(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, S
 }
 
 
-// Get density or survival Plots for frailty LDTFP PO
-RcppExport SEXP PO_BP_plots(SEXP tgrid_, SEXP xpred_, SEXP theta_, SEXP beta_, SEXP v_,
+// Get density or survival Plots for frailty LDTFP AH
+RcppExport SEXP AH_BP_plots(SEXP tgrid_, SEXP xpred_, SEXP theta_, SEXP beta_, SEXP v_,
                             SEXP weight_, SEXP CI_, SEXP dist_){
   BEGIN_RCPP
   // Transfer R variables into C++;
@@ -817,9 +817,9 @@ RcppExport SEXP PO_BP_plots(SEXP tgrid_, SEXP xpred_, SEXP theta_, SEXP beta_, S
     Rcpp::NumericVector wi = weight(_,i);
     for(int j=0; j<npred; ++j){
       for(int k=0; k<ngrid; ++k){
-        estf(k, i, j) = std::exp(PO_BP_logpdf(tgrid[k], theta(0,i), theta(1,i), wi, true, dist,
+        estf(k, i, j) = std::exp(AH_BP_logpdf(tgrid[k], theta(0,i), theta(1,i), wi, true, dist,
                                  xbeta[j]));
-        estS(k, i, j) = std::exp(PO_BP_logsurv(tgrid[k], theta(0,i), theta(1,i), wi, true, dist,
+        estS(k, i, j) = std::exp(AH_BP_logsurv(tgrid[k], theta(0,i), theta(1,i), wi, true, dist,
                                  xbeta[j]));
         esth(k, i, j) = estf(k, i, j)/estS(k, i, j);
       }

@@ -1,6 +1,7 @@
 \name{survregbayes}
 \alias{survregbayes}
 \alias{BF.survregbayes}
+\alias{waic.survregbayes}
 \alias{print.survregbayes}
 \alias{cox.snell.survregbayes}
 \alias{plot.survregbayes}
@@ -52,7 +53,7 @@ survregbayes(formula, data, na.action, survmodel="PH", dist="loglogistic",
    
    \item{DIST}{This is a function argument, used to calculate the distance. The default is Euclidean distance (\code{fields::rdist}). This function should have two arguments (X1,X2), where X1 and X2 are matrices with coordinates as the rows. The returned value of this function should be the pairwise distance matrix. If nrow(X1)=m and nrow(X2)=n then the function should return an m by n matrix of all distances between these two sets of points.}
    
-   \item{InitParamMCMC}{flag to indicate wheter an initial MCMC will be run based on the centering parametric model, where \code{TRUE} indicates yes. }
+   \item{InitParamMCMC}{flag to indicate whether an initial MCMC will be run based on the centering parametric model, where \code{TRUE} indicates yes. }
    
    \item{scale.designX}{flag to indicate whether the design matrix X will be centered by column means and scaled by column standard deviations, where \code{TRUE} indicates yes. The default is \code{TRUE} for improving numerical stability. Even when it is scaled, the reported regression coefficients are in original scales. Note if we want to specify informative priors for regression coefficients, these priors should correspond to scaled predictors when \code{scale.designX=TRUE}.}
 }

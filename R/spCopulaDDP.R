@@ -94,7 +94,6 @@
     }else{
       X.scaled <- scale(X, center=rep(0,p), scale=rep(1,p));
     }
-    X.scaled <- scale(X);
     X.center = attributes(X.scaled)$`scaled:center`;
     X.scale = attributes(X.scaled)$`scaled:scale`;
     X1 = cbind(rep(1,n), X.scaled);

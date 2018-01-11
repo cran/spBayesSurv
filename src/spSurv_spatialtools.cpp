@@ -47,6 +47,134 @@ SEXP DistMat(SEXP si_, SEXP sj_){
 }
 
 //////////////////////////////////////////////////////////////////////
+// spatial density things
+/////////////////////////////////////////////////////////////////////
+// M-distance function
+double Mdist(arma::vec x1, arma::vec x2, const arma::mat& Sinv, double phi){
+  return( std::exp( -phi*std::sqrt(arma::dot(x1-x2, Sinv*(x1-x2))) ) );
+}
+
+// log density for new x0 given the data (X,y);
+void logf_spatdens(double y0, arma::vec x0, const Rcpp::NumericVector& y, const arma::mat& X, int J, double cpar,
+                   double th1, double exp_th2, double phi, const arma::mat& Sinv, 
+                   Rcpp::IntegerMatrix& kyindex, double& logf){
+  int n = y.size();
+  Rcpp::IntegerVector kyindex0(J);
+  int kJ = (int)(std::pow(2, J)*Rf_pnorm5(y0, th1, exp_th2, true, false));
+  for(int j=0; j<J; ++j){
+    kyindex0[J-j-1] += kJ; 
+    kJ = (int)(kJ/2.0);
+  }
+  NumericVector distXx0(n);
+  for(int i=0; i<n; ++i){
+    distXx0[i] = Mdist(X.col(i), x0, Sinv, phi);
+  }
+  NumericVector ycount(J, 0.0);
+  for(int j=0; j<J; ++j){
+    for(int i=0; i<n; ++i){
+      if(kyindex(i,j)==kyindex0[j]) ycount[j] += distXx0[i];
+    }
+  }
+  logf = Rf_dnorm4(y0, th1, exp_th2, true);
+  for(int j=1; j<J; ++j){
+    logf += log(cpar*pow(j+1,2) + ycount[j]) - log(cpar*pow(j+1,2) + 0.5*ycount[j-1]);
+  }
+  logf += log(cpar+ycount[0]) - log(cpar+0.5*Rcpp::sum(distXx0));
+}
+
+// log likelihood given the data (X,y);
+void loglik_spatdens(const Rcpp::NumericVector& y, const arma::mat& X, int J, double cpar,
+                     double phi, const arma::mat& Sinv, Rcpp::NumericVector& lognormy, 
+                     Rcpp::IntegerMatrix& kyindex, double& logf){
+  int n = y.size();
+  logf = lognormy[0];
+  for(int i=1; i<n; ++i){
+    logf += lognormy[i];
+    NumericVector distXx0(i);
+    for(int i2=0; i2<i; ++i2){
+      distXx0[i2] = Mdist(X.col(i2), X.col(i), Sinv, phi);
+    }
+    NumericVector ycount(J, 0.0);
+    for(int j=0; j<J; ++j){
+      for(int i2=0; i2<i; ++i2){
+        if(kyindex(i2,j)==kyindex(i,j)) ycount[j] += distXx0[i2];
+      }
+    }
+    for(int j=1; j<J; ++j){
+      logf += log(cpar*pow(j+1,2) + ycount[j]) - log(cpar*pow(j+1,2) + 0.5*ycount[j-1]);
+    }
+    logf += log(cpar+ycount[0]) - log(cpar+0.5*Rcpp::sum(distXx0));
+  }
+}
+
+// log likelihood given the data (X,y) with the parametric parts removed;
+void loglik_spatdens_q(const Rcpp::NumericVector& y, const arma::mat& X, int J, double cpar,
+                       double phi, const arma::mat& Sinv, Rcpp::IntegerMatrix& kyindex, double& logf){
+  int n = y.size();
+  logf = 0;
+  for(int i=1; i<n; ++i){
+    NumericVector distXx0(i);
+    for(int i2=0; i2<i; ++i2){
+      distXx0[i2] = Mdist(X.col(i2), X.col(i), Sinv, phi);
+    }
+    NumericVector ycount(J, 0.0);
+    for(int j=0; j<J; ++j){
+      for(int i2=0; i2<i; ++i2){
+        if(kyindex(i2,j)==kyindex(i,j)) ycount[j] += distXx0[i2];
+      }
+    }
+    for(int j=1; j<J; ++j){
+      logf += log(cpar*pow(j+1,2) + ycount[j]) - log(cpar*pow(j+1,2) + 0.5*ycount[j-1]);
+    }
+    logf += log(cpar+ycount[0]) - log(cpar+0.5*Rcpp::sum(distXx0));
+  }
+}
+
+// log posterior of y_i with the parametric part removed; used for updating censored outcomes
+void logq_yi_spatdens(double y0, arma::vec x0, int indx, const Rcpp::NumericVector& y, const arma::mat& X, 
+                      int J, double cpar, double th1, double exp_th2, double phi, const arma::mat& Sinv, 
+                      Rcpp::IntegerMatrix& kyindex, double& logf){
+  int n = y.size();
+  Rcpp::IntegerVector kyindex0(J);
+  int kJ = (int)(std::pow(2, J)*Rf_pnorm5(y0, th1, exp_th2, true, false));
+  for(int j=0; j<J; ++j){
+    kyindex0[J-j-1] += kJ; 
+    kJ = (int)(kJ/2.0);
+  }
+  NumericVector distXx0(n, 0.0);
+  for(int i=0; (i<n)&&(i!=indx); ++i){
+    distXx0[i] = Mdist(X.col(i), x0, Sinv, phi);
+  }
+  NumericVector ycount(J, 0.0);
+  for(int j=0; j<J; ++j){
+    for(int i=0; i<n; ++i){
+      if((kyindex(i,j)==kyindex0[j])&&(i!=indx)) ycount[j] += distXx0[i];
+    }
+  }
+  logf = 0;
+  for(int j=1; j<J; ++j){
+    logf += log(cpar*pow(j+1,2) + ycount[j]) - log(cpar*pow(j+1,2) + 0.5*ycount[j-1]);
+  }
+  logf += log(cpar+ycount[0]) - log(cpar+0.5*Rcpp::sum(distXx0));
+}
+
+// posterior prob of phi=0; used for updating phi
+void prob_phi0_spatdens(const Rcpp::NumericVector& y, const arma::mat& X, int J, double cpar,
+                        const Rcpp::NumericVector& phiseq, const arma::mat& Sinv,
+                        Rcpp::IntegerMatrix& kyindex, double q0phi, double a0phi, double b0phi,
+                        double& ratio){
+  double integralpart = 0;
+  double logprob_temp = 0;
+  for(int k=1; k<phiseq.size(); ++k){
+    loglik_spatdens_q(y, X, J, cpar, phiseq[k], Sinv, kyindex, logprob_temp);
+    integralpart += exp(logprob_temp+Rf_dgamma(phiseq[k], a0phi, 1.0/b0phi, true)-log(phiseq[k]-phiseq[k-1]));
+  }
+  loglik_spatdens_q(y, X, J, cpar, 0.0, Sinv, kyindex, logprob_temp);
+  double prob0 = exp( logprob_temp );
+  ratio = q0phi*prob0/(q0phi*prob0+(1.0-q0phi)*integralpart);
+}
+
+//////////////////////////////////////////////////////////////////////
 // spatial Copula things
 /////////////////////////////////////////////////////////////////////
 // make transformation on theta: log(theta1/(1.0-theta1)); std::log(theta2);

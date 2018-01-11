@@ -209,22 +209,22 @@ void AFT_BP_loglikblocki(const Rcpp::NumericVector& t1, const Rcpp::NumericVecto
     if(ltr[i]>0) ll += -AFT_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]+vi);
   }
 }
-// Calculate 1.0/likelihood for CPO
-arma::vec AFT_BP_invLik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
+// Calculate loglikelihood for each obervation i
+arma::vec AFT_BP_logliki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
                         const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
                         bool BP, int dist, const Rcpp::NumericVector& Xbeta){
   arma::vec res(type.size());
   for(int i=0; i<type.size(); ++i){
     if(type[i]==0){
-      res[i] = exp(0.0-AFT_BP_logsurv(t1[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = AFT_BP_logsurv(t1[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else if(type[i]==1){
-      res[i] = exp(0.0-AFT_BP_logpdf(t1[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = AFT_BP_logpdf(t1[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else if(type[i]==2){
-      res[i] = exp(0.0-AFT_BP_logcdf(t2[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = AFT_BP_logcdf(t2[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else{
-      res[i] = exp(0.0-AFT_BP_logsurvdiff(t1[i], t2[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = AFT_BP_logsurvdiff(t1[i], t2[i], th1, th2, w, BP, dist, Xbeta[i]);
     }
-    if(ltr[i]>0) res[i] *= exp(AFT_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]));
+    if(ltr[i]>0) res[i] += -AFT_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]);
   } 
   return(res);
 }
@@ -300,22 +300,22 @@ void PH_BP_loglikblocki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector
     if(ltr[i]>0) ll += -PH_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]+vi);
   }
 }
-// Calculate 1.0/likelihood for CPO
-arma::vec PH_BP_invLik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
-                       const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
-                       bool BP, int dist, const Rcpp::NumericVector& Xbeta){
+// Calculate loglikelihood for each obervation i
+arma::vec PH_BP_logliki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
+                        const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
+                        bool BP, int dist, const Rcpp::NumericVector& Xbeta){
   arma::vec res(type.size());
   for(int i=0; i<type.size(); ++i){
     if(type[i]==0){
-      res[i] = exp(0.0-PH_BP_logsurv(t1[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = PH_BP_logsurv(t1[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else if(type[i]==1){
-      res[i] = exp(0.0-PH_BP_logpdf(t1[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = PH_BP_logpdf(t1[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else if(type[i]==2){
-      res[i] = exp(0.0-PH_BP_logcdf(t2[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = PH_BP_logcdf(t2[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else{
-      res[i] = exp(0.0-PH_BP_logsurvdiff(t1[i], t2[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = PH_BP_logsurvdiff(t1[i], t2[i], th1, th2, w, BP, dist, Xbeta[i]);
     }
-    if(ltr[i]>0) res[i] *= exp(PH_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]));
+    if(ltr[i]>0) res[i] += -PH_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]);
   } 
   return(res);
 }
@@ -394,22 +394,22 @@ void PO_BP_loglikblocki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector
     if(ltr[i]>0) ll += -PO_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]+vi);
   }
 }
-// Calculate 1.0/likelihood for CPO
-arma::vec PO_BP_invLik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
-                       const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
-                       bool BP, int dist, const Rcpp::NumericVector& Xbeta){
+// Calculate loglikelihood for each obervation i
+arma::vec PO_BP_logliki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
+                        const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
+                        bool BP, int dist, const Rcpp::NumericVector& Xbeta){
   arma::vec res(type.size());
   for(int i=0; i<type.size(); ++i){
     if(type[i]==0){
-      res[i] = exp(0.0-PO_BP_logsurv(t1[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = PO_BP_logsurv(t1[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else if(type[i]==1){
-      res[i] = exp(0.0-PO_BP_logpdf(t1[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = PO_BP_logpdf(t1[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else if(type[i]==2){
-      res[i] = exp(0.0-PO_BP_logcdf(t2[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = PO_BP_logcdf(t2[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else{
-      res[i] = exp(0.0-PO_BP_logsurvdiff(t1[i], t2[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = PO_BP_logsurvdiff(t1[i], t2[i], th1, th2, w, BP, dist, Xbeta[i]);
     }
-    if(ltr[i]>0) res[i] *= exp(PO_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]));
+    if(ltr[i]>0) res[i] += -PO_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]);
   } 
   return(res);
 }
@@ -485,22 +485,22 @@ void AH_BP_loglikblocki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector
     if(ltr[i]>0) ll += -AH_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]+vi);
   }
 }
-// Calculate 1.0/likelihood for CPO
-arma::vec AH_BP_invLik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
-                       const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
-                       bool BP, int dist, const Rcpp::NumericVector& Xbeta){
+// Calculate loglikelihood for each obervation i
+arma::vec AH_BP_logliki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
+                        const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
+                        bool BP, int dist, const Rcpp::NumericVector& Xbeta){
   arma::vec res(type.size());
   for(int i=0; i<type.size(); ++i){
     if(type[i]==0){
-      res[i] = exp(0.0-AH_BP_logsurv(t1[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = AH_BP_logsurv(t1[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else if(type[i]==1){
-      res[i] = exp(0.0-AH_BP_logpdf(t1[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = AH_BP_logpdf(t1[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else if(type[i]==2){
-      res[i] = exp(0.0-AH_BP_logcdf(t2[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = AH_BP_logcdf(t2[i], th1, th2, w, BP, dist, Xbeta[i]);
     }else{
-      res[i] = exp(0.0-AH_BP_logsurvdiff(t1[i], t2[i], th1, th2, w, BP, dist, Xbeta[i]));
+      res[i] = AH_BP_logsurvdiff(t1[i], t2[i], th1, th2, w, BP, dist, Xbeta[i]);
     }
-    if(ltr[i]>0) res[i] *= exp(AH_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]));
+    if(ltr[i]>0) res[i] += -AH_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta[i]);
   } 
   return(res);
 }
@@ -574,23 +574,23 @@ void PHPOAFT_BP_loglik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector&
     if(ltr[i]>0) ll += -PHPOAFT_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]);
   }
 }
-// Calculate 1.0/likelihood for CPO
-arma::vec PHPOAFT_BP_invLik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr, 
-                            const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w, 
-                            bool BP, int dist, const Rcpp::NumericVector& Xbeta_h, const Rcpp::NumericVector& Xbeta_o, 
-                            const Rcpp::NumericVector& Xbeta_q){
+// Calculate loglikelihood for each obervation i
+arma::vec PHPOAFT_BP_logliki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr, 
+                             const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w, 
+                             bool BP, int dist, const Rcpp::NumericVector& Xbeta_h, const Rcpp::NumericVector& Xbeta_o, 
+                             const Rcpp::NumericVector& Xbeta_q){
   arma::vec res(type.size());
   for(int i=0; i<type.size(); ++i){
     if(type[i]==0){
-      res[i] = exp(-PHPOAFT_BP_logsurv(t1[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]));
+      res[i] = PHPOAFT_BP_logsurv(t1[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]);
     }else if(type[i]==1){
-      res[i] = exp(-PHPOAFT_BP_logpdf(t1[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]));
+      res[i] = PHPOAFT_BP_logpdf(t1[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]);
     }else if(type[i]==2){
-      res[i] = exp(-PHPOAFT_BP_logcdf(t2[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]));
+      res[i] = PHPOAFT_BP_logcdf(t2[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]);
     }else{
-      res[i] = exp(-PHPOAFT_BP_logsurvdiff(t1[i], t2[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]));
+      res[i] = PHPOAFT_BP_logsurvdiff(t1[i], t2[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]);
     }
-    if(ltr[i]>0) res[i] *= exp(PHPOAFT_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]));
+    if(ltr[i]>0) res[i] += -PHPOAFT_BP_logsurv(ltr[i], th1, th2, w, BP, dist, Xbeta_h[i], Xbeta_o[i], Xbeta_q[i]);
   }
   return(res);
 }

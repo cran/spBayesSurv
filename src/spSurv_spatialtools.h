@@ -16,6 +16,37 @@ Rcpp::NumericMatrix Dist(Rcpp::NumericMatrix si, Rcpp::NumericMatrix sj);
 RcppExport SEXP DistMat(SEXP si_, SEXP sj_);
 
 //////////////////////////////////////////////////////////////////////
+// spatial density things
+/////////////////////////////////////////////////////////////////////
+// M-distance function
+double Mdist(arma::vec x1, arma::vec x2, const arma::mat& Sinv, double phi);
+
+// log density for new x0 given the data (X,y);
+void logf_spatdens(double y0, arma::vec x0, const Rcpp::NumericVector& y, const arma::mat& X, int J, double cpar,
+                   double th1, double exp_th2, double phi, const arma::mat& Sinv, 
+                   Rcpp::IntegerMatrix& kyindex, double& logf);
+
+// log likelihood given the data (X,y);
+void loglik_spatdens(const Rcpp::NumericVector& y, const arma::mat& X, int J, double cpar,
+                     double phi, const arma::mat& Sinv, Rcpp::NumericVector& lognormy, 
+                     Rcpp::IntegerMatrix& kyindex, double& logf);
+
+// log likelihood given the data (X,y) with the parametric parts removed;
+void loglik_spatdens_q(const Rcpp::NumericVector& y, const arma::mat& X, int J, double cpar,
+                       double phi, const arma::mat& Sinv, Rcpp::IntegerMatrix& kyindex, double& logf);
+
+// log posterior of y_i with the parametric part removed; used for updating censored outcomes
+void logq_yi_spatdens(double y0, arma::vec x0, int indx, const Rcpp::NumericVector& y, const arma::mat& X, 
+                      int J, double cpar, double th1, double exp_th2, double phi, const arma::mat& Sinv, 
+                      Rcpp::IntegerMatrix& kyindex, double& logf);
+
+// posterior prob of phi=0; used for updating phi
+void prob_phi0_spatdens(const Rcpp::NumericVector& y, const arma::mat& X, int J, double cpar,
+                        const Rcpp::NumericVector& phiseq, const arma::mat& Sinv,
+                        Rcpp::IntegerMatrix& kyindex, double q0phi, double a0phi, double b0phi,
+                        double& ratio);
+
+//////////////////////////////////////////////////////////////////////
 // spatial Copula things
 /////////////////////////////////////////////////////////////////////
 // make transformation on theta: log(theta1/(1.0-theta1)); log(theta2);

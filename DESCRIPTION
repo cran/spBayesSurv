@@ -2,11 +2,11 @@ Package: spBayesSurv
 Type: Package
 Title: Bayesian Modeling and Analysis of Spatially Correlated Survival
         Data
-Version: 1.1.1
-Date: 2017-5-15
-Author: Haiming Zhou <zhouh@niu.edu> and Tim Hanson <hansont@stat.sc.edu>
+Version: 1.1.2
+Date: 2018-1-10
+Author: Haiming Zhou <zhouh@niu.edu> and Timothy Hanson <hansont@stat.sc.edu>
 Maintainer: Haiming Zhou <zhouh@niu.edu>
-Description: Provides several Bayesian survival models for spatial/non-spatial survival data: marginal Bayesian Nonparametric models, marginal Bayesian proportional hazards models, generalized accelerated failure time frailty models, and standard semiparametric frailty models within the context of proportional hazards, proportional odds and accelerated failure time.
+Description: Provides several Bayesian survival models for spatial/non-spatial survival data: proportional hazards (PH), accelerated failure time (AFT), proportional odds (PO), and accelerated hazards (AH), a super model that includes PH, AFT, PO and AH as special cases, Bayesian nonparametric nonproportional hazards (LDDPM), generalized accelerated failure time (GAFT), and spatially smoothed density estimation. The spatial dependence is modeled via frailties under PH, AFT, PO, AH and GAFT, and via copulas under LDDPM and PH. Model choice is carried out via LPML and DIC. 
 License: GPL (>= 2)
 VignetteBuilder: knitr
 Suggests: knitr
@@ -14,6 +14,6 @@ Depends: R (>= 3.0.2)
 Imports: Rcpp (>= 0.11.1), survival, coda, methods, MASS, fields
 LinkingTo: Rcpp, RcppArmadillo (>= 0.4.300.0)
 NeedsCompilation: yes
-Packaged: 2017-05-15 00:44:18 UTC; zhmin
+Packaged: 2018-01-11 03:32:59 UTC; Haiming
 Repository: CRAN
-Date/Publication: 2017-05-15 05:25:00 UTC
+Date/Publication: 2018-01-11 12:36:14 UTC

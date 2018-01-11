@@ -40,10 +40,10 @@ void AFT_BP_loglikblocki(const Rcpp::NumericVector& t1, const Rcpp::NumericVecto
                          const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
                          bool BP, int dist, const Rcpp::NumericVector& Xbeta, double& ll,
                          int ind1, int ind2, double vi);
-// Calculate 1.0/likelihood for CPO
-arma::vec AFT_BP_invLik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
-                        const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
-                        bool BP, int dist, const Rcpp::NumericVector& Xbeta);
+// Calculate loglikelihood for each obervation i
+arma::vec AFT_BP_logliki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
+                         const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
+                         bool BP, int dist, const Rcpp::NumericVector& Xbeta);
 
 /////////////////////////////////////////////////////////////////////////
 //////////////////////////// PH model //////////////////////////////////
@@ -69,10 +69,10 @@ void PH_BP_loglikblocki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector
                         const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
                         bool BP, int dist, const Rcpp::NumericVector& Xbeta, double& ll,
                         int ind1, int ind2, double vi);
-// Calculate 1.0/likelihood for CPO
-arma::vec PH_BP_invLik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
-                       const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
-                       bool BP, int dist, const Rcpp::NumericVector& Xbeta);
+// Calculate loglikelihood for each obervation i
+arma::vec PH_BP_logliki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
+                        const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
+                        bool BP, int dist, const Rcpp::NumericVector& Xbeta);
 
 /////////////////////////////////////////////////////////////////////////
 //////////////////////////// PO model //////////////////////////////////
@@ -98,10 +98,10 @@ void PO_BP_loglikblocki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector
                         const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
                         bool BP, int dist, const Rcpp::NumericVector& Xbeta, double& ll,
                         int ind1, int ind2, double vi);
-// Calculate 1.0/likelihood for CPO
-arma::vec PO_BP_invLik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
-                       const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
-                       bool BP, int dist, const Rcpp::NumericVector& Xbeta);
+// Calculate loglikelihood for each obervation i
+arma::vec PO_BP_logliki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
+                        const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
+                        bool BP, int dist, const Rcpp::NumericVector& Xbeta);
 
 /////////////////////////////////////////////////////////////////////////
 //////////////////////////// AH model //////////////////////////////////
@@ -127,10 +127,10 @@ void AH_BP_loglikblocki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector
                         const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
                         bool BP, int dist, const Rcpp::NumericVector& Xbeta, double& ll,
                         int ind1, int ind2, double vi);
-// Calculate 1.0/likelihood for CPO
-arma::vec AH_BP_invLik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
-                       const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
-                       bool BP, int dist, const Rcpp::NumericVector& Xbeta);
+// Calculate loglikelihood for each obervation i
+arma::vec AH_BP_logliki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr,
+                        const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,
+                        bool BP, int dist, const Rcpp::NumericVector& Xbeta);
 
 /////////////////////////////////////////////////////////////////////////
 /////////////////////// Super model: PH_PO_AFT //////////////////////////
@@ -152,10 +152,10 @@ void PHPOAFT_BP_loglik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector&
                        const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w,  
                        bool BP, int dist, const Rcpp::NumericVector& Xbeta_h, const Rcpp::NumericVector& Xbeta_o,
                        const Rcpp::NumericVector& Xbeta_q, double& ll);
-// Calculate 1.0/likelihood for CPO
-arma::vec PHPOAFT_BP_invLik(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr, 
-                            const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w, 
-                            bool BP, int dist, const Rcpp::NumericVector& Xbeta_h, const Rcpp::NumericVector& Xbeta_o, 
-                            const Rcpp::NumericVector& Xbeta_q);
+// Calculate loglikelihood for each obervation i
+arma::vec PHPOAFT_BP_logliki(const Rcpp::NumericVector& t1, const Rcpp::NumericVector& t2, const Rcpp::NumericVector& ltr, 
+                             const Rcpp::IntegerVector& type, double th1, double th2, Rcpp::NumericVector w, 
+                             bool BP, int dist, const Rcpp::NumericVector& Xbeta_h, const Rcpp::NumericVector& Xbeta_o, 
+                             const Rcpp::NumericVector& Xbeta_q);
 
 #endif

@@ -5,6 +5,12 @@ using namespace arma ;
 using namespace Rcpp ;
 using namespace std;
 
+// wrapper around R's RNG such that we get a uniform distribution over
+// [0,n) as required by the STL algorithm
+int randWrapper(const int n) { 
+  return floor(unif_rand()*n); 
+}
+
 //Truncated normal N(y;mu,s)I(a<y<b); where b can be R_PosInf
 // Rejection algorithm with a truncated expoential proposal for N(0,1)I(a<x<b) when a is very large: |a| < |b|
 double rtexp(double a, double b){
