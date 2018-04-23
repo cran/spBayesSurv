@@ -248,29 +248,31 @@ RcppExport SEXP PH_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
     ///////////////////////////////////////////////
     // update beta
     //////////////////////////////////////////////
-    PH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
-    llold += -0.5*arma::dot( (beta_r-beta0), (S0inv*(beta_r-beta0)) );
-    betaold = beta_r;
-    if(iscan>l0){
-      beta_r = mvrnorm(betaold, beSnew);
-    }else{
-      beta_r = mvrnorm(betaold, Shat);
+    if(Shat(0,0)>0){
+      PH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llold);
+      llold += -0.5*arma::dot( (beta_r-beta0), (S0inv*(beta_r-beta0)) );
+      betaold = beta_r;
+      if(iscan>l0){
+        beta_r = mvrnorm(betaold, beSnew);
+      }else{
+        beta_r = mvrnorm(betaold, Shat);
+      }
+      Xbeta_r = X_r*(beta_r%gamma_r);
+      PH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
+      llnew += -0.5*arma::dot( (beta_r-beta0), (S0inv*(beta_r-beta0)) );
+      ratio = exp(llnew-llold);
+      uu = unif_rand();
+      if(uu>ratio){
+        beta_r=betaold;
+        if(iscan>=nburn) rejbeta+=1.0;
+      }
+      nn = iscan+1;
+      beBarold = beBarnew;
+      beBarnew = (nn)/(nn+1.0)*beBarold + beta_r/(nn+1.0);
+      beSnew = (nn-1.0)/nn*beSnew + adapter/(p+0.0)/nn*(nn*beBarold*beBarold.t() 
+                                                          - (nn+1.0)*beBarnew*beBarnew.t() + beta_r*beta_r.t() + Ip );
+      Xbeta_r = X_r*(beta_r%gamma_r);
     }
-    Xbeta_r = X_r*(beta_r%gamma_r);
-    PH_BP_loglik(t1, t2, ltr, type, theta[0], theta[1], weight, BP, dist, Xbeta+vn, llnew);
-    llnew += -0.5*arma::dot( (beta_r-beta0), (S0inv*(beta_r-beta0)) );
-    ratio = exp(llnew-llold);
-    uu = unif_rand();
-    if(uu>ratio){
-      beta_r=betaold;
-      if(iscan>=nburn) rejbeta+=1.0;
-    }
-    nn = iscan+1;
-    beBarold = beBarnew;
-    beBarnew = (nn)/(nn+1.0)*beBarold + beta_r/(nn+1.0);
-    beSnew = (nn-1.0)/nn*beSnew + adapter/(p+0.0)/nn*(nn*beBarold*beBarold.t() 
-                                                        - (nn+1.0)*beBarnew*beBarnew.t() + beta_r*beta_r.t() + Ip );
-    Xbeta_r = X_r*(beta_r%gamma_r);
     
     ///////////////////////////////////////////////
     // update theta
@@ -446,7 +448,7 @@ RcppExport SEXP PH_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
     ///////////////////////////////////////////////
     // gamma
     //////////////////////////////////////////////
-    if(selection==1){
+    if((selection==1)&(Shat(0,0)>0)){
       for(int j=0; j<p; ++j){
         arma::vec gamma_tmp = gamma_r;
         gamma_tmp[j] = 1.0;

@@ -408,3 +408,127 @@ RcppExport SEXP SpatDens_plots(SEXP ygrid_, SEXP xpred_, SEXP theta_, SEXP cpar_
                       Named("fhatup")=fhatup);
   END_RCPP
 }
+
+// Get empirical BF and permutation p-value for uncensored data
+RcppExport SEXP SpatDens_BF(SEXP y_, SEXP X_, SEXP Sinv_, SEXP theta_, SEXP maxJ_, SEXP cpar_, 
+                            SEXP a0_, SEXP b0_, SEXP phi_, SEXP q0phi_, SEXP a0phi_, SEXP b0phi_,
+                            SEXP nperm_){
+  BEGIN_RCPP
+  
+  // Transfer R variables into C++;
+  const Rcpp::NumericVector y(y_); // n by 1;
+  const int maxJ = as<int>(maxJ_);
+  const int n = y.size();
+  const arma::mat X = as<mat>(X_); // p by n;
+  const arma::mat Sinv = as<mat>(Sinv_); // p by p;
+  const Rcpp::NumericVector theta(theta_); // 2 by 1
+  const double mu = theta[0];
+  const double sig = exp(theta[1]);
+  const Rcpp::NumericVector cpar(cpar_); // m1 by 1;
+  const Rcpp::NumericVector phi(phi_); // m2 by 1;
+  const int m1 = cpar.size();
+  const int m2 = phi.size();
+  const int nperm = as<int>(nperm_);
+  
+  // hyperparameters
+  // prior of cpar
+  const double a0 = as<double>(a0_); 
+  const double b0 = as<double>(b0_);
+  // prior of phi
+  const double q0phi = as<double>(q0phi_);
+  const double a0phi = as<double>(a0phi_);
+  const double b0phi = as<double>(b0phi_);
+  
+  // Working temp variables
+  Rcpp::IntegerMatrix kyindex(n, maxJ);
+  arma::imat kyindex_r(kyindex.begin(), n, maxJ, false);
+  //Rcpp::NumericVector lognormy(n);
+  double maxJ2 = std::pow(2, maxJ);
+  int kJ=0;
+  kyindex_r.fill(0);
+  for(int i=0; i<n; ++i){
+    //lognormy[i] = Rf_dnorm4(y[i], mu, sig, true);
+    kJ = (int)(maxJ2*Rf_pnorm5(y[i], mu, sig, true, false));
+    for(int j=0; j<maxJ; ++j){
+      kyindex(i, maxJ-j-1) += kJ; 
+      kJ = (int)(kJ/2.0);
+    }
+  }
+  
+  // temp variables for permutations
+  arma::vec y_r(n);
+  arma::vec yperm_r(n);
+  Rcpp::NumericVector yperm(n);
+  for(int i=0; i<n; ++i){
+    y_r(i)=y[i];
+    yperm_r(i) = y[i];
+    yperm[i] = y[i];
+  }
+  
+  Rcpp::IntegerVector indx(n, 0);
+  arma::uvec indx_u(n);
+  
+  RNGScope scope;
+  
+  // Calculate BF
+  arma::mat res_num(m1, m2);
+  for(int i=0; i<m1; ++i){
+    for(int j=0; j<m2; ++j){
+      double lltemp = 0;
+      loglik_spatdens_q(y, X, maxJ, cpar[i], phi[j], Sinv, kyindex, lltemp);
+      lltemp += (a0-1.0)*log(cpar[i])-b0*cpar[i];
+      lltemp += (a0phi-1.0)*log(phi[i]) - b0phi*phi[i];
+      res_num(i,j) = lltemp;
+    }
+  }
+  arma::vec res_den(m1);
+  for(int i=0; i<m1; ++i){
+    double lltemp = 0; 
+    loglik_spatdens_q(y, X, maxJ, cpar[i], 0.0, Sinv, kyindex, lltemp);
+    lltemp += (a0-1.0)*log(cpar[i])-b0*cpar[i];
+    res_den(i) = lltemp;
+  }
+  double BF = exp(res_num.max()-res_den.max())*q0phi/(1.0-q0phi);
+  //Rprintf( "BF = %f\n", BF );
+  
+  // Calculate permutation p-value
+  arma::vec BF_perm(nperm);
+  for (int iscan=0; iscan<nperm; iscan++){
+    R_CheckUserInterrupt();
+    //Rprintf( "iscan = %d\n", iscan );
+    for(int i=0; i<n; ++i) indx[i]=i;
+    std::random_shuffle(indx.begin(), indx.end(), randWrapper);
+    indx_u=as<arma::uvec>(indx);
+    yperm_r = y_r(indx_u);
+    for(int i=0; i<n; ++i) yperm[i]=yperm_r(i);
+    kyindex_r.fill(0);
+    for(int i=0; i<n; ++i){
+      //lognormy[i] = Rf_dnorm4(yperm[i], mu, sig, true);
+      kJ = (int)(maxJ2*Rf_pnorm5(yperm[i], mu, sig, true, false));
+      for(int j=0; j<maxJ; ++j){
+        kyindex(i, maxJ-j-1) += kJ; 
+        kJ = (int)(kJ/2.0);
+      }
+    }
+    for(int i=0; i<m1; ++i){
+      for(int j=0; j<m2; ++j){
+        double lltemp = 0;
+        loglik_spatdens_q(yperm, X, maxJ, cpar[i], phi[j], Sinv, kyindex, lltemp);
+        lltemp += (a0-1.0)*log(cpar[i])-b0*cpar[i];
+        lltemp += (a0phi-1.0)*log(phi[i]) - b0phi*phi[i];
+        res_num(i,j) = lltemp;
+      }
+    }
+    for(int i=0; i<m1; ++i){
+      double lltemp = 0; 
+      loglik_spatdens_q(yperm, X, maxJ, cpar[i], 0.0, Sinv, kyindex, lltemp);
+      lltemp += (a0-1.0)*log(cpar[i])-b0*cpar[i];
+      res_den(i) = lltemp;
+    }
+    BF_perm(iscan) = exp(res_num.max()-res_den.max())*q0phi/(1.0-q0phi);
+  }
+  
+  return List::create(Named("BF")=BF,
+                      Named("BFperm")=BF_perm);
+  END_RCPP
+}

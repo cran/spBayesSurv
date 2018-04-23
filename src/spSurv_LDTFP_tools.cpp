@@ -683,13 +683,14 @@ arma::vec spldtfp_Linv(const Rcpp::NumericMatrix& tobs, const Rcpp::IntegerVecto
 
 // Get density or survival Plots for frailty LDTFP AFT
 RcppExport SEXP frailtyGAFTplots(SEXP tgrid_, SEXP xcepred_, SEXP xtfpred_, SEXP betace_, 
-                                 SEXP betatf_, SEXP sigma2_, SEXP maxL_, SEXP CI_){
+                                 SEXP betatf_, SEXP v_, SEXP sigma2_, SEXP maxL_, SEXP CI_){
   BEGIN_RCPP
   // Transfer R variables into C++;
   arma::vec tgrid = as<vec>(tgrid_);
   arma::mat xcepred = as<mat>(xcepred_); // npred by pce;
   arma::mat xtfpred = as<mat>(xtfpred_); // npred by ptf;
   arma::mat betace = as<mat>(betace_); // pce by nsave;
+  arma::mat v = as<arma::mat>(v_); // npred by nsave;
   Rcpp::NumericVector vecArray(betatf_);
   Rcpp::IntegerVector arrayDims = vecArray.attr("dim");
   arma::cube betatf(vecArray.begin(), arrayDims[0], arrayDims[1], arrayDims[2], false);
@@ -729,7 +730,7 @@ RcppExport SEXP frailtyGAFTplots(SEXP tgrid_, SEXP xcepred_, SEXP xtfpred_, SEXP
   double tmp2=0;
   
   for(int i=0; i<nsave; ++i){
-    arma::vec xibetav = xcepred*betace.col(i);
+    arma::vec xibetav = xcepred*betace.col(i)+v.col(i);
     arma::mat xibetatf = arma::trans( xtfpred*betatf.slice(i) );
     for(int j=0; j<npred; ++j){
       for(int k=0; k<ngrid; ++k){

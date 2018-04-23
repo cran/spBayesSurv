@@ -10,7 +10,7 @@ using namespace std;
 RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
 		SEXP tobs_, SEXP type_, SEXP xce_, SEXP xtf_, SEXP alpha_, SEXP betace_, 
     SEXP betatf_, SEXP sigma2_, SEXP y_, SEXP maxL_,
-    SEXP a0_, SEXP b0_, SEXP m0_, SEXP S0inv_, SEXP gprior_, SEXP a0sig_, SEXP b0sig_) {
+    SEXP a0_, SEXP b0_, SEXP m0_, SEXP S0inv_, SEXP gprior_, SEXP a0sig_, SEXP b0sig_, SEXP win_, SEXP mm_) {
 	BEGIN_RCPP
   
 	// Transfer R variables into C++;
@@ -22,6 +22,8 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
   const IntegerVector type(type_);// nrec by 1;
   const arma::mat xce = as<mat>(xce_); // pce by nrec;
   const arma::mat xtf = as<mat>(xtf_); // ptf by nrec;
+  const double win = as<double>(win_);
+  const int mm = as<int>(mm_);
   const int pce = xce.n_rows;
   const int ptf = xtf.n_rows;
   const int nrec = xce.n_cols;
@@ -89,9 +91,9 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
   double logliko;
   double liminf, limsup, llim, rlim, gllim, grlim;
   double xx0, xx1, gxx0, gxx1;
-  double logy, uwork, win;
+  double logy, uwork;
   int i1, evali;
-  int JJ, KK, mm;
+  int JJ, KK;
   double rej;
   
 	////////////////////////////////////////////////////////////////////////
@@ -120,7 +122,6 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
 	////////////////////////////////////////////////////////////////////////
 	// Start MCMC
 	////////////////////////////////////////////////////////////////////////
-  win=1; mm=10;
 	for (int iscan=0; iscan<nscan; iscan++){
   	R_CheckUserInterrupt();
     //Rprintf( "iscan = %d\n", iscan );

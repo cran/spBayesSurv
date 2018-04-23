@@ -59,7 +59,7 @@ survregbayes2(formula, data, na.action, survmodel="PH", dist="loglogistic",
 }
 
 \references{
-Zhou, H. and Hanson, T. (2017). A unified framework for fitting Bayesian semiparametric models to arbitrarily censored spatial survival data. \emph{arXiv preprint arXiv:1701.06976}.
+Zhou, H. and Hanson, T. (2015). Bayesian spatial survival models. In Nonparametric Bayesian Inference in Biostatistics (pp 215-246). Springer International Publishing.
 
 Zhao, L. and Hanson, T. (2011). Spatially dependent Polya tree modeling for survival data. \emph{Biometrics}, 67(2), 391-403.
 }

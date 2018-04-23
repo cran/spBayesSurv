@@ -5,13 +5,15 @@ citEntry(entry = "Article",
   author       = personList(as.person("Haiming Zhou"),
                    as.person("Timothy Hanson"), 
                    as.person("Jiajia Zhang")),
-  journal      = "arXiv preprint arXiv:1705.04584",
-  year         = "2017",
+  journal      = "Journal of Statistical Software",
+  year         = "2018",
+  volume       = "accept minor",
   url          = "http://arxiv.org/abs/1705.04584",
 
   textVersion  =
-  paste("Zhou, H., Hanson, T., and Zhang, J. (2017).",
+  paste("Zhou, H., Hanson, T., and Zhang, J. (2018).",
         "spBayesSurv: Fitting Bayesian Spatial Survival Models Using R.",
-        "arXiv preprint arXiv:1705.04584.",
+        "Journal of Statistical Software",
+        "accept minor",
         "URL http://arxiv.org/abs/1705.04584.")
 )

@@ -9,13 +9,17 @@
                 names(Call), nomatch=0) 
   if (indx[1] ==0) stop("A formula argument is required");
   temp <- Call[c(1,indx)]  # only keep the arguments we wanted
-  temp[[1]] <- as.name('model.frame')  # change the function called
+  temp[[1L]] <- quote(stats::model.frame)
   
-  special <- c("baseline", "frailtyprior", "truncation_time", "subject.num", "b_spline")
-  temp$formula <- if(missing(data)) terms(formula, special)
-  else              terms(formula, special, data=data)
-  if (is.R()) m <- eval(temp, parent.frame())
-  else        m <- eval(temp, sys.parent())
+  special <- c("baseline", "frailtyprior", "truncation_time", "subject.num", "bspline")
+  temp$formula <- if (missing(data)) 
+    terms(formula, special)
+  else terms(formula, special, data = data)
+  
+  if (is.R()) 
+    m <- eval(temp, parent.frame())
+  else m <- eval(temp, sys.parent())
+  Terms <- attr(m, 'terms')
   
   if(any(names(m)=="(truncation_time)")){
     truncation_time = m[,"(truncation_time)"]
@@ -29,30 +33,31 @@
     subject.num = NULL
   }
   
-  Terms <- attr(m, 'terms')
   Y <- model.extract(m, "response")
   if (!inherits(Y, "Surv")) stop("Response must be a survival object")
   
   baseline0 <- attr(Terms, "specials")$baseline
   frailtyprior0<- attr(Terms, "specials")$frailtyprior
-  b_spline0<- attr(Terms, "specials")$b_spline
-  dropx <- NULL
+  bspline0<- attr(Terms, "specials")$bspline
+  
   if (length(frailtyprior0)) {
     temp <- survival::untangle.specials(Terms, 'frailtyprior', 1)
-    dropx <- c(dropx, temp$terms)
+    dropfrail <- c(temp$terms)
     frail.terms <- m[[temp$vars]]
   }else{
+    dropfrail <- NULL
     frail.terms <- NULL;
   }
   if (length(baseline0)) {
     temp <- survival::untangle.specials(Terms, 'baseline', 1)
-    dropx <- c(dropx, temp$terms)
+    dropXtf <- c(temp$terms)
     Xtf <- m[[temp$vars]]
   }else{
-    Xtf <- NULL;
+    dropXtf <- NULL
+    Xtf <- NULL
   }
-  if (length(b_spline0)) {
-    temp <- survival::untangle.specials(Terms, 'b_spline', 1)
+  if (length(bspline0)) {
+    temp <- survival::untangle.specials(Terms, 'bspline', 1)
     #dropx <- c(dropx, temp$terms);
     X.bs = NULL;
     n.bs = rep(0, length(temp$vars));
@@ -65,6 +70,7 @@
     n.bs <- NULL;
   }
   
+  dropx <- c(dropfrail, dropXtf)
   if (length(dropx)) {
     newTerms <- Terms[-dropx]
     # R (version 2.7.1) adds intercept=T anytime you drop something
@@ -95,6 +101,7 @@
   xdrop <- Xatt$assign %in% adrop  #columns to drop (always the intercept)
   X <- X[, !xdrop, drop=FALSE]
   attr(X, "assign") <- Xatt$assign[!xdrop]
+  
   n <- nrow(X)
   p <- ncol(X)
   if(p==0){
@@ -213,6 +220,7 @@
   # save to a list
   #########################################################################################
   output <- list(modelname=model.name,
+                 terms=m,
                  call=Call,
                  prior=prior,
                  mcmc=mcmc,
@@ -235,6 +243,52 @@
   output
 }
 
+#### empirial BF and p-value for the spatial model vs. the exchangeable model
+"BF.SpatDensReg" <- function (y, X, prior=NULL, nperm=100, c_seq=NULL, phi_seq=NULL) {
+  n = length(y);
+  X = cbind(X);
+  Sinv = solve(var(X));
+  # find the maximumu M distance between X[i,] and colMeans(X)
+  distseq = rep(0, n);
+  Xbar = colMeans(X);
+  for(i in 1:n) distseq[i] = sqrt(as.vector((X[i,]-Xbar)%*%Sinv%*%(X[i,]-Xbar)))
+  maxdist = max(distseq)
+  phi0 = (-log(0.001))/maxdist;
+  #########################################################################################
+  # initial MLE analysis
+  #########################################################################################
+  fit0 <- survival::survreg(formula = survival::Surv(y)~1, dist="gaussian");
+  theta1 = fit0$coefficients[1];
+  theta2 = log(fit0$scale);
+  theta = c(theta1, theta2); 
+  
+  #########################################################################################
+  # priors and initial values
+  #########################################################################################
+  maxL <- prior$maxL; if(is.null(maxL)) maxL<-5;
+  a0=prior$a0; if(is.null(a0)) a0=5;
+  b0=prior$b0; if(is.null(b0)) b0=1;
+  phiq0 = prior$phiq0; if(is.null(phiq0)) phiq0=0.5;
+  phia0 = prior$phia0; if(is.null(phia0)) phia0=2;
+  phib0 = prior$phib0; if(is.null(phib0)) phib0=1/phi0;
+  if(is.null(c_seq)) c_seq=c(0.001, 0.01, 0.1, 0.5, 1, 5, 10, 50, 100, 1000);
+  if(is.null(phi_seq)) phi_seq = qgamma((1:10)/11, phia0, phib0)
+  
+  #########################################################################################
+  # calling the c++ code and # output
+  #########################################################################################
+  foo <- .Call("SpatDens_BF", y_=y, X_=t(X), Sinv_=Sinv, theta_=theta, maxJ_=maxL, 
+               cpar_=c_seq, a0_=a0, b0_=b0, phi_=phi_seq, q0phi_=phiq0, 
+               a0phi_=phia0, b0phi_=phib0, nperm_=nperm, PACKAGE = "spBayesSurv");
+  
+  ## Bayes Factor for the spatial model vs. the exchangeable model
+  BF = foo$BF;
+  pvalue = sum(foo$BFperm>foo$BF)/nperm;
+  output <- list(BF = BF,
+                 pvalue = pvalue);
+  output
+}
+
 #### print, summary, plot
 "print.SpatDensReg" <- function (x, digits = max(3, getOption("digits") - 3), ...) 
 {
@@ -245,33 +299,83 @@
   invisible(x)
 }
 
-"plot.SpatDensReg" <- function (x, xpred=NULL, ygrid=NULL, CI=0.95, PLOT=FALSE, ...) {
-  if(is(x,"SpatDensReg")){
-    if(is.null(ygrid)) ygrid = seq(min(x$Surv[,1], na.rm=T)-sd(x$Surv[,1], na.rm=T), 
-                                   max(x$Surv[,2], na.rm=T)+sd(x$Surv[,2], na.rm=T), length.out=200);
-    if(is.null(xpred)) {
-      stop("please specify xpred")
+"plot.SpatDensReg" <- function (x, xnewdata, ygrid=NULL, CI=0.95, PLOT=TRUE, ...) {
+  if(is.null(ygrid)) ygrid = seq(min(x$Surv[,1], na.rm=T)-sd(x$Surv[,1], na.rm=T), 
+                                 max(x$Surv[,2], na.rm=T)+sd(x$Surv[,2], na.rm=T), length.out=200);
+  if(missing(xnewdata)){
+    stop("please specify xnewdata")
+  }else{
+    rnames = row.names(xnewdata)
+    m = x$terms
+    Terms = attr(m, 'terms')
+    baseline0 <- attr(Terms, "specials")$baseline
+    frailtyprior0<- attr(Terms, "specials")$frailtyprior
+    dropx <- NULL
+    if (length(frailtyprior0)) {
+      temp <- survival::untangle.specials(Terms, 'frailtyprior', 1)
+      dropx <- c(dropx, temp$terms)
+      frail.terms <- m[[temp$vars]]
     }else{
-      if(is.vector(xpred)) xpred=matrix(xpred, nrow=1);
-      if(ncol(xpred)!=x$p) stop("please make sure the number of columns matches!");
+      frail.terms <- NULL;
     }
-    xpred = cbind(xpred);
-    nxpred = nrow(xpred);
-    Sinv = solve(var(x$X));
-    estimates <- .Call("SpatDens_plots", ygrid, t(xpred), x$theta, x$alpha, x$phi, x$maxL,
-                       x$y, t(x$X), Sinv, CI, PACKAGE = "spBayesSurv");
-    if(PLOT){
-      par(cex=1.5,mar=c(4.1,4.1,1,1),cex.lab=1.4,cex.axis=1.1)
-      plot(ygrid, estimates$Shat[,1], "l", lwd=3, xlab="time", ylab="survival", main=paste(i));
-      for(i in 1:nxpred){
-        polygon(x=c(rev(ygrid),ygrid),
-                y=c(rev(estimates$fhatlow[,i]),estimates$fhatup[,i]),
-                border=NA,col="lightgray");
-      }
-      for(i in 1:nxpred){
-        lines(ygrid, estimates$fhat[,i], lty=3, lwd=3, col=1);
-      }
+    if (length(baseline0)) {
+      temp <- survival::untangle.specials(Terms, 'baseline', 1)
+      dropx <- c(dropx, temp$terms)
+      Xtf <- m[[temp$vars]]
+    }else{
+      Xtf <- NULL;
     }
+    if (length(dropx)) {
+      newTerms <- Terms[-dropx]
+      # R (version 2.7.1) adds intercept=T anytime you drop something
+      if (is.R()) attr(newTerms, 'intercept') <- attr(Terms, 'intercept')
+    } else  newTerms <- Terms
+    newTerms <- delete.response(newTerms)
+    mnew <- model.frame(newTerms, xnewdata, na.action = na.omit, xlev = .getXlevels(newTerms, m))
+    Xnew <- model.matrix(newTerms, mnew);
+    if (is.R()) {
+      assign <- lapply(survival::attrassign(Xnew, newTerms)[-1], function(x) x-1)
+      xlevels <- .getXlevels(newTerms, mnew)
+      contr.save <- attr(Xnew, 'contrasts')
+    }else {
+      assign <- lapply(attr(Xnew, 'assign')[-1], function(x) x -1)
+      xvars <- as.character(attr(newTerms, 'variables'))
+      xvars <- xvars[-attr(newTerms, 'response')]
+      if (length(xvars) >0) {
+        xlevels <- lapply(mnew[xvars], levels)
+        xlevels <- xlevels[!unlist(lapply(xlevels, is.null))]
+        if(length(xlevels) == 0)
+          xlevels <- NULL
+      } else xlevels <- NULL
+      contr.save <- attr(Xnew, 'contrasts')
+    }
+    # drop the intercept after the fact, and also drop baseline if necessary
+    adrop <- 0  #levels of "assign" to be dropped; 0= intercept
+    Xatt <- attributes(Xnew) 
+    xdrop <- Xatt$assign %in% adrop  #columns to drop (always the intercept)
+    Xnew <- Xnew[, !xdrop, drop=FALSE]
+    attr(Xnew, "assign") <- Xatt$assign[!xdrop]
+    xpred = Xnew
+    if(ncol(xpred)!=x$p) stop("please make sure the number of columns matches!");
+  }
+  xpred = cbind(xpred);
+  nxpred = nrow(xpred);
+  Sinv = solve(var(x$X));
+  estimates <- .Call("SpatDens_plots", ygrid, t(xpred), x$theta, x$alpha, x$phi, x$maxL,
+                     x$y, t(x$X), Sinv, CI, PACKAGE = "spBayesSurv");
+  if(PLOT){
+    par(cex=1.5,mar=c(4.1,4.1,1,1),cex.lab=1.4,cex.axis=1.1)
+    plot(ygrid, estimates$fhat[,1], "l", lwd=3, xlab="log time", ylab="density", 
+         xlim=c(min(ygrid), max(ygrid)), ylim=c(0,max(estimates$fhatup)));
+    for(i in 1:nxpred){
+      polygon(x=c(rev(ygrid),ygrid),
+              y=c(rev(estimates$fhatlow[,i]),estimates$fhatup[,i]),
+              border=NA,col="lightgray");
+    }
+    for(i in 1:nxpred){
+      lines(ygrid, estimates$fhat[,i], lty=i, lwd=3, col=i);
+    }
+    legend("topright", rnames, col = 1:nxpred, lty=1:nxpred, ...)
   }
   estimates$ygrid=ygrid;
   invisible(estimates)

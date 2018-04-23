@@ -15,7 +15,9 @@ baseline(...)
 }
 
 \references{
-Zhou, H., Hanson, T., and Zhang, J. (2016). Generalized accelerated failure time spatial frailty model for arbitrarily censored data. \emph{Lifetime Data Analysis}, in press.
+Zhou, H., Hanson, T., and Zhang, J. (2018). spBayesSurv: Fitting Bayesian Spatial Survival Models Using R. \emph{Journal of Statistical Software}, accept minor.
+
+Zhou, H., Hanson, T., and Zhang, J. (2017). Generalized accelerated failure time spatial frailty model for arbitrarily censored data. \emph{Lifetime Data Analysis}, 23(3): 495-515..
 }
 
 

@@ -1,22 +1,26 @@
 "frailtyGAFT" <- function (formula, data, na.action, 
                            mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
                            prior=NULL, state=NULL, Proximity=NULL, Coordinates=NULL, 
-                           DIST=NULL){
+                           DIST=NULL, scale.designX=TRUE){
   #########################################################################################
   # call parameters
   #########################################################################################
   Call <- match.call(); # save a copy of the call 
-  indx <- match(c("formula", "data", "na.action", "truncation_time"),
+  indx <- match(c("formula", "data", "na.action", "truncation_time", "subject.num"),
                 names(Call), nomatch=0) 
   if (indx[1] ==0) stop("A formula argument is required");
   temp <- Call[c(1,indx)]  # only keep the arguments we wanted
-  temp[[1]] <- as.name('model.frame')  # change the function called
+  temp[[1L]] <- quote(stats::model.frame)
   
-  special <- c("baseline", "frailtyprior", "truncation_time")
-  temp$formula <- if(missing(data)) terms(formula, special)
-  else              terms(formula, special, data=data)
-  if (is.R()) m <- eval(temp, parent.frame())
-  else        m <- eval(temp, sys.parent())
+  special <- c("baseline", "frailtyprior", "truncation_time", "subject.num", "bspline")
+  temp$formula <- if (missing(data)) 
+    terms(formula, special)
+  else terms(formula, special, data = data)
+  
+  if (is.R()) 
+    m <- eval(temp, parent.frame())
+  else m <- eval(temp, sys.parent())
+  Terms <- attr(m, 'terms')
   
   if(any(names(m)=="(truncation_time)")){
     truncation_time = m[,"(truncation_time)"]
@@ -24,28 +28,50 @@
     truncation_time = NULL
   }
   
-  Terms <- attr(m, 'terms')
+  if(any(names(m)=="(subject.num)")){
+    subject.num = m[,"(subject.num)"]
+  }else{
+    subject.num = NULL
+  }
+  
   Y <- model.extract(m, "response")
   if (!inherits(Y, "Surv")) stop("Response must be a survival object")
   
   baseline0 <- attr(Terms, "specials")$baseline
   frailtyprior0<- attr(Terms, "specials")$frailtyprior
-  dropx <- NULL
+  bspline0<- attr(Terms, "specials")$bspline
+  
   if (length(frailtyprior0)) {
     temp <- survival::untangle.specials(Terms, 'frailtyprior', 1)
-    dropx <- c(dropx, temp$terms)
+    dropfrail <- c(temp$terms)
     frail.terms <- m[[temp$vars]]
   }else{
+    dropfrail <- NULL
     frail.terms <- NULL;
   }
   if (length(baseline0)) {
     temp <- survival::untangle.specials(Terms, 'baseline', 1)
-    dropx <- c(dropx, temp$terms)
+    dropXtf <- c(temp$terms)
     Xtf <- m[[temp$vars]]
   }else{
-    Xtf <- NULL;
+    dropXtf <- NULL
+    Xtf <- NULL
+  }
+  if (length(bspline0)) {
+    temp <- survival::untangle.specials(Terms, 'bspline', 1)
+    #dropx <- c(dropx, temp$terms);
+    X.bs = NULL;
+    n.bs = rep(0, length(temp$vars));
+    for(ii in 1:length(temp$vars)){
+      X.bs = cbind(X.bs, m[[temp$vars[ii]]]);
+      n.bs[ii] = ncol(m[[temp$vars[ii]]]); 
+    }
+  }else{
+    X.bs <- NULL;
+    n.bs <- NULL;
   }
   
+  dropx <- c(dropfrail, dropXtf)
   if (length(dropx)) {
     newTerms <- Terms[-dropx]
     # R (version 2.7.1) adds intercept=T anytime you drop something
@@ -76,11 +102,36 @@
   xdrop <- Xatt$assign %in% adrop  #columns to drop (always the intercept)
   X <- X[, !xdrop, drop=FALSE]
   attr(X, "assign") <- Xatt$assign[!xdrop]
+  
   n <- nrow(X)
   p <- ncol(X)
   pce = p+1;
-  X1=cbind(rep(1,n), X); colnames(X1)[1]="intercept";
-  Xtf1=cbind(rep(1, n), Xtf); colnames(Xtf1)[1]="intercept";
+  if(p==0){
+    X.scaled <- NULL;
+    X1 = cbind(rep(1,n), X.scaled); colnames(X1)[1]="intercept";
+  }else{
+    if(scale.designX){
+      X.scaled <- scale(X);
+    }else{
+      X.scaled <- scale(X, center=rep(0,p), scale=rep(1,p));
+    }
+    X.center = attributes(X.scaled)$`scaled:center`;
+    X.scale = attributes(X.scaled)$`scaled:scale`;
+    X1 = cbind(rep(1,n), X.scaled); colnames(X1)[1]="intercept";
+  }
+  if(is.null(Xtf)){
+    Xtf.scaled <- NULL;
+    Xtf1 = cbind(rep(1,n), Xtf.scaled); colnames(Xtf1)[1]="intercept";
+  }else{
+    if(scale.designX){
+      Xtf.scaled <- scale(Xtf);
+    }else{
+      Xtf.scaled <- scale(Xtf, center=rep(0,ncol(Xtf)), scale=rep(1,ncol(Xtf)));
+    }
+    Xtf.center = attributes(Xtf.scaled)$`scaled:center`;
+    Xtf.scale = attributes(Xtf.scaled)$`scaled:scale`;
+    Xtf1 = cbind(rep(1,n), Xtf.scaled); colnames(Xtf1)[1]="intercept";
+  }
   ptf = ncol(Xtf1);
   
   #########################################################################################
@@ -223,9 +274,11 @@
   taub0 = prior$taub0; if(is.null(taub0)) taub0=1;
   phia0 = prior$phia0; if(is.null(phia0)) phia0=phia0_prior;
   phib0 = prior$phib0; if(is.null(phib0)) phib0=(phia0-1)/phi0;
+  mm = prior$mm; if (is.null(mm)) mm = 10;
+  win = prior$win; if (is.null(win)) win = 1;
   mcmc = list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=ndisplay)
   if(!is.null(frail.prior)){
-    prior = list(maxL=maxL, a0=a0, b0=b0, siga0=siga0, sigb0=sigb0, m0=m0, S0=S0);
+    prior = list(maxL=maxL, a0=a0, b0=b0, siga0=siga0, sigb0=sigb0, m0=m0, S0=S0, mm=mm, win=win);
     if((frail.prior=="iid")|(frail.prior=="car")){
       prior$taua0=taua0; prior$taub0=taub0;
     }else if (frail.prior=="grf"){
@@ -233,6 +286,8 @@
       prior$taua0=taua0; prior$taub0=taub0; #prior$silla0=silla0; prior$sillb0=sillb0;
       prior$phia0=phia0; prior$phib0=phib0;
     }
+  }else{
+    prior = list(maxL=maxL, a0=a0, b0=b0, siga0=siga0, sigb0=sigb0, m0=m0, S0=S0, mm=mm, win=win)
   }
   
   #########################################################################################
@@ -246,7 +301,7 @@
                    betace_ = betace, betatf_ = betatf,  sigma2_ = sigma2, y_ = y, v_ = v, blocki_ = blocki,
                    tau2_ = tau2, W_ = W, D_ = D, maxL_ = maxL, a0_ = a0, b0_ = b0,  m0_ = m0,  S0inv_ = S0inv, 
                    gprior_ = gprior, a0sig_ = siga0, b0sig_ = sigb0, a0tau_ = taua0, b0tau_ = taub0, 
-                   PACKAGE = "spBayesSurv");
+                   win_ = win, mm_ = mm, PACKAGE = "spBayesSurv");
     }else if (frail.prior=="grf"){
       foo <- .Call("frailty_GRF_LDTFP", nburn_ = nburn, nsave_ = nsave, nskip_ = nskip, ndisplay_ = ndisplay,
                    tobs_ = cbind(t1, t2), type_ = delta, xce_ = t(X1), xtf_ = t(Xtf1), alpha_ = alpha, 
@@ -254,7 +309,7 @@
                    tau2_ = tau2, Dmm_ = Dmm, maxL_ = maxL, a0_ = a0, b0_ = b0,  
                    m0_ = m0,  S0inv_ = S0inv, gprior_ = gprior, a0sig_ = siga0, b0sig_ = sigb0, 
                    a0tau_ = taua0, b0tau_ = taub0, nu_ = nu, phi_ = phi, 
-                   a0phi_ = phia0, b0phi_ = phib0, PACKAGE = "spBayesSurv");
+                   a0phi_ = phia0, b0phi_ = phib0, win_ = win, mm_ = mm, PACKAGE = "spBayesSurv");
     }
   }else{
     model.name <- "Generalized accelerated failure time model:";
@@ -262,17 +317,28 @@
                  tobs_ = cbind(t1, t2), type_ = delta, xce_ = t(X1), xtf_ = t(Xtf1), alpha_ = alpha, 
                  betace_ = betace, betatf_ = betatf,  sigma2_ = sigma2, y_ = y, maxL_ = maxL, a0_ = a0, b0_ = b0,  
                  m0_ = m0,  S0inv_ = S0inv, gprior_ = gprior, a0sig_ = siga0, b0sig_ = sigb0, 
-                 PACKAGE = "spBayesSurv");
+                 win_ = win, mm_ = mm, PACKAGE = "spBayesSurv");
   }
   #########################################################################################
   # save state
   #########################################################################################
+  #### transfer the estimates back to original scales;
+  beta.scaled = matrix(foo$beta, pce, nsave);  beta.original = matrix(foo$beta, pce, nsave);
+  if(p>0){
+    beta.original[2:pce, ] = matrix(beta.scaled[2:pce, ], p, nsave)/matrix(rep(X.scale, nsave), p, nsave);
+    mat.tmp1 = matrix(beta.scaled[2:pce, ], p, nsave)
+    mat.tmp2 = matrix(rep(X.center, nsave), p, nsave)
+    mat.tmp3 = matrix(rep(X.scale, nsave), p, nsave)
+    beta.original[1, ] = beta.scaled[1,] - colSums(mat.tmp1*mat.tmp2/mat.tmp3)
+  }
+  
   #### coefficients
-  coeff <- c( apply(matrix(foo$beta, pce, nsave), 1, mean), mean(sqrt(foo$sigma2)), mean(foo$alpha) );
+  coeff <- c( apply(beta.original, 1, mean), mean(sqrt(foo$sigma2)), mean(foo$alpha) );
   names(coeff) = c(colnames(X1), "scale", "precision");
   
   #### Save to a list
   output <- list(modelname=model.name,
+                 terms = m,
                  coefficients=coeff,
                  call=Call,
                  prior=prior,
@@ -281,10 +347,13 @@
                  pce=pce,
                  ptf=ptf,
                  Surv=Y,
+                 X.scaled=X.scaled,
                  X=X,
+                 Xtf.scaled=Xtf.scaled,
                  Xtf=Xtf,
                  sigma2 = foo$sigma2,
-                 beta = foo$beta,
+                 beta = beta.original,
+                 beta.scaled = beta.scaled,
                  alpha = foo$alpha,
                  maxL = maxL,
                  betatf = foo$betatf,
@@ -300,7 +369,7 @@
     output$tau2 = foo$tau2;
     output$ID = ID;
     if (frail.prior=="grf"){
-      output$sill = foo$sill;
+      output$Coordinates = Coordinates
       output$phi = foo$phi;
       output$ratephi = foo$ratephi;
     }
@@ -336,43 +405,131 @@
   invisible(x)
 }
 
-"plot.frailtyGAFT" <- function (x, xpred=NULL, tgrid=NULL, xtfpred=NULL, CI=0.95, PLOT=FALSE, ...) {
-  if(is(x,"frailtyGAFT")){
-    if(is.null(tgrid)) tgrid = seq(0.01, max(x$Surv[,1], na.rm=T), length.out=200);
-    if(is.null(xpred)) {
-      xpred = matrix(1);
-      nxpred = nrow(xpred);
+"plot.frailtyGAFT" <- function (x, xnewdata, xtfnewdata, tgrid = NULL, 
+                                frail = NULL, CI = 0.95, PLOT = TRUE, ...) {
+  if(is.null(tgrid)) tgrid = seq(0.01, max(x$Surv[,1], na.rm=T), length.out=200);
+  if(x$pce==1){
+    if(is.null(frail)){
+      if(missing(xtfnewdata)){
+        xpred = cbind(1); nxpred=1;
+        rnames = "baseline"
+      }else{
+        nxpred = nrow(xtfnewdata);
+        xpred = matrix(1, nrow = nxpred);
+        rnames = row.names(xtfnewdata)
+      }
     }else{
-      if(is.vector(xpred)) xpred=matrix(xpred, nrow=1);
-      if(ncol(xpred)!=(x$pce-1)) stop("please make sure the number of columns matches!");
-      xpred = cbind(xpred);
+      if(is.vector(frail)) frail=matrix(frail, nrow=1);
+      nxpred = nrow(frail);
+      xpred = matrix(1, nrow = nxpred);
+      rnames = row.names(as.data.frame(frail))
+      if(!missing(xtfnewdata)){
+        if(nrow(xtfnewdata)!=nxpred) stop("xtfnewdata and frail should have the same numbers of rows")
+      }
+    }
+  }else{
+    if(missing(xnewdata)) {
+      stop("please specify xnewdata")
+    }else{
+      rnames = row.names(xnewdata)
+      m = x$terms
+      Terms = attr(m, 'terms')
+      baseline0 <- attr(Terms, "specials")$baseline
+      frailtyprior0<- attr(Terms, "specials")$frailtyprior
+      dropx <- NULL
+      if (length(frailtyprior0)) {
+        temp <- survival::untangle.specials(Terms, 'frailtyprior', 1)
+        dropx <- c(dropx, temp$terms)
+        frail.terms <- m[[temp$vars]]
+      }else{
+        frail.terms <- NULL;
+      }
+      if (length(baseline0)) {
+        temp <- survival::untangle.specials(Terms, 'baseline', 1)
+        dropx <- c(dropx, temp$terms)
+        Xtf <- m[[temp$vars]]
+      }else{
+        Xtf <- NULL;
+      }
+      if (length(dropx)) {
+        newTerms <- Terms[-dropx]
+        # R (version 2.7.1) adds intercept=T anytime you drop something
+        if (is.R()) attr(newTerms, 'intercept') <- attr(Terms, 'intercept')
+      } else  newTerms <- Terms
+      newTerms <- delete.response(newTerms)
+      mnew <- model.frame(newTerms, xnewdata, na.action = na.omit, xlev = .getXlevels(newTerms, m))
+      Xnew <- model.matrix(newTerms, mnew);
+      if (is.R()) {
+        assign <- lapply(survival::attrassign(Xnew, newTerms)[-1], function(x) x-1)
+        xlevels <- .getXlevels(newTerms, mnew)
+        contr.save <- attr(Xnew, 'contrasts')
+      }else {
+        assign <- lapply(attr(Xnew, 'assign')[-1], function(x) x -1)
+        xvars <- as.character(attr(newTerms, 'variables'))
+        xvars <- xvars[-attr(newTerms, 'response')]
+        if (length(xvars) >0) {
+          xlevels <- lapply(mnew[xvars], levels)
+          xlevels <- xlevels[!unlist(lapply(xlevels, is.null))]
+          if(length(xlevels) == 0)
+            xlevels <- NULL
+        } else xlevels <- NULL
+        contr.save <- attr(Xnew, 'contrasts')
+      }
+      # drop the intercept after the fact, and also drop baseline if necessary
+      adrop <- 0  #levels of "assign" to be dropped; 0= intercept
+      Xatt <- attributes(Xnew) 
+      xdrop <- Xatt$assign %in% adrop  #columns to drop (always the intercept)
+      Xnew <- Xnew[, !xdrop, drop=FALSE]
+      attr(Xnew, "assign") <- Xatt$assign[!xdrop]
+      xpred = Xnew
       nxpred = nrow(xpred);
+      X.center = attributes(x$X.scaled)$`scaled:center`;
+      X.scale = attributes(x$X.scaled)$`scaled:scale`;
+      for(i in 1:nxpred) xpred[i,] = (xpred[i,]-X.center)/X.scale;
       xpred = cbind(rep(1,nxpred),xpred);
+      if(ncol(xpred)!=x$pce) stop("please make sure the number of columns matches!");
     }
-    if(is.null(xtfpred)){
-      if(!is.null(x$Xtf)) stop("please specify xtfpred");
-      xtfpred = cbind(rep(1,nxpred));
+  }
+  
+  if(x$ptf==1){
+    xtfpred = matrix(1, nrow = nxpred);
+  }else{
+    if(missing(xtfnewdata)) {
+      stop("please specify xtfnewdata")
     }else{
-      if(is.vector(xtfpred)) xtfpred=matrix(xtfpred, nrow=1);
-      if(ncol(xtfpred)!=ncol(x$Xtf)) stop("please make sure the number of columns matches!");
-      xtfpred = cbind(xtfpred);
-      xtfpred = cbind(rep(1,nxpred), xtfpred);
+      newTerms = attr(x$Xtf, 'terms')
+      mnew <- model.frame(newTerms, xtfnewdata, na.action = na.omit, xlev = attr(x$Xtf, "levels"))
+      Xnew <- model.matrix(newTerms, mnew);
+      xtfpred = cbind(Xnew);
+      Xtf.center = attributes(x$Xtf.scaled)$`scaled:center`;
+      Xtf.scale = attributes(x$Xtf.scaled)$`scaled:scale`;
+      for(i in 1:nxpred) xtfpred[i, 2:x$ptf] = (xtfpred[i,2:x$ptf]-Xtf.center)/Xtf.scale;
+      if(ncol(xtfpred)!=x$ptf) stop("please make sure the number of columns matches!");
     }
-    estimates <- .Call("frailtyGAFTplots", tgrid, xpred, xtfpred, x$beta, x$betatf, 
-                       x$sigma2, x$maxL, CI, PACKAGE = "spBayesSurv");
-    if(PLOT){
-      par(cex=1.5,mar=c(4.1,4.1,1,1),cex.lab=1.4,cex.axis=1.1)
-      plot(tgrid, estimates$Shat[,1], "l", lwd=3, xlab="time", ylab="survival",
-           ylim=c(0,1), main=paste(i));
-      for(i in 1:nxpred){
-        polygon(x=c(rev(tgrid),tgrid),
-                y=c(rev(estimates$Shatlow[,i]),estimates$Shatup[,i]),
-                border=NA,col="lightgray");
-      }
-      for(i in 1:nxpred){
-        lines(tgrid, estimates$Shat[,i], lty=3, lwd=3, col=1);
-      }
+  }
+  if(nrow(xpred)!=nrow(xtfpred)) stop("please make sure xnewdata and xtfnewdata have the same numbers of rows!");
+  if(is.null(frail)){
+    frail=matrix(0, nrow=nxpred, ncol=x$mcmc$nsave);
+  }else{
+    if(is.vector(frail)) frail=matrix(frail, nrow=1);
+    if((nrow(frail)!=nxpred)|(ncol(frail)!=x$mcmc$nsave)) stop("The dim of frail should be nrow(xpred) by nsave.")
+  }
+  estimates <- .Call("frailtyGAFTplots", tgrid, xpred, xtfpred, x$beta.scaled, x$betatf, frail, 
+                     x$sigma2, x$maxL, CI, PACKAGE = "spBayesSurv");
+  
+  if(PLOT){
+    par(cex=1.5,mar=c(4.1,4.1,1,1),cex.lab=1.4,cex.axis=1.1)
+    plot(tgrid, estimates$Shat[,1], "l", lwd=3, xlab="time", ylab="survival", 
+         xlim=c(0, max(tgrid)), ylim=c(0,1));
+    for(i in 1:nxpred){
+      polygon(x=c(rev(tgrid),tgrid),
+              y=c(rev(estimates$Shatlow[,i]),estimates$Shatup[,i]),
+              border=NA,col="lightgray");
     }
+    for(i in 1:nxpred){
+      lines(tgrid, estimates$Shat[,i], lty=i, lwd=3, col=i);
+    }
+    legend("topright", rnames, col = 1:nxpred, lty=1:nxpred, ...)
   }
   estimates$tgrid=tgrid;
   invisible(estimates)

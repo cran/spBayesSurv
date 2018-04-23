@@ -12,7 +12,7 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
     SEXP betatf_, SEXP sigma2_, SEXP y_, SEXP v_, SEXP blocki_, SEXP tau2_,
     SEXP Dmm_, SEXP maxL_, SEXP a0_, SEXP b0_, SEXP m0_, SEXP S0inv_, SEXP gprior_, 
     SEXP a0sig_, SEXP b0sig_, SEXP a0tau_, SEXP b0tau_,
-    SEXP nu_, SEXP phi_, SEXP a0phi_, SEXP b0phi_) {
+    SEXP nu_, SEXP phi_, SEXP a0phi_, SEXP b0phi_, SEXP win_, SEXP mm_) {
 	
 	BEGIN_RCPP
   
@@ -27,6 +27,8 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
   const arma::mat xtf = as<mat>(xtf_); // ptf by nrec;
   const arma::mat Dmm = as<mat>(Dmm_); // m by m;
   const double nu = as<double>(nu_);
+  const double win = as<double>(win_);
+  const int mm = as<int>(mm_);
   const int pce = xce.n_rows;
   const int ptf = xtf.n_rows;
   const int nrec = xce.n_cols;
@@ -102,9 +104,9 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
   double logliko;
   double liminf, limsup, llim, rlim, gllim, grlim;
   double xx0, xx1, gxx0, gxx1;
-  double logy, uwork, win;
+  double logy, uwork;
   int i1, evali;
-  int JJ, KK, mm;
+  int JJ, KK;
   double rej;
   //double phi_min = std::pow(-log(0.001), 1.0/nu)/Dmm.max();
   double phi_min = ESMALL;
@@ -155,7 +157,6 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
 	////////////////////////////////////////////////////////////////////////
 	// Start MCMC
 	////////////////////////////////////////////////////////////////////////
-  win=1; mm=10;
 	for (int iscan=0; iscan<nscan; iscan++){
   	R_CheckUserInterrupt();
     //Rprintf( "iscan = %d\n", iscan );

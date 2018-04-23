@@ -6,7 +6,7 @@
 
 \title{Marginal Bayesian Proportional Hazards Model via Spatial Copula}
 \description{
-This function fits a marginal Bayesian proportional hazards model for point-referenced right censored time-to-event data.
+This function fits a marginal Bayesian proportional hazards model (Zhou, Hanson and Zhang, 2018) for point-referenced right censored time-to-event data.
 }
    
 \usage{
@@ -27,7 +27,7 @@ spCopulaCoxph(formula, data, na.action, prediction=NULL,
    
    \item{mcmc}{a list giving the MCMC parameters. The list must include the following elements: \code{nburn} an integer giving the number of burn-in scans, \code{nskip} an integer giving the thinning interval, \code{nsave} an integer giving the total number of scans to be saved, \code{ndisplay} an integer giving the number of saved scans to be displayed on screen (the function reports on the screen when every \code{ndisplay} iterations have been carried out).}
     
-    \item{prior}{a list giving the prior information. The list includes the following elements: \code{M} an integer giving the total number of cut points for baseline hazard. See Zhou, Hanson and Zhang (2017) for more detailed hyperprior specifications.}
+    \item{prior}{a list giving the prior information. See Zhou, Hanson and Zhang (2018) for more detailed hyperprior specifications.}
 
     \item{state}{a list giving the current value of the parameters. This list is used if the current analysis is the continuation of a previous analysis.}  
     
@@ -42,12 +42,71 @@ spCopulaCoxph(formula, data, na.action, prediction=NULL,
 }
 
 \details{
-This function fits a marginal Bayesian proportional hazards model (Zhou, Hanson and Zhang, 2017) for point-referenced right censored time-to-event data.
+This function fits a marginal Bayesian proportional hazards model (Zhou, Hanson and Zhang, 2018) for point-referenced right censored time-to-event data.
 }
 
 \value{
-  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Zhang (2017).
-  Use \code{names} to find out what they are.
+The \code{spCopulaCoxph} object is a list containing at least the following components:
+\item{modelname}{
+the name of the fitted model
+}
+\item{terms}{
+the \code{\link{terms}} object used
+}
+\item{coefficients}{
+a named vector of coefficients.  
+}
+\item{call}{
+the matched call
+}
+\item{prior}{
+the list of hyperparameters used in all priors. 
+}
+\item{mcmc}{
+the list of MCMC parameters used 
+}
+\item{n}{
+the number of row observations used in fitting the model
+}
+\item{p}{
+the number of columns in the model matrix 
+}
+\item{Surv}{
+the \code{\link{Surv}} object used 
+}
+\item{X.scaled}{
+the n by p scaled design matrix
+}
+\item{X}{
+the n by p orginal design matrix
+}
+\item{beta}{
+the p by nsave matrix of posterior samples for the coefficients in the \code{linear.predictors} 
+}
+\item{beta.scaled}{
+the p by nsave matrix of posterior samples for the coefficients in the \code{linear.predictors}. Note that these posterior samples are based scaled design matrix.
+}
+\item{theta}{
+the 2 by nsave matrix of posterior samples for sill and range parameters 
+}
+\item{ratebeta}{
+the acceptance rate in the posterior sampling of beta coefficient vector
+}
+\item{ratetheta}{
+the acceptance rate in the posterior sampling of theta 
+}
+\item{cpo}{
+the length n vector of the stabilized estiamte of CPO; used for calculating LPML
+}
+\item{Coordinates}{
+the \code{Coordinates} matrix used in \code{\link{survregbayes}} 
+}
+\item{Tpred}{
+the npred by nsave predicted survival times for covariates specified in the argument \code{prediction}.
+}
+\item{Zpred}{
+the npred by nsave predicted z values for covariates specified in the argument \code{prediction}.
+}
 }
 
 \seealso{
@@ -55,6 +114,8 @@ This function fits a marginal Bayesian proportional hazards model (Zhou, Hanson 
 }
 
 \references{
+Zhou, H., Hanson, T., and Zhang, J. (2018). spBayesSurv: Fitting Bayesian Spatial Survival Models Using R. \emph{Journal of Statistical Software}, accept minor.
+
 Zhou, H., Hanson, T., and Knapp, R. (2015). Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations. \emph{Biometrics}, 71(4): 1101-1110. 
 }
 
@@ -170,23 +231,9 @@ traceplot(mcmc(res1$theta[2,]), main="range")
 ############################################
 ## Curves
 ############################################
-wide=0.1;
-tgrid = seq(1e-10,4,wide);
-ngrid = length(tgrid);
-p = length(betaT); # number of covariates
-xpred = rbind(c(0,0), c(0,1)); 
-estimates=plot(res1, xpred=xpred, tgrid=tgrid);
-Shat = estimates$Shat;
-
-## plot
 par(mfrow = c(1,1))
-plot(tgrid, Sioft(tgrid, xpred[2,]), "l", lwd=3);
-lines(tgrid, Sioft(tgrid, xpred[1,]), "l", lwd=3);
-lines(estimates$tgrid, estimates$Shat[,1], lty=2, lwd=3)
-lines(estimates$tgrid, estimates$Shatlow[,1], lty=3, lwd=1)
-lines(estimates$tgrid, estimates$Shatup[,1], lty=3, lwd=1)
-lines(estimates$tgrid, estimates$Shat[,2], lty=2, lwd=3)
-lines(estimates$tgrid, estimates$Shatlow[,2], lty=3, lwd=1)
-lines(estimates$tgrid, estimates$Shatup[,2], lty=3, lwd=1)
+tgrid = seq(1e-10,4,0.1);
+xpred = data.frame(x1=c(0,0), x2=c(0,1)); 
+plot(res1, xnewdata=xpred, tgrid=tgrid);
 }
 

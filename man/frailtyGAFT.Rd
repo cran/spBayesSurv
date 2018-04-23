@@ -1,20 +1,19 @@
 \name{frailtyGAFT}
 \alias{frailtyGAFT}
 \alias{print.frailtyGAFT}
-\alias{plot.frailtyGAFT}
 \alias{summary.frailtyGAFT}
 \alias{print.summary.frailtyGAFT}
 
 \title{Generalized Accelerated Failure Time Frailty Model}
 \description{
-This function fits a generalized accelerated failure time frailty model for clustered and/or areal-level time-to-event data.
+This function fits a generalized accelerated failure time frailty model (Zhou, et al., 2017) for clustered and/or areal-level time-to-event data. Note that the function arguments are slightly different with those presented in the original paper; see Zhou, Hanson and Zhang (2018) for new examples. 
 }
    
 \usage{
 frailtyGAFT(formula, data, na.action, 
             mcmc=list(nburn=3000, nsave=2000, nskip=0, ndisplay=500), 
             prior=NULL, state=NULL, Proximity=NULL, Coordinates=NULL,
-            DIST=NULL)
+            DIST=NULL, scale.designX=TRUE)
 }
 
 \arguments{
@@ -26,7 +25,7 @@ frailtyGAFT(formula, data, na.action,
    
    \item{mcmc}{a list giving the MCMC parameters. The list must include the following elements: \code{nburn} an integer giving the number of burn-in scans, \code{nskip} an integer giving the thinning interval, \code{nsave} an integer giving the total number of scans to be saved, \code{ndisplay} an integer giving the number of saved scans to be displayed on screen (the function reports on the screen when every \code{ndisplay} iterations have been carried out).}
    
-   \item{prior}{a list giving the prior information. The list includes the following parameter: \code{maxL} an integer giving the maximum level of LDTFP. See Zhou, et al. (2016) for more detailed prior specifications.}
+   \item{prior}{a list giving the prior information. See Zhou, Hanson and Zhang (2018) for more detailed hyperprior specifications.}
    
    \item{state}{a list giving the current value of the parameters. This list is used if the current analysis is the continuation of a previous analysis.} 
    
@@ -34,16 +33,108 @@ frailtyGAFT(formula, data, na.action,
    
    \item{Coordinates}{an m by d coordinates matrix, where m is the number of clusters/regions, d is the dimension of coordiantes. If GRF frailty model is specified in the formula, \code{Coordinates} is required; otherwise it is ignored. Note: this matrix should be specified according to the data that have been sorted by ID.}
    \item{DIST}{This is a function argument, used to calculate the distance. The default is Euclidean distance (\code{fields::rdist}). This function should have two arguments (X1,X2), where X1 and X2 are matrices with coordinates as the rows. The returned value of this function should be the pairwise distance matrix. If nrow(X1)=m and nrow(X2)=n then the function should return an m by n matrix of all distances between these two sets of points.}
+   \item{scale.designX}{flag to indicate whether the design matrix X and Xtf will be centered by column means and scaled by column standard deviations, where \code{TRUE} indicates yes. The default is \code{TRUE} for improving numerical stability. Even when it is scaled, the reported regression coefficients are in original scales. Note if we want to specify informative priors for regression coefficients, these priors should correspond to scaled predictors when \code{scale.designX=TRUE}.}
 }
 
 \details{
-This function fits a a generalized accelerated failure time frailty model (Zhou, et al., 2016) for clustered and/or areal-level time-to-event data. Note that the function arguments are slightly different with those presented in the original paper of Zhou, et al. (2016); see below examples. 
+This function fits a a generalized accelerated failure time frailty model (Zhou, et al., 2017) for clustered and/or areal-level time-to-event data. Note that the function arguments are slightly different with those presented in the original paper of Zhou, et al. (2017); see Zhou, Hanson and Zhang (2018) for new examples. 
 }
 
 \value{
-  The results include the MCMC chains for the parameters discussed in Zhou, et al. (2016). 
-  Use \code{names} to find out what they are.
+The \code{frailtyGAFT} object is a list containing at least the following components:
+\item{modelname}{
+the name of the fitted model
+}
+\item{terms}{
+the \code{\link{terms}} object used
+}
+\item{coefficients}{
+a named vector of coefficients. The last two elements are the estimates of scale parameter sigma and precision parameter alpha involved in the LDTFP prior. 
+}
+\item{call}{
+the matched call
+}
+\item{prior}{
+the list of hyperparameters used in all priors. 
+}
+\item{mcmc}{
+the list of MCMC parameters used 
+}
+\item{n}{
+the number of row observations used in fitting the model
+}
+\item{pce}{
+the number of columns in the model matrix including the intercept
+}
+\item{ptf}{
+the number of columns in the model matrix used in the LDTFP baseline including the intercept
+}
+\item{Surv}{
+the \code{\link{Surv}} object used 
+}
+\item{X.scaled}{
+the n by pce-1 scaled design matrix
+}
+\item{X}{
+the n by pce-1 orginal design matrix
+}
+\item{Xtf.scaled}{
+the n by ptf-1 scaled design matrix used in the LDTFP baseline
+}
+\item{Xtf}{
+the n by ptf-1 orginal design matrix used in the LDTFP baseline
+}
+\item{sigma2}{
+the vector of posterior samples for the variance parameter used in the LDTFP prior. 
+}
+\item{beta}{
+the pce by nsave matrix of posterior samples for the coefficients in the \code{linear.predictors} which includes the intercept
+}
+\item{beta.scaled}{
+the pce by nsave matrix of posterior samples for the coefficients in the \code{linear.predictors}. Note that these posterior samples are based scaled design matrix.
+}
+\item{alpha}{
+the vector of posterior samples for the precision parameter alpha in the LDTFP prior. 
+}
+\item{maxL}{
+the truncation level used in the LDTFP prior. 
+}
+\item{logt}{
+the n by nsave matrix of posterior samples for log survival times. 
+}
+\item{cpo}{
+the length n vector of the stabilized estiamte of CPO; used for calculating LPML
+}
+\item{accept_beta}{
+the acceptance rate in the posterior sampling of beta coefficient vector
+}
+\item{frail.prior}{
+the frailty prior used in \code{\link{frailtyprior}} 
+}
+\item{BF}{
+the Bayes factors for testing necessariness of each stratification covariate.  
+}
 
+The object will also have the following components when frailty models are fit:
+\item{v}{
+the nID by nsave matrix of posterior samples for frailties, where nID is the number of clusters considered.
+}
+\item{tau2}{
+the vector of posterior samples for tau2 involved in the IID, GRF or CAR frailty prior. 
+}
+\item{ID}{
+the cluster ID used in \code{\link{frailtyprior}} 
+}
+If GRF frailties are used, the object will also have:
+\item{Coordinates}{
+the \code{Coordinates} matrix used in \code{\link{survregbayes}} 
+}
+\item{ratephi}{
+the acceptance rates in the posterior sampling of phi involved in the GRF prior 
+}
+\item{phi}{
+the vector of posterior samples for phi involved in the GRF prior 
+}
 }
 
 \seealso{
@@ -51,7 +142,9 @@ This function fits a a generalized accelerated failure time frailty model (Zhou,
 }
 
 \references{
-Zhou, H., Hanson, T., and Zhang, J. (2016). Generalized accelerated failure time spatial frailty model for arbitrarily censored data. \emph{Lifetime Data Analysis}, in press.
+Zhou, H., Hanson, T., and Zhang, J. (2018). spBayesSurv: Fitting Bayesian Spatial Survival Models Using R. \emph{Journal of Statistical Software}, accept minor.
+
+Zhou, H., Hanson, T., and Zhang, J. (2017). Generalized accelerated failure time spatial frailty model for arbitrarily censored data. \emph{Lifetime Data Analysis}, 23(3): 495-515.
 }
 
 
@@ -172,21 +265,8 @@ traceplot(mcmc(res$beta[3,]), main="beta3");
 ## Get curves
 ####################################################################
 par(mfrow = c(1,1))
-tgrid = seq(0.1,6,length=100); ygrid=log(tgrid);
-ngrid = length(tgrid);
-xnew = c(0, 1)
-xpred = cbind(c(1,1.5), xnew); 
+xpred = data.frame(x1=c(1,1.5), x2=c(0,1))
 xtfpred = xpred;
-nxpred = nrow(xpred);
-estimates = plot(res, xpred, tgrid, xtfpred=xtfpred, CI=0.9, PLOT=FALSE);
-## survival curves
-shiftpred = rep(0, nxpred);
-for(i in 1:nxpred) shiftpred[i] = (sum(c(1,xpred[i,])*betaT));
-plot(tgrid, 1-FF(ygrid-shiftpred[1],xnew[1]), "l", lwd=2,  
-     main="Survival function", xlab="time", ylab="survival")
-for(i in 1:nxpred){
-  lines(tgrid, 1-FF(ygrid-shiftpred[i],xnew[i]), "l", lwd=2)
-  lines(tgrid, estimates$Shat[,i], lty=2, lwd=2, col=4);
-}
+plot(res, xnewdata=xpred, xtfnewdata=xtfpred, CI=0.9);
 }
 

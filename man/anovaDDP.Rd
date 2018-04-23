@@ -3,7 +3,7 @@
 
 \title{Bayesian Nonparametric Survival Model}
 \description{
-This function fits a Bayesian nonparametric model for non-spatial right censored time-to-event data.
+This function fits a Bayesian Nonparametric model (De Iorio et al., 2009) for non-spatial right censored time-to-event data. Note that the notations are different with those presented in the original paper; see Zhou, Hanson and Zhang (2018) for new examples.
 }
    
 \usage{
@@ -23,7 +23,7 @@ anovaDDP(formula, data, na.action, prediction=NULL,
    
    \item{mcmc}{a list giving the MCMC parameters. The list must include the following elements: \code{nburn} an integer giving the number of burn-in scans, \code{nskip} an integer giving the thinning interval, \code{nsave} an integer giving the total number of scans to be saved, \code{ndisplay} an integer giving the number of saved scans to be displayed on screen (the function reports on the screen when every \code{ndisplay} iterations have been carried out).}
     
-    \item{prior}{a list giving the prior information. The list includes the following elements: \code{N} an integer giving the truncation of the Dirichlet process. See Zhou, Hanson and Zhang (2017) for more detailed hyperprior specifications.}
+    \item{prior}{a list giving the prior information. See Zhou, Hanson and Zhang (2018) for more detailed hyperprior specifications.}
 
     \item{state}{a list giving the current value of the parameters. This list is used if the current analysis is the continuation of a previous analysis.}  
     
@@ -32,13 +32,38 @@ anovaDDP(formula, data, na.action, prediction=NULL,
 }
 
 \details{
-This function fits a Bayesian Nonparametric model (De Iorio et al., 2009) for non-spatial right censored time-to-event data.
+This function fits a Bayesian Nonparametric model (De Iorio et al., 2009) for non-spatial right censored time-to-event data. Note that the notations are different with those presented in the original paper; see Zhou, Hanson and Zhang (2018) for new examples. 
 }
 
 \value{
-  The results include the MCMC chains for the parameters discussed in Zhou, Hanson and Zhang (2017). 
-  Use \code{names} to find out what they are. 
-
+The \code{anovaDDP} object is a list containing at least the following components:
+\item{n}{
+the number of row observations used in fitting the model
+}
+\item{p}{
+the number of columns in the model matrix
+}
+\item{Surv}{
+the \code{\link{Surv}} object used 
+}
+\item{X.scaled}{
+the n by p scaled design matrix
+}
+\item{X}{
+the n by p orginal design matrix
+}
+\item{beta}{
+the p+1 by N by nsave array of posterior samples for the coefficients
+}
+\item{sigma2}{
+the N by nsave matrix of posterior samples for sigma2 involved in the DDP.
+}
+\item{w}{
+the N by nsave matrix of posterior samples for weights involved in the DDP. 
+}
+\item{Tpred}{
+the npred by nsave predicted survival times for covariates specified in the argument \code{prediction}.
+}
 }
 
 \seealso{
@@ -46,6 +71,8 @@ This function fits a Bayesian Nonparametric model (De Iorio et al., 2009) for no
 }
 
 \references{
+Zhou, H., Hanson, T., and Zhang, J. (2018). spBayesSurv: Fitting Bayesian Spatial Survival Models Using R. \emph{Journal of Statistical Software}, accept minor.
+
 Zhou, H., Hanson, T., and Knapp, R. (2015). Marginal Bayesian nonparametric model for time to disease arrival of threatened amphibian populations. \emph{Biometrics}, 71(4): 1101-1110. 
 
 De Iorio, M., Johnson, W. O., Mueller, P., and Rosner, G. L. (2009). Bayesian nonparametric nonproportional hazards survival modeling. \emph{Biometrics}, 65(3): 762-771. 
@@ -138,28 +165,7 @@ quantile(colSums(res1$w>0.05))
 ## Curves
 ############################################
 ygrid = seq(0,6.0,length=100); tgrid = exp(ygrid);
-ngrid = length(tgrid);
-xpred = rbind(-1, 1); 
-estimates=plot(res1, xpred=xpred, tgrid=tgrid);
+xpred = data.frame(x1=c(-1, 1))
+plot(res1, xnewdata=xpred, tgrid=tgrid);
 
-## plot
-par(mfrow = c(1,2))
-plot(tgrid, 1-Fioft(tgrid, xpred[1,]), "l", lwd=3, 
-     main="Survival function", xlab="time", ylab="survival");
-lines(tgrid, 1-Fioft(tgrid, xpred[2,]), "l", lwd=3);
-lines(estimates$tgrid, estimates$Shat[,1], lty=2, lwd=3)
-lines(estimates$tgrid, estimates$Shatlow[,1], lty=3, lwd=1)
-lines(estimates$tgrid, estimates$Shatup[,1], lty=3, lwd=1)
-lines(estimates$tgrid, estimates$Shat[,2], lty=2, lwd=3)
-lines(estimates$tgrid, estimates$Shatlow[,2], lty=3, lwd=1)
-lines(estimates$tgrid, estimates$Shatup[,2], lty=3, lwd=1)
-plot(log(tgrid), fiofy(log(tgrid), xpred[1,]), "l", lwd=3, 
-     main="Density of log time", xlab="log time", ylab="survival");
-lines(log(tgrid), fiofy(log(tgrid), xpred[2,]), "l", lwd=3);
-lines(log(estimates$tgrid), estimates$fhat[,1]*tgrid, lty=2, lwd=3)
-lines(log(estimates$tgrid), estimates$fhatlow[,1]*tgrid, lty=3, lwd=1)
-lines(log(estimates$tgrid), estimates$fhatup[,1]*tgrid, lty=3, lwd=1)
-lines(log(estimates$tgrid), estimates$fhat[,2]*tgrid, lty=2, lwd=3)
-lines(log(estimates$tgrid), estimates$fhatlow[,2]*tgrid, lty=3, lwd=1)
-lines(log(estimates$tgrid), estimates$fhatup[,2]*tgrid, lty=3, lwd=1)
 }

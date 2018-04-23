@@ -12,13 +12,17 @@
                 names(Call), nomatch=0) 
   if (indx[1] ==0) stop("A formula argument is required");
   temp <- Call[c(1,indx)]  # only keep the arguments we wanted
-  temp[[1]] <- as.name('model.frame')  # change the function called
+  temp[[1L]] <- quote(stats::model.frame)
   
-  special <- c("baseline", "frailtyprior", "truncation_time", "subject.num", "b_spline")
-  temp$formula <- if(missing(data)) terms(formula, special)
-  else              terms(formula, special, data=data)
-  if (is.R()) m <- eval(temp, parent.frame())
-  else        m <- eval(temp, sys.parent())
+  special <- c("baseline", "frailtyprior", "truncation_time", "subject.num", "bspline")
+  temp$formula <- if (missing(data)) 
+    terms(formula, special)
+  else terms(formula, special, data = data)
+
+  if (is.R()) 
+    m <- eval(temp, parent.frame())
+  else m <- eval(temp, sys.parent())
+  Terms <- attr(m, 'terms')
   
   if(any(names(m)=="(truncation_time)")){
     truncation_time = m[,"(truncation_time)"]
@@ -32,30 +36,31 @@
     subject.num = NULL
   }
   
-  Terms <- attr(m, 'terms')
   Y <- model.extract(m, "response")
   if (!inherits(Y, "Surv")) stop("Response must be a survival object")
   
   baseline0 <- attr(Terms, "specials")$baseline
   frailtyprior0<- attr(Terms, "specials")$frailtyprior
-  b_spline0<- attr(Terms, "specials")$b_spline
-  dropx <- NULL
+  bspline0<- attr(Terms, "specials")$bspline
+  
   if (length(frailtyprior0)) {
     temp <- survival::untangle.specials(Terms, 'frailtyprior', 1)
-    dropx <- c(dropx, temp$terms)
+    dropfrail <- c(temp$terms)
     frail.terms <- m[[temp$vars]]
   }else{
+    dropfrail <- NULL
     frail.terms <- NULL;
   }
   if (length(baseline0)) {
     temp <- survival::untangle.specials(Terms, 'baseline', 1)
-    dropx <- c(dropx, temp$terms)
+    dropXtf <- c(temp$terms)
     Xtf <- m[[temp$vars]]
   }else{
-    Xtf <- NULL;
+    dropXtf <- NULL
+    Xtf <- NULL
   }
-  if (length(b_spline0)) {
-    temp <- survival::untangle.specials(Terms, 'b_spline', 1)
+  if (length(bspline0)) {
+    temp <- survival::untangle.specials(Terms, 'bspline', 1)
     #dropx <- c(dropx, temp$terms);
     X.bs = NULL;
     n.bs = rep(0, length(temp$vars));
@@ -68,6 +73,7 @@
     n.bs <- NULL;
   }
   
+  dropx <- c(dropfrail, dropXtf)
   if (length(dropx)) {
     newTerms <- Terms[-dropx]
     # R (version 2.7.1) adds intercept=T anytime you drop something
@@ -98,12 +104,14 @@
   xdrop <- Xatt$assign %in% adrop  #columns to drop (always the intercept)
   X <- X[, !xdrop, drop=FALSE]
   attr(X, "assign") <- Xatt$assign[!xdrop]
+  
   n <- nrow(X)
   p <- ncol(X)
   if(p==0){
-    stop("covariate is required")
+    #stop("covariate is required")
     X.scaled <- NULL;
     X1 = cbind(rep(1,n), X.scaled); 
+    Xinput = cbind(rep(1,n)); 
   }else{
     if(scale.designX){
       X.scaled <- scale(X);
@@ -113,6 +121,7 @@
     X.center = attributes(X.scaled)$`scaled:center`;
     X.scale = attributes(X.scaled)$`scaled:scale`;
     X1 = cbind(rep(1,n), X.scaled);
+    Xinput = X.scaled;
   }
   
   #########################################################################################
@@ -247,7 +256,7 @@
   # initial MLE analysis and mcmc parameters
   #########################################################################################
   tbase1 = t1; tbase2 = t2; deltabase = delta;
-  Xbase.scaled = X.scaled;
+  X1base = X1;
   for(i in 1:n){
     if(deltabase[i]==0) tbase2[i]=NA;
     if(deltabase[i]==2) tbase1[i]=NA;
@@ -255,7 +264,7 @@
   ## initial MCMC
   if(InitParamMCMC){
     ## initial fit for theta:
-    fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~Xbase.scaled, dist=dist);
+    fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~X1base-1, dist=dist);
     theta1 = -fit0$coefficients[1];
     theta2 = -log(fit0$scale);
     theta0 = c(theta1, theta2); theta_prior = c(theta1, theta2);
@@ -266,17 +275,17 @@
     beta = -fit0$coefficients[-1];
     Shat0 = as.matrix(fit0$var[c(2:(1+p)),c(2:(1+p))]);
     if(survmodel=="PH"){
-      fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~Xbase.scaled, dist="weibull");
+      fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~X1base-1, dist="weibull");
       beta0 = -fit0$coefficients[-1]/fit0$scale; beta_prior = -fit0$coefficients[-1]/fit0$scale;
       beta = -fit0$coefficients[-1]/fit0$scale;
       Shat0 = as.matrix(fit0$var[c(2:(1+p)),c(2:(1+p))])/(fit0$scale)^2;
     }else if (survmodel=="PO"){
-      fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~Xbase.scaled, dist="loglogistic");
+      fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~X1base-1, dist="loglogistic");
       beta0 = -fit0$coefficients[-1]/fit0$scale; beta_prior = -fit0$coefficients[-1]/fit0$scale;
       beta = -fit0$coefficients[-1]/fit0$scale;
       Shat0 = as.matrix(fit0$var[c(2:(1+p)),c(2:(1+p))])/(fit0$scale)^2;
     }else if (survmodel=="AH"){
-      fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~Xbase.scaled, dist="weibull");
+      fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~X1base-1, dist="weibull");
       beta0 = fit0$coefficients[-1]/(fit0$scale-1); beta_prior = fit0$coefficients[-1]/(fit0$scale-1);
       beta = fit0$coefficients[-1]/(fit0$scale-1);
       Shat0 = as.matrix(fit0$var[c(2:(1+p)),c(2:(1+p))])/(fit0$scale-1)^2;
@@ -292,7 +301,7 @@
     blocki0=blocki; W0=W; v0=v; subjecti0=subjecti;
     Dmm0=Dmm; Dmr0=Dmr; Drr0=Drr; clustindx0=matrix(1,length(blocki)-1,1);
     truncation_time0 = truncation_time;
-    t10 = t1; t20=t2; delta0=delta; X.scaled0=X.scaled;
+    t10 = t1; t20=t2; delta0=delta; Xinput0=Xinput;
     if(!is.null(frail.prior)){
       if(frail.prior=="grf") {
         frailtyCode0=2;
@@ -302,44 +311,54 @@
     if(sum(as.numeric(names(table(delta))))==2){ ## if current status data
       scaleV= 1; scaleS = 100000;
     }
+    if(p==0){
+      beta0 = c(0); beta_prior = c(0); S0inv0 = matrix(1); Shat0 = matrix(-1);
+      gamma0 = c(1); p0gamma=c(0.5); selection=FALSE;
+    }else{
+      S0inv0 = solve(scaleS*Shat0); gamma0 = rep(1.0, p); p0gamma=rep(0.5, p);
+    }
     if(survmodel=="AFT"){
       fit0<- .Call("AFT_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0, subjecti_=subjecti0,
-                   t1_=t10, t2_=t20, type_=delta0, X_=X.scaled0, theta_=theta0, beta_=beta0, weight_=c(1), 
+                   t1_=t10, t2_=t20, type_=delta0, X_=Xinput0, theta_=theta0, beta_=beta0, weight_=c(1), 
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
-                   beta0_=beta_prior, S0inv_=solve(scaleS*Shat0), Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
-                   gamma_=rep(1.0, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
+                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   gamma_=gamma0, p0gamma_=p0gamma, selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
                    W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(survmodel=="PO"){
       fit0<- .Call("PO_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0, subjecti_=subjecti0,
-                   t1_=t10, t2_=t20, type_=delta0, X_=X.scaled0, theta_=theta0, beta_=beta0, weight_=c(1), 
+                   t1_=t10, t2_=t20, type_=delta0, X_=Xinput0, theta_=theta0, beta_=beta0, weight_=c(1), 
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
-                   beta0_=beta_prior, S0inv_=solve(scaleS*Shat0), Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
-                   gamma_=rep(1.0, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
+                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   gamma_=gamma0, p0gamma_=p0gamma, selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
                    W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(survmodel=="PH"){
       fit0<- .Call("PH_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0, subjecti_=subjecti0,
-                   t1_=t10, t2_=t20, type_=delta0, X_=X.scaled0, theta_=theta0, beta_=beta0, weight_=c(1), 
+                   t1_=t10, t2_=t20, type_=delta0, X_=Xinput0, theta_=theta0, beta_=beta0, weight_=c(1), 
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
-                   beta0_=beta_prior, S0inv_=solve(scaleS*Shat0), Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
-                   gamma_=rep(1.0, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
+                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   gamma_=gamma0, p0gamma_=p0gamma, selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
                    W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(survmodel=="AH"){
       fit0<- .Call("AH_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0, subjecti_=subjecti0,
-                   t1_=t10, t2_=t20, type_=delta0, X_=X.scaled0, theta_=theta0, beta_=beta0, weight_=c(1), 
+                   t1_=t10, t2_=t20, type_=delta0, X_=Xinput0, theta_=theta0, beta_=beta0, weight_=c(1), 
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
-                   beta0_=beta_prior, S0inv_=solve(scaleS*Shat0), Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
-                   gamma_=rep(1.0, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
+                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   gamma_=gamma0, p0gamma_=p0gamma, selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
                    W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
     }else{
-      stop("This function only supports PH, PO or AFT");
+      stop("This function only supports PH, PO, AFT or AH");
     }
-    beta = colMeans(t(matrix(fit0$beta, p, nsave0)));
-    beta_prior = colMeans(t(matrix(fit0$beta, p, nsave0)));
-    Shat0 = cov(t(matrix(fit0$beta, p, nsave0)));
+    if(p==0){
+      beta = c(0); beta_prior = c(0); Shat0 = matrix(-1);
+    }else{
+      beta = colMeans(t(matrix(fit0$beta, p, nsave0)));
+      beta_prior = colMeans(t(matrix(fit0$beta, p, nsave0)));
+      Shat0 = cov(t(matrix(fit0$beta, p, nsave0)));
+    }
     theta = colMeans(t(matrix(fit0$theta, 2, nsave0)));
     theta_prior = colMeans(t(matrix(fit0$theta, 2, nsave0)));
     Vhat0 = cov(t(matrix(fit0$theta, 2, nsave0)));
@@ -350,7 +369,7 @@
     message("Starting the MCMC for the semiparametric model:")
   }else{
     ## initial fit for theta:
-    fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~Xbase.scaled, 
+    fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~X1base-1, 
                               dist=dist);
     theta1 = -fit0$coefficients[1];
     theta2 = -log(fit0$scale);
@@ -364,14 +383,14 @@
     if((survmodel=="PH")|(survmodel=="PO")){
       if(survmodel=="PH") dist0 = "weibull";
       if(survmodel=="PO") dist0 = "loglogistic";
-      fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~Xbase.scaled, 
+      fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~X1base-1, 
                                 dist=dist0);
       beta0 = -fit0$coefficients[-1]/fit0$scale; beta_prior = -fit0$coefficients[-1]/fit0$scale;
       beta = -fit0$coefficients[-1]/fit0$scale;
       Shat0 = as.matrix(fit0$var[c(2:(1+p)),c(2:(1+p))])/(fit0$scale)^2;
     }else if((survmodel=="AH")){
       dist0 = "weibull"
-      fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~Xbase.scaled,
+      fit0 <- survival::survreg(formula = survival::Surv(tbase1, tbase2, type="interval2")~X1base-1,
                                 dist=dist0);
       beta0 = fit0$coefficients[-1]/(fit0$scale-1); beta_prior = fit0$coefficients[-1]/(fit0$scale-1);
       beta = fit0$coefficients[-1]/(fit0$scale-1);
@@ -387,6 +406,9 @@
     if(!is.null(frail.prior)){
       if(is.null(state$frail)) v=rep(0, length(blocki)-1);
     }
+  }
+  if(p==0){
+    beta0 = c(0); beta_prior = c(0); beta = c(0); Shat0 = matrix(-1);
   }
   
   #########################################################################################
@@ -423,20 +445,24 @@
   if(is.null(S0)) {
     if(selection){
       gg = (log(M)/qnorm(q))^2/p;
-      S0 = gg*n*solve(t(X.scaled)%*%X.scaled)
+      S0 = gg*n*solve(t(Xinput)%*%Xinput)
     }else{
       S0 <- S0_prior;
     }
   }
   if(!is.null(n.bs)){
-    temp = survival::untangle.specials(Terms, 'b_spline', 1);
+    temp = survival::untangle.specials(Terms, 'bspline', 1);
     for(ii in 1:length(n.bs)){
       indxii = which(attributes(X)$assign==temp$terms[ii]);
       gg = (log(M)/qnorm(q))^2/n.bs[ii];
-      S0[indxii, indxii] = gg*n*solve(t(X.scaled[,indxii])%*%X.scaled[,indxii]);
+      S0[indxii, indxii] = gg*n*solve(t(Xinput[,indxii])%*%Xinput[,indxii]);
     }
   }
-  S0inv <- solve(S0);
+  if(p==0){
+    S0inv <- matrix(1);
+  }else{
+    S0inv <- solve(S0);
+  }
   theta0 <- prior$theta0; if(is.null(theta0)) theta0 <- theta_prior;
   V0 <- prior$V0; if(is.null(V0)) V0 <- V0_prior;
   if(sum(abs(V0))==0){
@@ -450,6 +476,7 @@
   gamma0 = rep(1.0, p);
   taua0 = prior$taua0; if(is.null(taua0)) taua0=.001;
   taub0 = prior$taub0; if(is.null(taub0)) taub0=.001;
+  #if((taua0=.001)&(taub0=.001)) message("The default Gamma(0.001, 0.001) was used for the frailty variance parameter, which may be unwise; see Gelman (2006, Bayesian Analysis)")
   phia0 = prior$phia0; if(is.null(phia0)) phia0=phia0_prior;
   phib0 = prior$phib0; if(is.null(phib0)) phib0=(phia0-1)/phi0;
   mcmc = list(nburn=nburn, nsave=nsave, nskip=nskip, ndisplay=ndisplay)
@@ -495,10 +522,14 @@
   #########################################################################################
   # calling the c++ code and # output
   #########################################################################################
+  if(p==0){
+    beta = c(0); beta0 = c(0); S0inv = matrix(1); Shat = matrix(-1);
+    gamma0 = c(1); p0gamma=c(0.5); selection=FALSE;
+  }
   if(survmodel=="AFT"){
     model.name <- "Accelerated failure time model:";
     foo <- .Call("AFT_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
-                 subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, weight_=weight, 
+                 subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=Xinput, theta_=theta, beta_=beta, weight_=weight, 
                  cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
                  beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
@@ -508,7 +539,7 @@
   }else if(survmodel=="PO"){
     model.name <- "Proportional Odds model:";
     foo <- .Call("PO_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
-                 subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, weight_=weight, 
+                 subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=Xinput, theta_=theta, beta_=beta, weight_=weight, 
                  cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
                  beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
@@ -518,7 +549,7 @@
   }else if(survmodel=="PH"){
     model.name <- "Proportional hazards model:";
     foo <- .Call("PH_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
-                 subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, weight_=weight, 
+                 subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=Xinput, theta_=theta, beta_=beta, weight_=weight, 
                  cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
                  beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
@@ -528,7 +559,7 @@
   }else if(survmodel=="AH"){
     model.name <- "Accelerated hazards model:";
     foo <- .Call("AH_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
-                 subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, weight_=weight, 
+                 subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=Xinput, theta_=theta, beta_=beta, weight_=weight, 
                  cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
                  beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
@@ -536,7 +567,7 @@
                  Dmm_=Dmm, Dmr_=Dmr, Drr_=Drr, phi_=phi, nu_=nu, a0phi_=phia0, b0phi_=phib0, lambda_=lambda, 
                  a0lambda_=taua0, b0lambda_=taub0, dist_=distcode, PACKAGE = "spBayesSurv");
   }else{
-    stop("This function only supports PH, PO or AFT");
+    stop("This function only supports PH, PO, AFT or AH");
   }
   
   #########################################################################################
@@ -545,11 +576,18 @@
   #### transfer the estimates back to original scales;
   theta.scaled = foo$theta;
   theta.original = foo$theta;
-  beta.scaled = matrix(foo$beta, p, nsave);
-  beta.original = matrix(beta.scaled, p, nsave)/matrix(rep(X.scale, nsave), p, nsave);
-  
+  if(p==0){
+    beta.scaled = NULL;  beta.original = NULL;
+  }else{
+    beta.scaled = matrix(foo$beta, p, nsave);
+    beta.original = matrix(beta.scaled, p, nsave)/matrix(rep(X.scale, nsave), p, nsave);
+  }
   #### coefficients
-  coeff1 <- c(apply(beta.original, 1, mean));
+  if(p==0){
+    coeff1 <- NULL
+  }else{
+    coeff1 <- c(apply(beta.original, 1, mean));
+  }
   coeff2 <- c(apply(theta.original, 1, mean));
   coeff <- c(coeff1, coeff2);
   names(coeff) = c(colnames(X.scaled),"theta1", "theta2");
@@ -585,7 +623,7 @@
     BF.bs = NULL;
   }else{
     BF.bs = rep(0, length(n.bs));
-    temp = survival::untangle.specials(Terms, 'b_spline', 1);
+    temp = survival::untangle.specials(Terms, 'bspline', 1);
     names(BF.bs) = temp$vars
     for(ii in 1:length(n.bs)){
       indxii = which(attributes(X)$assign==temp$terms[ii])
@@ -600,6 +638,7 @@
   
   #### Save to a list
   output <- list(modelname=model.name,
+                 terms = m,
                  dist = dist,
                  survmodel = survmodel,
                  coefficients=coeff,
@@ -654,117 +693,25 @@
   output
 }
 
-#### BF for testing the centering distribution
-"BF.survregbayes" <- function (x) {
-  if(is(x,"survregbayes")){
-    if(x$alpha[1]==Inf){
-      BayesFactor=NULL;
-    }else{
-      maxL = x$prior$maxL;
-      HH = apply(x$weight, 2, function(y) log(y[-maxL])-log(y[maxL]) ); 
-      meanH = apply(HH, 1, mean);
-      varH = var(t(HH));
-      meancpar = mean(x$alpha);
-      numH = exp( lgamma(meancpar*maxL)-maxL*lgamma(meancpar)-meancpar*maxL*log(maxL) );
-      denH = as.vector((2*pi)^(-(maxL-1)/2)*(det(varH))^(-1/2)*exp(-1/2*t(meanH)%*%solve(varH)%*%meanH));
-      BayesFactor = numH/denH;
-    }
-  }
-  BayesFactor
-}
-
-#### Get LOO and WAIC
-"waic.survregbayes" <- function (x) {
-  res=x;
-  if(is(x,"survregbayes")){
-    Y = x$Surv;
-    t1 = Y[,1]; t2 = Y[,1];
-    type <- attr(Y, "type")
-    exactsurv <- Y[,ncol(Y)] ==1
-    if (any(exactsurv)) {
-      t1[exactsurv]=Y[exactsurv,1];
-      t2[exactsurv]=Y[exactsurv,1];
-    }
-    if (type== 'counting'){ #stop ("Invalid survival type")
-      t1 = Y[,2]; t2 = Y[,2];
-    } 
-    if (type=='interval') {
-      intsurv <- Y[,3]==3;
-      if (any(intsurv)){
-        t1[intsurv]=Y[intsurv,1];
-        t2[intsurv]=Y[intsurv,2];
-      }
-    } 
-    delta = Y[,ncol(Y)];
-    if (!all(is.finite(Y))) {
-      stop("Invalid survival times for this distribution")
-    } else {
-      if (type=='left') delta <- 2- delta;
-    }
-    truncation_time = x$truncation_time;
-    subject.num = x$subject.num;
-    subjecti = c(0, cumsum(as.vector(table(subject.num))));
-    nsubject = length(subjecti)-1;
-    baseindx = (subjecti+1)[-length(subjecti)];
-    lastindx = subjecti[-1];
-    if(is.null(x$ID)){
-      frailn = matrix(0, x$n, x$mcmc$nsave);
-    }else{
-      ID = x$ID;
-      freq.frail = table(ID);
-      frailn = apply(x$v, 2, function(x) rep(x, freq.frail) );
-    }
-    distcode = switch(x$dist, loglogistic=1, lognormal=2, 3);
-    if(x$selection){
-      betafitted = x$beta.scaled*x$gamma;
-    }else{
-      betafitted = x$beta.scaled;
-    }
-    if(x$survmodel=="AFT"){
-      foo <- .Call("AFT_BP_loo_waic", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
-                   dist_=distcode, PACKAGE = "spBayesSurv");
-    }else if(x$survmodel=="PO"){
-      foo <- .Call("PO_BP_loo_waic", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
-                   dist_=distcode, PACKAGE = "spBayesSurv");
-    }else if(x$survmodel=="PH"){
-      foo <- .Call("PH_BP_loo_waic", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
-                   dist_=distcode, PACKAGE = "spBayesSurv");
-    }else if(x$survmodel=="AH"){
-      foo <- .Call("AH_BP_loo_waic", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
-                   dist_=distcode, PACKAGE = "spBayesSurv");
-    }else{
-      stop("This function only supports PH, PO or AFT");
-    }
-  }
-  ## WAIC
-  res$WAIC <- foo$WAIC_pwaic[1];
-  res$pW <- foo$WAIC_pwaic[2];
-  res$cpo <- foo$cpo_stab;
-  #res$cpo_old <- foo$cpo;
-  invisible(res)
-}
-
 #### print, summary, plot
 "print.survregbayes" <- function (x, digits = max(3, getOption("digits") - 3), ...) 
 {
   cat(x$modelname,"\nCall:\n", sep = "")
   print(x$call)
   
-  cat("\nPosterior means for regression coefficients:\n")
   if(x$p>0){
+    cat("\nPosterior means for regression coefficients:\n")
     print.default(format(x$coefficients[1:x$p], digits = digits), print.gap = 2, 
                   quote = FALSE)
+  }else{
+    cat("\nNull model\n")
   }
   
   #cat(paste("\nBayes Factor for ", x$dist, " baseline vs. Bernstein poly:", sep=""), x$BF)       
   
   cat("\nLPML:", sum(log(x$cpo)))
   cat("\nDIC:", x$DIC)
-  #cat("\nWAIC:", x$WAIC)
+  cat("\nWAIC:", x$WAIC)
   cat("\nn=",x$n, "\n", sep="")
   
   if(x$selection){
@@ -782,7 +729,7 @@
   invisible(x)
 }
 
-"cox.snell.survregbayes" <- function (x, ncurves=1) {
+"cox.snell.survregbayes" <- function (x, ncurves = 10, PLOT = TRUE) {
   Resids = list();
   if(is(x,"survregbayes")){
     Y = x$Surv;
@@ -828,21 +775,26 @@
     }else{
       betafitted = x$beta.scaled;
     }
+    if(x$p==0){
+      Xinput = cbind(rep(1, x$n)); betafitted = matrix(0, 1, x$mcmc$nsave); 
+    }else{
+      Xinput = x$X.scaled 
+    }
     if(x$survmodel=="AFT"){
       foo <- .Call("AFT_BP_cox_snell", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
+                   X_=Xinput, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
                    dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(x$survmodel=="PO"){
       foo <- .Call("PO_BP_cox_snell", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
+                   X_=Xinput, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
                    dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(x$survmodel=="PH"){
       foo <- .Call("PH_BP_cox_snell", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
+                   X_=Xinput, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
                    dist_=distcode, PACKAGE = "spBayesSurv");
     }else if(x$survmodel=="AH"){
       foo <- .Call("AH_BP_cox_snell", ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, 
-                   X_=x$X.scaled, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
+                   X_=Xinput, theta_=x$theta.scaled, beta_=betafitted, vn_=frailn, weight_=x$weight, 
                    dist_=distcode, PACKAGE = "spBayesSurv");
     }else{
       stop("This function only supports PH, PO or AFT");
@@ -880,61 +832,140 @@
       Resids$Delta = delta[lastindx];
     }
   }
+  if(PLOT){
+    r.max <- ceiling(quantile(x$Surv.cox.snell[,1], .99)) + 1
+    xlim <- c(0, r.max); ylim <- c(0, r.max)
+    xx <- seq(0, r.max, 0.01)
+    fit <- survival::survfit(Resids$resid1 ~ 1)
+    par(cex = 1.5, mar = c(2.1,2.1,1,1), cex.lab = 1.4, cex.axis = 1.1)
+    plot(fit, fun = "cumhaz", conf.int = FALSE, mark.time = FALSE, xlim = xlim,
+         ylim = ylim, lwd = 2, lty = 2)
+    lines(xx, xx, lty = 1, lwd = 3, col = "darkgrey")
+    for(i in 2:ncurves){
+      fit <- survival::survfit(Resids[[i+1]] ~ 1)
+      lines(fit, fun = "cumhaz", conf.int = F, mark.time = FALSE, xlim = xlim,
+            ylim = ylim, lwd = 2, lty = 2)
+      }
+  }
   Resids
+  invisible(Resids)
 }
 
-"plot.survregbayes" <- function (x, xpred=NULL, tgrid=NULL, frail=NULL, CI=0.95, PLOT=FALSE, ...) {
-  if(is(x,"survregbayes")){
-    if(is.null(tgrid)) tgrid = seq(0.01, max(x$Surv[,1], na.rm=T), length.out=200);
-    if(is.null(xpred)) {
-      stop("please specify xpred")
+"plot.survregbayes" <- function (x, xnewdata, tgrid = NULL, 
+                                 frail = NULL, CI = 0.95, PLOT = TRUE, ...) {
+  if(is.null(tgrid)) tgrid = seq(0.01, max(x$Surv[,1], na.rm=T), length.out=200);
+  if(x$p==0){
+    if(is.null(frail)){
+      xpred = cbind(1); betafitted = matrix(0, 1, x$mcmc$nsave); nxpred=1;
+      rnames = "baseline"
     }else{
-      if(is.vector(xpred)) xpred=matrix(xpred, nrow=1);
+      if(is.vector(frail)) frail=matrix(frail, nrow=1);
+      nxpred = nrow(frail);
+      xpred = matrix(1, nrow = nxpred); betafitted = matrix(0, 1, x$mcmc$nsave); 
+      rnames = row.names(as.data.frame(frail))
+    }
+  }else{
+    if(missing(xnewdata)) {
+      stop("please specify xnewdata")
+    }else{
+      rnames = row.names(xnewdata)
+      m = x$terms
+      Terms = attr(m, 'terms')
+      baseline0 <- attr(Terms, "specials")$baseline
+      frailtyprior0<- attr(Terms, "specials")$frailtyprior
+      dropx <- NULL
+      if (length(frailtyprior0)) {
+        temp <- survival::untangle.specials(Terms, 'frailtyprior', 1)
+        dropx <- c(dropx, temp$terms)
+        frail.terms <- m[[temp$vars]]
+      }else{
+        frail.terms <- NULL;
+      }
+      if (length(baseline0)) {
+        temp <- survival::untangle.specials(Terms, 'baseline', 1)
+        dropx <- c(dropx, temp$terms)
+        Xtf <- m[[temp$vars]]
+      }else{
+        Xtf <- NULL;
+      }
+      if (length(dropx)) {
+        newTerms <- Terms[-dropx]
+        # R (version 2.7.1) adds intercept=T anytime you drop something
+        if (is.R()) attr(newTerms, 'intercept') <- attr(Terms, 'intercept')
+      } else  newTerms <- Terms
+      newTerms <- delete.response(newTerms)
+      mnew <- model.frame(newTerms, xnewdata, na.action = na.omit, xlev = .getXlevels(newTerms, m))
+      Xnew <- model.matrix(newTerms, mnew);
+      if (is.R()) {
+        assign <- lapply(survival::attrassign(Xnew, newTerms)[-1], function(x) x-1)
+        xlevels <- .getXlevels(newTerms, mnew)
+        contr.save <- attr(Xnew, 'contrasts')
+      }else {
+        assign <- lapply(attr(Xnew, 'assign')[-1], function(x) x -1)
+        xvars <- as.character(attr(newTerms, 'variables'))
+        xvars <- xvars[-attr(newTerms, 'response')]
+        if (length(xvars) >0) {
+          xlevels <- lapply(mnew[xvars], levels)
+          xlevels <- xlevels[!unlist(lapply(xlevels, is.null))]
+          if(length(xlevels) == 0)
+            xlevels <- NULL
+        } else xlevels <- NULL
+        contr.save <- attr(Xnew, 'contrasts')
+      }
+      # drop the intercept after the fact, and also drop baseline if necessary
+      adrop <- 0  #levels of "assign" to be dropped; 0= intercept
+      Xatt <- attributes(Xnew) 
+      xdrop <- Xatt$assign %in% adrop  #columns to drop (always the intercept)
+      Xnew <- Xnew[, !xdrop, drop=FALSE]
+      attr(Xnew, "assign") <- Xatt$assign[!xdrop]
+      xpred = Xnew
       if(ncol(xpred)!=x$p) stop("please make sure the number of columns matches!");
     }
     X.center = attributes(x$X.scaled)$`scaled:center`;
     X.scale = attributes(x$X.scaled)$`scaled:scale`;
     xpred = cbind(xpred);
     nxpred = nrow(xpred);
-    if(is.null(frail)){
-      frail=matrix(0, nrow=nxpred, ncol=x$mcmc$nsave);
-    }else{
-      if(is.vector(frail)) frail=matrix(frail, nrow=1);
-      if((nrow(frail)!=nxpred)|(ncol(frail)!=x$mcmc$nsave)) stop("The dim of frail should be nrow(xpred) by nsave.")
-    }
     for(i in 1:nxpred) xpred[i,] = (xpred[i,]-X.center)/X.scale;
-    distcode = switch(x$dist, loglogistic=1, lognormal=2, 3);
     betafitted = x$beta.scaled;
     if(x$selection){
       betafitted = x$beta.scaled*x$gamma;
     }
-    if(x$survmodel=="AFT"){
-      estimates <- .Call("AFT_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, frail, x$weight, CI, 
-                         dist_=distcode, PACKAGE = "spBayesSurv");
-    }else if(x$survmodel=="PO"){
-      estimates <- .Call("PO_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, frail, x$weight, CI, 
-                         dist_=distcode, PACKAGE = "spBayesSurv");
-    }else if(x$survmodel=="PH"){
-      estimates <- .Call("PH_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, frail, x$weight, CI, 
-                         dist_=distcode, PACKAGE = "spBayesSurv");
-    }else if(x$survmodel=="AH"){
-      estimates <- .Call("AH_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, frail, x$weight, CI, 
-                         dist_=distcode, PACKAGE = "spBayesSurv");
-    }else{
-      stop("This function only supports PH, PO or AFT");
+  }
+  distcode = switch(x$dist, loglogistic=1, lognormal=2, 3);
+  if(is.null(frail)){
+    frail=matrix(0, nrow=nxpred, ncol=x$mcmc$nsave);
+  }else{
+    if(is.vector(frail)) frail=matrix(frail, nrow=1);
+    if((nrow(frail)!=nxpred)|(ncol(frail)!=x$mcmc$nsave)) stop("The dim of frail should be nrow(xpred) by nsave.")
+  }
+  if(x$survmodel=="AFT"){
+    estimates <- .Call("AFT_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, frail, x$weight, CI, 
+                       dist_=distcode, PACKAGE = "spBayesSurv");
+  }else if(x$survmodel=="PO"){
+    estimates <- .Call("PO_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, frail, x$weight, CI, 
+                       dist_=distcode, PACKAGE = "spBayesSurv");
+  }else if(x$survmodel=="PH"){
+    estimates <- .Call("PH_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, frail, x$weight, CI, 
+                       dist_=distcode, PACKAGE = "spBayesSurv");
+  }else if(x$survmodel=="AH"){
+    estimates <- .Call("AH_BP_plots", tgrid, xpred, x$theta.scaled, betafitted, frail, x$weight, CI, 
+                       dist_=distcode, PACKAGE = "spBayesSurv");
+  }else{
+    stop("This function only supports PH, PO, AFT or AH");
+  }
+  if(PLOT){
+    par(cex=1.5,mar=c(4.1,4.1,1,1),cex.lab=1.4,cex.axis=1.1)
+    plot(tgrid, estimates$Shat[,1], "l", lwd=3, xlab="time", ylab="survival", 
+         xlim=c(0, max(tgrid)), ylim=c(0,1));
+    for(i in 1:nxpred){
+      polygon(x=c(rev(tgrid),tgrid),
+              y=c(rev(estimates$Shatlow[,i]),estimates$Shatup[,i]),
+              border=NA,col="lightgray");
     }
-    if(PLOT){
-      par(cex=1.5,mar=c(4.1,4.1,1,1),cex.lab=1.4,cex.axis=1.1)
-      plot(tgrid, estimates$Shat[,1], "l", lwd=3, xlab="time", ylab="survival", main=paste(i));
-      for(i in 1:nxpred){
-        polygon(x=c(rev(tgrid),tgrid),
-                y=c(rev(estimates$Shatlow[,i]),estimates$Shatup[,i]),
-                border=NA,col="lightgray");
-      }
-      for(i in 1:nxpred){
-        lines(tgrid, estimates$Shat[,i], lty=3, lwd=3, col=1);
-      }
+    for(i in 1:nxpred){
+      lines(tgrid, estimates$Shat[,i], lty=i, lwd=3, col=i);
     }
+    legend("topright", rnames, col = 1:nxpred, lty=1:nxpred, ...)
   }
   estimates$tgrid=tgrid;
   invisible(estimates)
@@ -947,23 +978,27 @@
   ans$cpo <- object$cpo
   
   ### Median information
-  mat <- as.matrix(object$beta)
-  coef.p <- object$coefficients[(1:object$p)];
-  coef.m <- apply(mat, 1, median)    
-  coef.sd <- apply(mat, 1, sd)
-  limm <- apply(mat, 1, function(x) as.vector(quantile(x, probs=c((1-CI.level)/2, 1-(1-CI.level)/2))) )
-  coef.l <- limm[1,]
-  coef.u <- limm[2,]
-  
-  coef.table <- cbind(coef.p, coef.m, coef.sd, coef.l , coef.u)
-  dimnames(coef.table) <- list(names(coef.p), c("Mean", "Median", "Std. Dev.", 
+  if(object$p==0){
+    ans$coeff = NULL;
+  }else{
+    mat <- as.matrix(object$beta)
+    coef.p <- object$coefficients[(1:object$p)];
+    coef.m <- apply(mat, 1, median)    
+    coef.sd <- apply(mat, 1, sd)
+    limm <- apply(mat, 1, function(x) as.vector(quantile(x, probs=c((1-CI.level)/2, 1-(1-CI.level)/2))) )
+    coef.l <- limm[1,]
+    coef.u <- limm[2,]
+    
+    coef.table <- cbind(coef.p, coef.m, coef.sd, coef.l , coef.u)
+    dimnames(coef.table) <- list(names(coef.p), c("Mean", "Median", "Std. Dev.", 
                                                   paste(CI.level*100, "%CI-Low", sep=""),
                                                   paste(CI.level*100, "%CI-Upp", sep="")))
-  ans$coeff <- coef.table
+    ans$coeff <- coef.table
+  }
   
   ### Baseline Information
   mat <- as.matrix(object$theta.scaled)
-  coef.p <- object$coefficients[-(1:object$p)];
+  coef.p <- object$coefficients[object$p+(1:2)];
   coef.m <- apply(mat, 1, median)    
   coef.sd <- apply(mat, 1, sd)
   limm <- apply(mat, 1, function(x) as.vector(quantile(x, probs=c((1-CI.level)/2, 1-(1-CI.level)/2))) )
@@ -1035,7 +1070,7 @@
   ans$p <- object$p
   ans$LPML <- sum(log(object$cpo))
   ans$DIC <- object$DIC
-  #ans$WAIC <- object$WAIC
+  ans$WAIC <- object$WAIC
   
   ### acceptance rates
   ans$ratetheta = object$ratetheta;
@@ -1064,22 +1099,24 @@
     cat("(Adaptive M-H acceptance rate: ", x$ratebeta, "):\n", sep="")
     print.default(format(x$coeff, digits = digits), print.gap = 2, 
                   quote = FALSE)
+  }else{
+    cat("\nNull model\n")
   }
   
   if(x$alpha[1]==Inf){
     cat("\nPosterior inference of baseline parameters\n")
     message("Note: the baseline estimates are based on scaled covariates")
     cat("(Adaptive M-H acceptance rate: ", x$ratetheta, "):\n", sep="")
-    print.default(format(x$basepar, digits = digits), print.gap = 2, 
-                  quote = FALSE)
+    print.default(format(x$basepar, digits = digits), print.gap = 2, quote = FALSE)
   }
   #cat("(Adaptive M-H acceptance rate for conditional probabilities: ", x$rateYs, ")\n", sep="")
   
   if (!is.null(x$prec)) {
-    cat("\nPosterior inference of precision parameter\n")
-    cat("(Adaptive M-H acceptance rate: ", x$ratec, "):\n", sep="")
-    print.default(format(x$prec, digits = digits), print.gap = 2, 
-                  quote = FALSE)
+    #cat("\nPosterior inference of precision parameter\n")
+    #cat("(Adaptive M-H acceptance rate: ", x$ratec, "):\n", sep="")
+    #print.default(format(x$prec, digits = digits), print.gap = 2, quote = FALSE)
+  }else{
+    message(cat("(The precision parameter is fixed at: ", x$alpha[1], "):\n", sep=""))
   }
   
   if (!is.null(x$frailvar)) {
@@ -1132,7 +1169,7 @@
   
   cat("\nLog pseudo marginal likelihood: LPML=", x$LPML, sep="")
   cat("\nDeviance Information Criterion: DIC=", x$DIC, sep="")
-  #cat("\nWatanabe-Akaike information criterion: WAIC=", x$WAIC, sep="")
+  cat("\nWatanabe-Akaike information criterion: WAIC=", x$WAIC, sep="")
   cat("\nNumber of subjects: n=", x$n, "\n", sep="")
 
   invisible(x)

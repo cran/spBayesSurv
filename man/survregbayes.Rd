@@ -1,16 +1,12 @@
 \name{survregbayes}
 \alias{survregbayes}
-\alias{BF.survregbayes}
-\alias{waic.survregbayes}
 \alias{print.survregbayes}
-\alias{cox.snell.survregbayes}
-\alias{plot.survregbayes}
 \alias{summary.survregbayes}
 \alias{print.summary.survregbayes}
 
 \title{Bayesian Semiparametric Survival Models}
 \description{
-This function fits semiparametric proportional hazards, proportional odds, and accelerated failture time models. Both georeferenced (location observed exactly) and areally observed (location known up to a geographic unit such as a county) spatial locations can be handled. Georeferenced data are modeled with Gaussian random field (GRF) whereas areal data are modeled with a conditional autoregressive (CAR) prior, i.e . Variable selection is also incorporated. The function can fit both Case I and Case II interval censored data, as well as standard right-censored, uncensored, and mixtures of these. The Bernstein Polynomial (BP) prior is used for fitting the baseline survival function. The full scale approximation (FSA) (Sang and Huang, 2012) could be used to inverse the spatial correlation matrix for georeferenced data.
+This function fits semiparametric proportional hazards (PH), proportional odds (PO), accelerated failture time (AFT) and accelerated hazards (AH) models. Both georeferenced (location observed exactly) and areally observed (location known up to a geographic unit such as a county) spatial locations can be handled. Georeferenced data are modeled with Gaussian random field (GRF) frailties whereas areal data are modeled with a conditional autoregressive (CAR) prior on frailties. For non-spatial clustered data, an IID Gaussian frailties are assumed. Variable selection is also incorporated. The function can fit both Case I and Case II interval censored data, as well as standard right-censored, uncensored, and mixtures of these. The transformed Bernstein Polynomial (TBP) prior is used for fitting the baseline survival function. The full scale approximation (FSA) (Sang and Huang, 2012) could be used to inverse the spatial correlation matrix for georeferenced data. The function also fits all these models without frailties. The logarithm of the pseudo marginal likelihood (LPML), the deviance information criterion (DIC), and the Watanabe-Akaike information criterion (WAIC) are provided for model comparison.
 }
    
 \usage{
@@ -31,11 +27,11 @@ survregbayes(formula, data, na.action, survmodel="PH", dist="loglogistic",
    
    \item{survmodel}{a character string for the assumed survival model. The options include \code{"PH"} for proportional hazards, \code{"PO"} for proportional odds, and \code{"AFT"} for accelerated failture time.}
    
-   \item{dist}{centering distribution for BP. Choices include \code{"loglogistic"}, \code{"lognormal"}, and \code{"weibull"}.}
+   \item{dist}{centering distribution for TBP. Choices include \code{"loglogistic"}, \code{"lognormal"}, and \code{"weibull"}.}
    
    \item{mcmc}{a list giving the MCMC parameters. The list must include the following elements: \code{nburn} an integer giving the number of burn-in scans, \code{nskip} an integer giving the thinning interval, \code{nsave} an integer giving the total number of scans to be saved, \code{ndisplay} an integer giving the number of saved scans to be displayed on screen (the function reports on the screen when every \code{ndisplay} iterations have been carried out).}
    
-   \item{prior}{a list giving the prior information. The list includes the following parameter: \code{maxL} an integer giving the maximum number of mixtures of beta distributions. The function itself provides all default priors. Note if FSA is used, the number of knots \code{knots} and the number of blocks \code{nblock} are specified here; see examples below.}
+   \item{prior}{a list giving the prior information. The function itself provides all default priors. Note if FSA is used, the number of knots \code{knots} and the number of blocks \code{nblock} are specified here; see examples below. See Zhou, Hanson and Zhang (2018) for more detailed hyperprior specifications.}
    
    \item{state}{a list giving the current value of the parameters. This list is used if the current analysis is the continuation of a previous analysis.} 
    
@@ -45,7 +41,7 @@ survregbayes(formula, data, na.action, survmodel="PH", dist="loglogistic",
 
    \item{truncation_time}{a vector of left-trucation times with length n.}
    
-   \item{subject.num}{a vector of suject id numbers when time dependent covariates are considered. For example, for subject 1 time dependent covariates are recorded over [0,1), [1,3), and for subject 2 covariates are recorded over [0,2), [2,3), [3,4). Suppose we only have two subjects, i.e. n=2. In this case, we save the data in the long format, set truncation_time=c(0,1,0,2,3) and subject.num=c(1,1,2,2,2).}
+   \item{subject.num}{a vector of subject id numbers when time dependent covariates are considered. For example, for subject 1 time dependent covariates are recorded over [0,1), [1,3), and for subject 2 covariates are recorded over [0,2), [2,3), [3,4). Suppose we only have two subjects, i.e. n=2. In this case, we save the data in the long format, set truncation_time=c(0,1,0,2,3) and subject.num=c(1,1,2,2,2).}
    
    \item{Knots}{an nknots by d matrix, where nknots is the number of selected knots for FSA, and d is the dimension of each location. If \code{Knots} is not specified, the space-filling algorithm will be used to find the knots.}
    
@@ -60,16 +56,162 @@ survregbayes(formula, data, na.action, survmodel="PH", dist="loglogistic",
 
 
 \value{
-  The results include the MCMC chains for the parameters; use \code{names} to find out what they are.
+This class of objects is returned by the \code{survregbayes} function to represent a fitted Bayesian semiparametric survival model. Objects of this class have methods for the functions \code{print}, \code{summary} and \code{plot}.
+
+The \code{survregbayes} object is a list containing at least the following components:
+\item{modelname}{
+the name of the fitted model
+}
+\item{terms}{
+the \code{\link{terms}} object used
+}
+\item{dist}{
+the centering distribution used in the TBP prior on baseline survival function
+}
+\item{survmodel}{
+the model fitted 
+}
+\item{coefficients}{
+a named vector of coefficients. The last two elements are the estimates of theta1 and theta2 involved in the centering baseline survival function. 
+}
+\item{call}{
+the matched call
+}
+\item{prior}{
+the list of hyperparameters used in all priors. 
+}
+\item{mcmc}{
+the list of MCMC parameters used 
+}
+\item{n}{
+the number of row observations used in fitting the model
+}
+\item{p}{
+the number of columns in the model matrix
+}
+\item{nsubject}{
+the number of subjects/individuals, which is equal to n in the absence of time-dependent covariates
+}
+\item{subject.num}{
+the vector of subject id numbers when time dependent covariates are considered
+}
+\item{truncation_time}{
+the vector of left-trucation times
+}
+\item{Surv}{
+the \code{\link{Surv}} object used 
+}
+\item{X.scaled}{
+the n by p scaled design matrix
+}
+\item{X}{
+the n by p orginal design matrix
+}
+\item{beta}{
+the p by nsave matrix of posterior samples for the coefficients in the \code{linear.predictors}
+}
+\item{theta.scaled}{
+the 2 by nsave matrix of posterior samples for theta1 and theta2 involved in the centering baseline survival function. Note that these posterior samples are based scaled design matrix.
+}
+\item{beta.scaled}{
+the p by nsave matrix of posterior samples for the coefficients in the \code{linear.predictors}. Note that these posterior samples are based scaled design matrix.
+}
+\item{alpha}{
+the vector of posterior samples for the precision parameter alpha in the TBP prior. 
+}
+\item{maxL}{
+the truncation level used in the TBP prior. 
+}
+\item{weight}{
+the maxL by nsave matrix of posterior samples for the weights in the TBP prior. 
+}
+\item{cpo}{
+the length n vector of the stabilized estiamte of CPO; used for calculating LPML
+}
+\item{pD}{
+the effective number of parameters involved in DIC
+}
+\item{DIC}{
+the deviance information criterion (DIC)
+}
+\item{pW}{
+the effective number of parameters involved in WAIC
+}
+\item{WAIC}{
+the Watanabe-Akaike information criterion (WAIC)
+}
+\item{Surv.cox.snell}{
+the \code{\link{Surv}} object used for Cox-Snell residual plot. This is not recommended for frailty models, for which please use the function \code{\link{cox.snell.survregbayes}}. 
+}
+\item{ratetheta}{
+the acceptance rate in the posterior sampling of theta vector involved in the centering baseline survival function
+}
+\item{ratebeta}{
+the acceptance rate in the posterior sampling of beta coefficient vector
+}
+\item{rateYs}{
+the acceptance rate in the posterior sampling of weight vector involved in the TBP prior
+}
+\item{ratec}{
+the acceptance rate in the posterior sampling of precision parameter alpha involved in the TBP prior
+}
+\item{frail.prior}{
+the frailty prior used in \code{\link{frailtyprior}} 
+}
+\item{selection}{
+whether the variable selection was performed 
+}
+\item{initial.values}{
+the list of initial values used for the parameters 
+}
+\item{BF.baseline}{
+the Bayes factor for comparing the parametric baseline vs. the TBP baseline 
+}
+\item{BF.bs}{
+Bayes factors for testing linearity when \code{\link{bspline}} is added to the \code{linear.predictors}
+}
+
+The object will also have the following components when frailty models are fit:
+\item{v}{
+the nID by nsave matrix of posterior samples for frailties, where nID is the number of clusters considered.
+}
+\item{ratev}{
+the vector of acceptance rates in the posterior sampling of frailties 
+}
+\item{tau2}{
+the vector of posterior samples for tau2 involved in the IID, GRF or CAR frailty prior. 
+}
+\item{ID}{
+the cluster ID used in \code{\link{frailtyprior}} 
+}
+If GRF frailties are used, the object will also have:
+\item{Coordinates}{
+the \code{Coordinates} matrix used in \code{\link{survregbayes}} 
+}
+\item{ratephi}{
+the acceptance rates in the posterior sampling of phi involved in the GRF prior 
+}
+\item{phi}{
+the vector of posterior samples for phi involved in the GRF prior 
+}
+\item{Knots}{
+the \code{Knots} matrix used in \code{\link{survregbayes}} 
+}
+If the variable selection is performed, the object will also include:
+\item{gamma}{
+the p by nsave matrix of posterior samples for gamma involved in the variable selection
+}
 
 }
 
 \seealso{
-\code{\link{frailtyprior}}, \code{\link{rdist}}, \code{\link{rdist.earth}}
+\code{\link{frailtyprior}}, \code{\link{cox.snell.survregbayes}}, \code{\link{rdist}}, \code{\link{rdist.earth}}
 }
 
 \references{
-Zhou, H. and Hanson, T. (2017). A unified framework for fitting Bayesian semiparametric models to arbitrarily censored spatial survival data. \emph{arXiv preprint arXiv:1701.06976}.
+Zhou, H., Hanson, T., and Zhang, J. (2018). spBayesSurv: Fitting Bayesian Spatial Survival Models Using R. \emph{Journal of Statistical Software}, accept minor.
+
+Zhou, H. and Hanson, T. (2018). A unified framework for fitting Bayesian semiparametric models to arbitrarily censored survival data, including spatially-referenced data. \emph{Journal of the American Statistical Association}, accepted.
 
 Sang, H. and Huang, J. Z. (2012). A full scale approximation of covariance functions for large spatial data sets. \emph{Journal of the Royal Statistical Society: Series B (Statistical Methodology)}, 74(1), 111-132.
 }
@@ -184,36 +326,16 @@ traceplot(mcmc(res1$phi), main="phi");
 ############################################
 ## Curves
 ############################################
+par(mfrow=c(1,1));
 wide=0.2;
 tgrid = seq(1e-10,4,wide);
 ngrid = length(tgrid);
 p = length(betaT); # number of covariates
-xpred = rbind(c(0,0), c(0,1)); 
-estimates=plot(res1, xpred=xpred, tgrid=tgrid);
-Shat = estimates$Shat;
-
-## plot
-plot(tgrid, Sioft(tgrid, xpred[2,]), "l", lwd=3);
-lines(tgrid, Sioft(tgrid, xpred[1,]), "l", lwd=3);
-lines(estimates$tgrid, estimates$Shat[,1], lty=2, lwd=3)
-lines(estimates$tgrid, estimates$Shat[,2], lty=2, lwd=3)
+newdata = data.frame(x1=c(0,0), x2=c(0,1))
+plot(res1, xnewdata=newdata, tgrid=tgrid, PLOT=TRUE);
 
 ## Cox-Snell plot
-nrand = 2;
 set.seed(1)
-Resid = cox.snell.survregbayes(res1, ncurves=nrand);
-r.max = 5;
-xlim=c(0, r.max); ylim=c(0, r.max);
-xx = seq(0, r.max, 0.01);
-fit = survfit(Resid$resid1~1);
-par(cex=1.5,mar=c(2.1,2.1,1,1),cex.lab=1.4,cex.axis=1.1)
-plot(fit, fun="cumhaz", conf.int=FALSE, mark.time=FALSE, 
-     xlim=xlim, ylim=ylim, lwd=2, lty=2)
-lines(xx, xx, lty=1, lwd=3, col="darkgrey")
-for(i in 2:nrand){
-  fit = survfit(Resid[[i+1]]~1);
-  lines(fit, fun="cumhaz", conf.int=FALSE, mark.time=FALSE, 
-        xlim=xlim, ylim=ylim, lwd=2, lty=2)
-}
+cox.snell.survregbayes(res1, ncurves=2, PLOT=TRUE);
 }
 

@@ -1,13 +1,12 @@
 \name{SuperSurvRegBayes}
 \alias{SuperSurvRegBayes}
 \alias{print.SuperSurvRegBayes}
-\alias{plot.SuperSurvRegBayes}
 \alias{summary.SuperSurvRegBayes}
 \alias{print.summary.SuperSurvRegBayes}
 
 \title{Bayesian Semiparametric Super Survival Model}
 \description{
-This function fits a super survival model. It can fit both Case I and Case II interval censored data, as well as standard right-censored, uncensored, and mixtures of these. The Bernstein Polynomial Prior is used for fitting the baseline survival function. 
+This function fits a super survival model (Zhang, Hanson and Zhou, 2018). It can fit both Case I and Case II interval censored data, as well as standard right-censored, uncensored, and mixtures of these. The Bernstein Polynomial Prior is used for fitting the baseline survival function. 
 }
    
 \usage{
@@ -42,8 +41,88 @@ SuperSurvRegBayes(formula, data, na.action, dist="lognormal",
 }
 
 \value{
-  The results include the MCMC chains for the parameters; use \code{names} to find out what they are.
-
+The \code{SuperSurvRegBayes} object is a list containing at least the following components:
+\item{modelname}{
+the name of the fitted model
+}
+\item{terms}{
+the \code{\link{terms}} object used
+}
+\item{dist}{
+the centering distribution used in the TBP prior on baseline survival function
+}
+\item{coefficients}{
+a named vector of coefficients. The last two elements are the estimates of theta1 and theta2 involved in the centering baseline survival function. 
+}
+\item{call}{
+the matched call
+}
+\item{prior}{
+the list of hyperparameters used in all priors. 
+}
+\item{mcmc}{
+the list of MCMC parameters used 
+}
+\item{n}{
+the number of row observations used in fitting the model
+}
+\item{p}{
+the number of columns in the model matrix
+}
+\item{nsubject}{
+the number of subjects/individuals, which is equal to n in the absence of time-dependent covariates
+}
+\item{subject.num}{
+the vector of subject id numbers when time dependent covariates are considered
+}
+\item{truncation_time}{
+the vector of left-trucation times
+}
+\item{Surv}{
+the \code{\link{Surv}} object used 
+}
+\item{X.scaled}{
+the n by p scaled design matrix
+}
+\item{X}{
+the n by p orginal design matrix
+}
+\item{theta.scaled}{
+the 2 by nsave matrix of posterior samples for theta1 and theta2 involved in the centering baseline survival function. Note that these posterior samples are based scaled design matrix.
+}
+\item{alpha}{
+the vector of posterior samples for the precision parameter alpha in the TBP prior. 
+}
+\item{maxL}{
+the truncation level used in the TBP prior. 
+}
+\item{weight}{
+the maxL by nsave matrix of posterior samples for the weights in the TBP prior. 
+}
+\item{cpo}{
+the length n vector of the stabilized estiamte of CPO; used for calculating LPML
+}
+\item{pD}{
+the effective number of parameters involved in DIC
+}
+\item{DIC}{
+the deviance information criterion (DIC)
+}
+\item{ratetheta}{
+the acceptance rate in the posterior sampling of theta vector involved in the centering baseline survival function
+}
+\item{ratebeta}{
+the acceptance rate in the posterior sampling of beta coefficient vector
+}
+\item{rateYs}{
+the acceptance rate in the posterior sampling of weight vector involved in the TBP prior
+}
+\item{ratec}{
+the acceptance rate in the posterior sampling of precision parameter alpha involved in the TBP prior
+}
+\item{BF}{
+the Bayes factors for testing AFT, PH, PO, AH, EH and YP models. 
+}
 }
 
 \seealso{
@@ -51,12 +130,12 @@ SuperSurvRegBayes(formula, data, na.action, dist="lognormal",
 }
 
 \references{
-In preparation.
+Zhang, J., Hanson, T., and Zhou, H. (2018). Bayes factors for choosing among six common survival models. \emph{Lifetime Data Analysis}, accepted. \url{https://doi.org/10.1007/s10985-018-9429-4}
 }
 
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou \email{<zhouh@niu.edu>} 
 }
 
 \examples{
@@ -140,16 +219,9 @@ traceplot(mcmc(res1$beta_q[2,]), main="beta_q for x2");
 ####################################################################
 ## Get curves
 ####################################################################
-wide=0.2;
-tgrid = seq(1e-10,4,wide);
-ngrid = length(tgrid);
-xpred = rbind(c(0,0), c(0,1)); 
-estimates=plot(res1, xpred=xpred, tgrid=tgrid);
-## plots
 par(mfrow = c(1,1))
-plot(tgrid, Sioft(tgrid, xpred[2,]), "l", lwd=3);
-lines(tgrid, Sioft(tgrid, xpred[1,]), "l", lwd=3);
-lines(estimates$tgrid, estimates$Shat[,1], lty=2, lwd=3)
-lines(estimates$tgrid, estimates$Shat[,2], lty=2, lwd=3)
+tgrid = seq(1e-10,4,0.2);
+xpred = data.frame(x1=c(0,0), x2=c(0,1)); 
+plot(res1, xnewdata=xpred, tgrid=tgrid);
 }
 

@@ -26,14 +26,27 @@
 baseline = function (...) 
 {
   words <- as.character((match.call())[-1]);
-  allf <- cbind(...);
-  nterms <- ncol(allf);
-  if (is.null(names(allf))){
-    argname <- words[1:nterms]
-  }else{
-    argname <- ifelse(names(allf)=="", words[1:nterms], names(allf));
+  allf <- data.frame(...);
+  mtf <- model.frame(as.formula(paste("~", paste(words, collapse = "+"))), data = allf)
+  Terms <- attr(mtf, 'terms')
+  Xtf = model.matrix(Terms, mtf);
+  adrop <- 0  #levels of "assign" to be dropped; 0= intercept
+  Xatt <- attributes(Xtf) 
+  xdrop <- Xatt$assign %in% adrop  #columns to drop (always the intercept)
+  Xtf <- Xtf[, !xdrop, drop=FALSE]
+  attr(Xtf, "assign") <- Xatt$assign[!xdrop]
+  attr(Xtf, "terms") <- Terms
+  levelslist = list()
+  k = 0
+  for(i in 1:ncol(allf)){
+    if(is.factor(allf[,i])){
+      k = k+1
+      levelslist[[k]] = levels(factor(allf[,i]));
+      names(levelslist)[k] = words[i];
+    }
   }
-  allf
+  attr(Xtf, "levels") = levelslist
+  Xtf
 }
 
 frailtyprior = function (prior="car", ...) {
@@ -42,39 +55,3 @@ frailtyprior = function (prior="car", ...) {
   x
 }
 
-"b_spline" <- function(x, df=NULL, knots=NULL, Boundary.knots = range(x)){
-  if(is.null(df)){
-    if(is.null(knots)){
-      df = 3;
-    }else{
-      df = length(knots)+2;
-    }
-  }
-  if(df<2) stop("df has to be greater than 1 for cubic splines")
-  df0 = df+2; 
-  nknots0 = df0-3+1;
-  #if(is.null(knots)){
-  #  knots0 = seq(min(x), max(x), length.out=nknots0)[-c(1,nknots0)]
-  #}else{
-  #  knots0 = knots
-  # if(length(knots0)!=(df-2)) stop("the number of internal knots has to be equal to df-2.")
-  #}
-  x.bs = splines::bs(x, df=df0, knots=knots, intercept=TRUE, Boundary.knots=Boundary.knots);
-  x.attr = attributes(x.bs);
-  x.attr$dim[2] = x.attr$dim[2]-2
-  x.attr$dimnames[[2]] = (x.attr$dimnames[[2]])[-c(df0-1,df0)];
-  x.bs2 = x.bs[,-c(1,df0)];
-  attributes(x.bs2)=x.attr;
-  class(x.bs2) <- c("b_spline")
-  x.bs2
-}
-
-"predict.b_spline" <- function(object, newx, ...){
-  if(is(object,"b_spline")){
-    res=b_spline(newx, knots=attr(object,"knots"), 
-             Boundary.knots=attr(object,"Boundary.knots"));
-  }else{
-    return(NULL)
-  }
-  res
-}

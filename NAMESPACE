@@ -1,11 +1,14 @@
 useDynLib(spBayesSurv, .registration=TRUE)
 importFrom(Rcpp, evalCpp)
-importFrom("graphics", "lines", "par", "plot", "polygon")
+importFrom("graphics", "lines", "par", "plot", "polygon", "legend")
 importFrom("methods", "is")
+importFrom("splines", "splineDesign")
 importFrom("stats", ".getXlevels", "median", "model.extract",
            "model.matrix", "na.fail", "quantile", "rbeta", "sd",
-           "terms", "cov", "qnorm", "var", "AIC", "uniroot")
-S3method(predict, b_spline)
+           "terms", "cov", "qnorm", "var", "AIC", "uniroot", "makepredictcall",
+           "qgamma", "as.formula", "delete.response", "model.frame", "na.omit")
+S3method(predict, bspline)
+S3method(makepredictcall, bspline)
 S3method(print, survregbayes)
 S3method(print, summary.survregbayes)
 S3method(plot, survregbayes)

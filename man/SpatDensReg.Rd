@@ -1,13 +1,13 @@
 \name{SpatDensReg}
 \alias{SpatDensReg}
+\alias{BF.SpatDensReg}
 \alias{print.SpatDensReg}
-\alias{plot.SpatDensReg}
 \alias{summary.SpatDensReg}
 \alias{print.summary.SpatDensReg}
 
 \title{Bayesian Nonparametric Spatially Smoothed Density Estimation}
 \description{
-This function provides a Bayesian nonparametric density estimator that changes smoothly in space. The estimator is built from the predictive rule for a marginalized Polya tree, modified so that observations are spatially weighted by their distance from the location of interest.
+This function provides a Bayesian nonparametric density estimator that changes smoothly in space. The estimator is built from the predictive rule for a marginalized Polya tree (PT), modified so that observations are spatially weighted by their distance from the location of interest.
 }
    
 \usage{
@@ -23,7 +23,7 @@ SpatDensReg(formula, data, na.action, prior=NULL, state=NULL,
    
    \item{na.action}{a missing-data filter function, applied to the \code{model.frame}.}
    
-   \item{prior}{a list giving the prior information. The list includes the following parameter: \code{maxL} an integer giving the maximum level of Polya trees, (\code{a0}, \code{b0}) parameters of the gamma prior for the precision parameter alpha, (\code{theta0}, \code{V0}) mean and variance of the normal prior for the centering distribution parameter vector theta, \code{phiq0} the prior probability of phi=0, \code{phib0} the rate parameter of the exponential prior of phi. The function itself provides all default priors.}
+   \item{prior}{a list giving the prior information. The list includes the following parameter: \code{maxL} an integer giving the maximum level of Polya trees, (\code{a0}, \code{b0}) parameters of the gamma prior for the precision parameter alpha, (\code{theta0}, \code{V0}) mean and variance of the normal prior for the centering distribution parameter vector theta, \code{phiq0} the prior probability of phi=0, \code{phib0} the rate parameter of the exponential prior of phi. The function itself provides all default priors. See Hanson, Zhou, and de Carvalho (2018).}
    
    \item{state}{a list giving the current value of the parameters. If \code{NULL}, all values are provided based on the centering parametric model.} 
    
@@ -35,12 +35,70 @@ SpatDensReg(formula, data, na.action, prior=NULL, state=NULL,
 }
 
 \value{
-  The results include the MCMC chains for the parameters; use \code{names} to find out what they are.
+The \code{SpatDensReg} object is a list containing at least the following components:
+\item{modelname}{
+the name of the fitted model
+}
+\item{terms}{
+the \code{\link{terms}} object used
+}
+\item{call}{
+the matched call
+}
+\item{prior}{
+the list of hyperparameters used in all priors. 
+}
+\item{mcmc}{
+the list of MCMC parameters used 
+}
+\item{n}{
+the number of row observations used in fitting the model
+}
+\item{p}{
+the number of columns in the model matrix
+}
+\item{Surv}{
+the \code{\link{Surv}} object used 
+}
+\item{X}{
+the n by p design matrix
+}
+\item{theta}{
+the 2 by nsave matrix of posterior samples for location and log(scale) involved in the centering distribution of Polya tree prior. 
+}
+\item{phi}{
+the vector of posterior samples for the phi parameter in the marginal PT definition. 
+}
+\item{alpha}{
+the vector of posterior samples for the precision parameter alpha in the PT prior. 
+}
+\item{maxL}{
+the truncation level used in the PT prior. 
+}
+
+\item{Surv.cox.snell}{
+the \code{\link{Surv}} object used for Cox-Snell residual plot. This is not recommended for frailty models, for which please use the function \code{\link{cox.snell.survregbayes}}. 
+}
+\item{ratetheta}{
+the acceptance rate in the posterior sampling of theta vector involved in the centering distribution
+}
+\item{ratec}{
+the acceptance rate in the posterior sampling of precision parameter alpha involved in the PT prior
+}
+\item{ratephi}{
+the acceptance rate in the posterior sampling of phi parameter 
+}
+\item{initial.values}{
+the list of initial values used for the parameters 
+}
+\item{BF}{
+the Bayes factor for comparing the spatial model vs. the exchangeable model
+}
 }
 
 
 \references{
-Hanson, T., Zhou, H., and de Carvalho, V. I. (2018). Bayesian Nonparametric Spatially Smoothed Density Estimation. Book chapter, under review.
+Hanson, T., Zhou, H., and de Carvalho, V. I. (2018). Bayesian Nonparametric Spatially Smoothed Density Estimation. Book chapter in \emph{ICSA Book Series in Statistics}, accepted.
 }
 
 
@@ -115,16 +173,7 @@ traceplot(mcmc(res1$phi))
 
 ## plots
 ygrid = seq(-6, 6,length.out=100);
-ngrid = length(ygrid);
-xpred = cbind(c(0,1,2,3)); 
-ptm<-proc.time()
-estimates=plot(res1, xpred=xpred, ygrid=ygrid);
-proc.time()-ptm;
-plot(ygrid, fiofy_x(ygrid, xpred[1,]), "l", lwd=3, col=1);
-lines(estimates$ygrid, estimates$fhat[,1], lty=2, lwd=3, col=1)
-for(i in 2:nrow(xpred)){
-  lines(ygrid, fiofy_x(ygrid, xpred[i,]), "l", lwd=3, col=i);
-  lines(estimates$ygrid, estimates$fhat[,i], lty=2, lwd=3, col=i)
-}
+xpred = data.frame(x=c(0,1,2,3)); 
+plot(res1, xnewdata=xpred, ygrid=ygrid);
 }
 
