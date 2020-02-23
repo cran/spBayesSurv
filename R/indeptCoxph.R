@@ -213,7 +213,7 @@
   foo <- .Call("indeptCoxph", nburn_ = nburn, nsave_ = nsave, nskip_ = nskip, ndisplay_ = ndisplay,
                tobs_ = t1, delta_ = delta, X_=X.scaled, d_ = d, h_ = h, r0_ = r0, hcen_=hcen,
                h0_ = h0, v0_ = v0, vhat_ = vhat, beta_ = beta, beta0_ = beta0, S0inv_ = S0inv,
-               Shat_=Shat, l0_ = round(min(5000,nsave/2)), adapter_ = (2.38)^2, 
+               Shat_=Shat, l0_ = round(min(1000,nburn/2)), adapter_ = (2.38)^2, 
                xpred_ = as.matrix(xpred), PACKAGE = "spBayesSurv");
   #### transfer the estimates back to original scales;
   beta.scaled = matrix(foo$beta, p, nsave);
@@ -241,10 +241,10 @@
                  h.scaled = foo$h,
                  d.scaled = foo$d,
                  cutpoints = foo$d[,1],
-                 #hcen.scaled = foo$hcen,
+                 hcen.scaled = foo$hcen,
                  M=M,
                  ratebeta = foo$ratebeta,
-                 #ratehcen = foo$ratehcen,
+                 ratehcen = foo$ratehcen,
                  cpo = foo$cpo,
                  Tpred = foo$Tpred);
   class(output) <- c("indeptCoxph")

@@ -221,7 +221,7 @@
       fit0<- .Call("AFT_MPT", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time,
                    subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta0, beta_=beta0, cpar_=Inf, 
                    Ys_=rep(0.5, 2^4-1), maxL_=4, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), 
-                   Vhat_=Vhat0, beta0_=beta_prior, S0inv_=solve(scaleS*Shat0),  Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   Vhat_=Vhat0, beta0_=beta_prior, S0inv_=solve(scaleS*Shat0),  Shat_=Shat0, l0_=1000, adapter_=2.38^2, 
                    gamma_=rep(1, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode, v_=v, 
                    blocki_=blocki, W_=W, lambda_=1, a0lambda_=1, b0lambda_=1, 
                    dist_=distcode, PACKAGE = "spBayesSurv");
@@ -229,7 +229,7 @@
       fit0<- .Call("PH_MPT", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time,
                    subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta0, beta_=beta0, cpar_=Inf, 
                    Ys_=rep(0.5, 2^4-1), maxL_=4, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), 
-                   Vhat_=Vhat0, beta0_=beta_prior, S0inv_=solve(scaleS*Shat0),  Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   Vhat_=Vhat0, beta0_=beta_prior, S0inv_=solve(scaleS*Shat0),  Shat_=Shat0, l0_=1000, adapter_=2.38^2, 
                    gamma_=rep(1, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode, v_=v, 
                    blocki_=blocki, W_=W, lambda_=1, a0lambda_=1, b0lambda_=1, 
                    dist_=distcode, PACKAGE = "spBayesSurv");
@@ -237,7 +237,7 @@
       fit0<- .Call("PO_MPT", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time,
                    subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta0, beta_=beta0, cpar_=Inf, 
                    Ys_=rep(0.5, 2^4-1), maxL_=4, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), 
-                   Vhat_=Vhat0, beta0_=beta_prior, S0inv_=solve(scaleS*Shat0),  Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   Vhat_=Vhat0, beta0_=beta_prior, S0inv_=solve(scaleS*Shat0),  Shat_=Shat0, l0_=1000, adapter_=2.38^2, 
                    gamma_=rep(1, p), p0gamma_=rep(0.5, p), selection_=0, frailty_=frailtyCode, v_=v, 
                    blocki_=blocki, W_=W, lambda_=1, a0lambda_=1, b0lambda_=1, 
                    dist_=distcode, PACKAGE = "spBayesSurv");
@@ -382,7 +382,7 @@
     foo <- .Call("AFT_MPT", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time, subjecti_=subjecti, 
                  t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=alpha, Ys_=Ys, maxL_=maxL,
                  a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, 
-                 Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
+                 Shat_=Shat, l0_=round(min(1000,nburn/2)), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, lambda_=lambda, a0lambda_=taua0, b0lambda_=taub0, 
                  dist_=distcode, PACKAGE = "spBayesSurv");
   }else if(survmodel=="PO"){
@@ -390,7 +390,7 @@
     foo <- .Call("PO_MPT", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time, subjecti_=subjecti, 
                  t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=alpha, Ys_=Ys, maxL_=maxL,
                  a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, 
-                 Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
+                 Shat_=Shat, l0_=round(min(1000,nburn/2)), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, lambda_=lambda, a0lambda_=taua0, b0lambda_=taub0, 
                  dist_=distcode, PACKAGE = "spBayesSurv");
   }else if(survmodel=="PH"){
@@ -398,7 +398,7 @@
     foo <- .Call("PH_MPT", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time, subjecti_=subjecti, 
                  t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, beta_=beta, cpar_=alpha, Ys_=Ys, maxL_=maxL,
                  a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, 
-                 Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
+                 Shat_=Shat, l0_=round(min(1000,nburn/2)), adapter_=2.38^2, gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, lambda_=lambda, a0lambda_=taua0, b0lambda_=taub0, 
                  dist_=distcode, PACKAGE = "spBayesSurv");
   }else{

@@ -209,9 +209,9 @@ the p by nsave matrix of posterior samples for gamma involved in the variable se
 }
 
 \references{
-Zhou, H., Hanson, T., and Zhang, J. (2018). spBayesSurv: Fitting Bayesian Spatial Survival Models Using R. \emph{Journal of Statistical Software}, accept minor.
+Zhou, H., Hanson, T., and Zhang, J. (2020). spBayesSurv: Fitting Bayesian Spatial Survival Models Using R. \emph{Journal of Statistical Software}, 92(9): 1-33.
 
-Zhou, H. and Hanson, T. (2018). A unified framework for fitting Bayesian semiparametric models to arbitrarily censored survival data, including spatially-referenced data. \emph{Journal of the American Statistical Association}, accepted.
+Zhou, H. and Hanson, T. (2018). A unified framework for fitting Bayesian semiparametric models to arbitrarily censored survival data, including spatially-referenced data. \emph{Journal of the American Statistical Association}, 113(522): 571-581.
 
 Sang, H. and Huang, J. Z. (2012). A full scale approximation of covariance functions for large spatial data sets. \emph{Journal of the Royal Statistical Society: Series B (Statistical Methodology)}, 74(1), 111-132.
 }

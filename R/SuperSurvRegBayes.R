@@ -211,7 +211,7 @@
                  ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, 
                  beta_=beta, weight_=c(1), cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, 
                  V0inv_=solve(10*Vhat0), Vhat_=Vhat0, beta0_=rep(0,3*p), S0inv_=solve(S0param), 
-                 Shat_=Shat0, l0_=3000, adapter_=2.38^2, dist_=distcode, PACKAGE = "spBayesSurv");
+                 Shat_=Shat0, l0_=1000, adapter_=2.38^2, dist_=distcode, PACKAGE = "spBayesSurv");
     beta_h = colMeans(t(matrix(fit0$beta_h, p, nsave0)));
     beta_o = colMeans(t(matrix(fit0$beta_o, p, nsave0)));
     beta_q = colMeans(t(matrix(fit0$beta_q, p, nsave0)));
@@ -273,7 +273,7 @@
                ltr_=truncation_time, subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=X.scaled, theta_=theta, 
                beta_=beta, weight_=weight, cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, 
                V0inv_=V0inv, Vhat_=Vhat, beta0_=beta0, S0inv_=S0inv, Shat_=Shat,
-               l0_=min(5000,nsave/2), adapter_=2.38^2, dist_=distcode, PACKAGE = "spBayesSurv");
+               l0_=round(min(1000,nburn/2)), adapter_=2.38^2, dist_=distcode, PACKAGE = "spBayesSurv");
   
   #########################################################################################
   # save state

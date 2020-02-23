@@ -210,7 +210,7 @@
   foo <- .Call("SpatDens", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, 
                y_=y, y1_=y1new, y2_=y2new, type_=delta, X_=t(X), theta_=theta, maxJ_=maxL, 
                cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
-               l0_=min(5000,nsave/2), adapter_=2.38^2, Sinv_=Sinv, phi_=phi, q0phi_=phiq0, 
+               l0_=round(min(1000,nburn/2)), adapter_=2.38^2, Sinv_=Sinv, phi_=phi, q0phi_=phiq0, 
                a0phi_=phia0, b0phi_=phib0, perm_=permutation+0, PACKAGE = "spBayesSurv");
   
   ## Bayes Factor for the spatial model vs. the exchangeable model

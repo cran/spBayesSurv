@@ -98,7 +98,7 @@ the Bayes factor for comparing the spatial model vs. the exchangeable model
 
 
 \references{
-Hanson, T., Zhou, H., and de Carvalho, V. I. (2018). Bayesian Nonparametric Spatially Smoothed Density Estimation. Book chapter in \emph{ICSA Book Series in Statistics}, accepted.
+Hanson, T., Zhou, H., and de Carvalho, V. (2018). Bayesian nonparametric spatially smoothed density estimation. In \emph{New Frontiers of Biostatistics and Bioinformatics} (pp 87-105). Springer.
 }
 
 

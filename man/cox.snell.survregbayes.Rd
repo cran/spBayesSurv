@@ -43,7 +43,7 @@ The status indicator: 0=right censored, 1=event at time, 2=left censored, 3=inte
 }
 
 \references{
-Zhou, H. and Hanson, T. (2018). A unified framework for fitting Bayesian semiparametric models to arbitrarily censored survival data, including spatially-referenced data. \emph{Journal of the American Statistical Association}, accepted.
+Zhou, H. and Hanson, T. (2018). A unified framework for fitting Bayesian semiparametric models to arbitrarily censored survival data, including spatially-referenced data. \emph{Journal of the American Statistical Association}, 113(522): 571-581.
 }
 
 

@@ -130,7 +130,7 @@ the Bayes factors for testing AFT, PH, PO, AH, EH and YP models.
 }
 
 \references{
-Zhang, J., Hanson, T., and Zhou, H. (2018). Bayes factors for choosing among six common survival models. \emph{Lifetime Data Analysis}, accepted. \url{https://doi.org/10.1007/s10985-018-9429-4}
+Zhang, J., Hanson, T., and Zhou, H. (2019). Bayes factors for choosing among six common survival models. \emph{Lifetime Data Analysis}, 25(2): 361-379.
 }
 
 

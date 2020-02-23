@@ -321,7 +321,7 @@
       fit0<- .Call("AFT_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0, subjecti_=subjecti0,
                    t1_=t10, t2_=t20, type_=delta0, X_=Xinput0, theta_=theta0, beta_=beta0, weight_=c(1), 
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
-                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=1000, adapter_=2.38^2, 
                    gamma_=gamma0, p0gamma_=p0gamma, selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
                    W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
@@ -329,7 +329,7 @@
       fit0<- .Call("PO_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0, subjecti_=subjecti0,
                    t1_=t10, t2_=t20, type_=delta0, X_=Xinput0, theta_=theta0, beta_=beta0, weight_=c(1), 
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
-                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=1000, adapter_=2.38^2, 
                    gamma_=gamma0, p0gamma_=p0gamma, selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
                    W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
@@ -337,7 +337,7 @@
       fit0<- .Call("PH_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0, subjecti_=subjecti0,
                    t1_=t10, t2_=t20, type_=delta0, X_=Xinput0, theta_=theta0, beta_=beta0, weight_=c(1), 
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
-                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=1000, adapter_=2.38^2, 
                    gamma_=gamma0, p0gamma_=p0gamma, selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
                    W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
@@ -345,7 +345,7 @@
       fit0<- .Call("AH_BP", nburn_=nburn0, nsave_=nsave0, nskip_=0, ndisplay_=1000, ltr_=truncation_time0, subjecti_=subjecti0,
                    t1_=t10, t2_=t20, type_=delta0, X_=Xinput0, theta_=theta0, beta_=beta0, weight_=c(1), 
                    cpar_=Inf, a0_=-1, b0_=1, theta0_=theta_prior, V0inv_=solve(scaleV*Vhat0), Vhat_=Vhat0, 
-                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=3000, adapter_=2.38^2, 
+                   beta0_=beta_prior, S0inv_=S0inv0, Shat_=Shat0, l0_=1000, adapter_=2.38^2, 
                    gamma_=gamma0, p0gamma_=p0gamma, selection_=0, frailty_=frailtyCode0, v_=v0, blocki_=blocki0, 
                    W_=W0, clustindx_=clustindx0, Dmm_=Dmm0, Dmr_=Dmr0, Drr_=Drr0, phi_=phi, nu_=nu, a0phi_=1, b0phi_=1, 
                    lambda_=1, a0lambda_=1, b0lambda_=1, dist_=distcode, PACKAGE = "spBayesSurv");
@@ -365,6 +365,7 @@
     lambda = mean(fit0$lambda);
     if(!is.null(frail.prior)){
       if(is.null(state$frail)) v = rowMeans(fit0$v);
+      if((frail.prior=="grf")&((2*nID)>n)) v = rep(0, length(blocki)-1);
     }
     message("Starting the MCMC for the semiparametric model:")
   }else{
@@ -531,7 +532,7 @@
     foo <- .Call("AFT_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
                  subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=Xinput, theta_=theta, beta_=beta, weight_=weight, 
                  cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
-                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
+                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=round(min(1000,nburn/2)), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, clustindx_=clustindx, 
                  Dmm_=Dmm, Dmr_=Dmr, Drr_=Drr, phi_=phi, nu_=nu, a0phi_=phia0, b0phi_=phib0, lambda_=lambda, 
@@ -541,7 +542,7 @@
     foo <- .Call("PO_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
                  subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=Xinput, theta_=theta, beta_=beta, weight_=weight, 
                  cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
-                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
+                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=round(min(1000,nburn/2)), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, clustindx_=clustindx, 
                  Dmm_=Dmm, Dmr_=Dmr, Drr_=Drr, phi_=phi, nu_=nu, a0phi_=phia0, b0phi_=phib0, lambda_=lambda, 
@@ -551,7 +552,7 @@
     foo <- .Call("PH_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
                  subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=Xinput, theta_=theta, beta_=beta, weight_=weight, 
                  cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
-                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
+                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=round(min(1000,nburn/2)), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, clustindx_=clustindx, 
                  Dmm_=Dmm, Dmr_=Dmr, Drr_=Drr, phi_=phi, nu_=nu, a0phi_=phia0, b0phi_=phib0, lambda_=lambda, 
@@ -561,7 +562,7 @@
     foo <- .Call("AH_BP", nburn_=nburn, nsave_=nsave, nskip_=nskip, ndisplay_=ndisplay, ltr_=truncation_time,
                  subjecti_=subjecti, t1_=t1, t2_=t2, type_=delta, X_=Xinput, theta_=theta, beta_=beta, weight_=weight, 
                  cpar_=alpha, a0_=a0, b0_=b0, theta0_=theta0, V0inv_=V0inv, Vhat_=Vhat, 
-                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=min(5000,nsave/2), adapter_=2.38^2, 
+                 beta0_=beta0, S0inv_=S0inv, Shat_=Shat, l0_=round(min(1000,nburn/2)), adapter_=2.38^2, 
                  gamma_=gamma0, p0gamma_=p0gamma, selection_=selection+0,
                  frailty_=frailtyCode, v_=v, blocki_=blocki, W_=W, clustindx_=clustindx, 
                  Dmm_=Dmm, Dmr_=Dmr, Drr_=Drr, phi_=phi, nu_=nu, a0phi_=phia0, b0phi_=phib0, lambda_=lambda, 

@@ -130,8 +130,8 @@ RcppExport SEXP AH_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   Rcpp::NumericVector sumvn(n, 0.0); 
   double llold, llnew;
   double ratio, uu, nn;
-  //double phi_min = std::pow(-log(0.001), 1.0/nu)/Dmm.max();
-  double phi_min = ESMALL;
+  double phi_min = std::pow(-log(0.9), 1.0/nu)/Dmm.max();
+  //double phi_min = ESMALL;
   // for theta
   arma::vec thetaold(2); 
   arma::vec thBarold(2);
@@ -154,7 +154,9 @@ RcppExport SEXP AH_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   // for cpa
   double cbarnew=0, cbarold=0, csnew=0, ctemp=0, cshat=0.16;
   // for log(phi)
-  double phibarnew=0, phibarold=0, phisnew=0, phinew=0, phishat=0.01;
+  double phibarnew=0, phibarold=0, phisnew=0, logphi=0, phiold=0;
+  double phishat=std::pow((log(std::pow(-log(0.001), 1.0/nu)/Dmm.max()) - log(phi_min))*0.02, 2.0);
+  logphi = log(phi);
   // for sill
   double sill=1.0-ESMALL;
   
@@ -165,6 +167,8 @@ RcppExport SEXP AH_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   arma::mat Rrr = arma::zeros<arma::mat>(r,r); 
   arma::mat Rmminv = arma::zeros<arma::mat>(m,m); 
   double logdetR = 0;
+  arma::mat Rmminvold(m,m);
+  double logdetRold=0;
   if(frailty==3){
     for(int i=0; i<m; ++i){
       for(int j=0; j<m; ++j){
@@ -393,58 +397,64 @@ RcppExport SEXP AH_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
       lambda = Rf_rgamma( a0lambdastar, 1.0/b0lambdastar );
       // phi
       if(a0phi>0){
+        llold = -0.5*logdetR - 0.5*lambda*arma::dot(v_r, Rmminv*v_r);
+        llold += a0phi*logphi - b0phi*phi;
+        phiold = logphi;
+        Rmminvold = Rmminv;
+        logdetRold = logdetR;
         if(iscan>l0){
-          phinew = Rf_rnorm(phi, std::sqrt(phisnew));
+          logphi = Rf_rnorm(phiold, std::sqrt(phisnew));
         }else{
-          phinew = Rf_rnorm(phi, std::sqrt(phishat));
+          logphi = Rf_rnorm(phiold, std::sqrt(phishat));
         }
-        if(phinew<phi_min){
+        phi = std::exp(logphi);
+        if(phi<phi_min){
+          logphi=phiold; phi = std::exp(logphi); 
           if(iscan>=nburn) rejphi+=1.0;
         }else{
-          arma::mat Rmminvnew(m,m);
-          double logdetRnew=0;
-          llold = -0.5*logdetR - 0.5*lambda*arma::dot(v_r, Rmminv*v_r);
-          llold += (a0phi-1.0)*log(phi) - b0phi*phi;
           for(int i=0; i<m; ++i){
             for(int j=0; j<m; ++j){
-              Rmm(i,j) = pow_exp(Dmm(i,j),phinew,nu);
+              Rmm(i,j) = pow_exp(Dmm(i,j),phi,nu);
             }
           }
           if(FSA){
             for(int i=0; i<m; ++i){
               for(int j=0; j<r; ++j){
-                Rmr(i,j) = pow_exp(Dmr(i,j),phinew,nu);
+                Rmr(i,j) = pow_exp(Dmr(i,j),phi,nu);
               }
             }
             for(int i=0; i<r; ++i){
               for(int j=0; j<r; ++j){
-                Rrr(i,j) = pow_exp(Drr(i,j),phinew,nu);
+                Rrr(i,j) = pow_exp(Drr(i,j),phi,nu);
               }
             }
-            inv_FSA(sill, Rmm, Rmr, Rrr, clustindx, Rmminvnew, logdetRnew);
+            inv_FSA(sill, Rmm, Rmr, Rrr, clustindx, Rmminv, logdetR);
           }else{
-            Rmminvnew = arma::inv_sympd(sill*Rmm+(1.0-sill)*Im);
+            Rmminv = arma::inv_sympd(sill*Rmm+(1.0-sill)*Im);
             double sign0;
-            arma::log_det(logdetRnew, sign0, sill*Rmm+(1.0-sill)*Im);
+            arma::log_det(logdetR, sign0, sill*Rmm+(1.0-sill)*Im);
           }
-          llnew = -0.5*logdetRnew - 0.5*lambda*arma::dot(v_r, Rmminvnew*v_r);
-          llnew += (a0phi-1.0)*log(phinew) - b0phi*phinew;
+          llnew = -0.5*logdetR - 0.5*lambda*arma::dot(v_r, Rmminv*v_r);
+          llnew += a0phi*logphi - b0phi*phi;
           ratio = exp(llnew-llold);
           uu = unif_rand();
-          if(uu<ratio){
-            phi=phinew; Rmminv = Rmminvnew; logdetR=logdetRnew;
-          }else{
+          if(uu>ratio){
+            logphi=phiold; phi = std::exp(logphi); 
+            Rmminv = Rmminvold; logdetR=logdetRold;
             if(iscan>=nburn) rejphi+=1.0;
           }
         }
         nn = iscan+1;
         phibarold = phibarnew;
-        phibarnew = (nn)/(nn+1.0)*phibarold + phi/(nn+1.0);
+        phibarnew = (nn)/(nn+1.0)*phibarold + logphi/(nn+1.0);
         phisnew = (nn-1.0)/nn*phisnew + adapter/nn*(nn*pow(phibarold,2) - (nn+1.0)*pow(phibarnew,2)
-                                                      + pow(phi,2) + ESMALL );
+                                                      + pow(logphi,2) + ESMALL );
       }
     }
-    
+    //Rprintf( "phisnew = %f\n", phisnew );
+    //Rprintf( "phishat = %f\n", phishat );
+    //Rprintf( "phi = %f\n", phi );
+    //Rprintf( "ratephi = %f\n", (iscan-rejphi-nburn)/(iscan-nburn+0.0) );
     ///////////////////////////////////////////////
     // gamma
     //////////////////////////////////////////////

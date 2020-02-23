@@ -108,8 +108,8 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
   int i1, evali;
   int JJ, KK;
   double rej;
-  //double phi_min = std::pow(-log(0.001), 1.0/nu)/Dmm.max();
-  double phi_min = ESMALL;
+  double phi_min = std::pow(-log(0.9), 1.0/nu)/Dmm.max();
+  //double phi_min = ESMALL;
   double sill=1.0-ESMALL;
   arma::mat Im = arma::eye(m,m);
   arma::mat Rmm=arma::zeros<arma::mat>(m,m);
@@ -121,13 +121,17 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
   arma::mat Rmminv = arma::inv_sympd(sill*Rmm+(1.0-sill)*Im);
   double logdetR = 0; double sign0 = 0;
   arma::log_det(logdetR, sign0, sill*Rmm+(1.0-sill)*Im);
+  arma::mat Rmminvold(m,m);
+  double logdetRold=0;
   
   // update for (phi);
-  double phibarnew=0, phibarold=0, phisnew=0, phinew=0, phishat=0.01;
+  double phibarnew=0, phibarold=0, phisnew=0, logphi=0, phiold=0;
+  double phishat=std::pow((log(std::pow(-log(0.001), 1.0/nu)/Dmm.max()) - log(phi_min))*0.02, 2.0);
+  logphi = log(phi);
   
   double llold, llnew;
   double ratio, uu, nn;
-  int l0 = (int)(std::min(3000,nsave/2));
+  int l0 = (int)(std::min(1000,nsave/2));
   double adapter = 5.6644;
   double rejphi=0;
   
@@ -405,40 +409,43 @@ RcppExport SEXP frailty_GRF_LDTFP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP nd
     // phi
     //////////////////////////////////////////////
     if(a0phi>0){
+      llold = -0.5*logdetR - 0.5*arma::dot(v, Rmminv*v)/tau2;
+      llold += a0phi*logphi - b0phi*phi;
+      phiold = logphi;
+      Rmminvold = Rmminv;
+      logdetRold = logdetR;
       if(iscan>l0){
-        phinew = Rf_rnorm(phi, std::sqrt(phisnew));
+        logphi = Rf_rnorm(phiold, std::sqrt(phisnew));
       }else{
-        phinew = Rf_rnorm(phi, std::sqrt(phishat));
+        logphi = Rf_rnorm(phiold, std::sqrt(phishat));
       }
-      if(phinew<phi_min){
+      phi = std::exp(logphi);
+      if(phi<phi_min){
+        logphi=phiold; phi = std::exp(logphi); 
         if(iscan>=nburn) rejphi+=1.0;
       }else{
-        arma::mat Rmminvnew(m,m);
-        double logdetRnew=0;
-        llold = -0.5*logdetR - 0.5*arma::dot(v, Rmminv*v)/tau2;
-        llold += (a0phi-1.0)*log(phi) - b0phi*phi;
         for(int i=0; i<m; ++i){
           for(int j=0; j<m; ++j){
-            Rmm(i,j) = pow_exp(Dmm(i,j),phinew,nu);
+            Rmm(i,j) = pow_exp(Dmm(i,j),phi,nu);
           }
         }
-        Rmminvnew = arma::inv_sympd(sill*Rmm+(1.0-sill)*Im);
-        arma::log_det(logdetRnew, sign0, sill*Rmm+(1.0-sill)*Im);
-        llnew = -0.5*logdetRnew - 0.5*arma::dot(v, Rmminvnew*v)/tau2;
-        llnew += (a0phi-1.0)*log(phinew) - b0phi*phinew;
+        Rmminv = arma::inv_sympd(sill*Rmm+(1.0-sill)*Im);
+        arma::log_det(logdetR, sign0, sill*Rmm+(1.0-sill)*Im);
+        llnew = -0.5*logdetR - 0.5*arma::dot(v, Rmminv*v)/tau2;
+        llnew += a0phi*logphi - b0phi*phi;
         ratio = exp(llnew-llold);
         uu = unif_rand();
-        if(uu<ratio){
-          phi=phinew; Rmminv = Rmminvnew; logdetR=logdetRnew;
-        }else{
+        if(uu>ratio){
+          logphi=phiold; phi = std::exp(logphi); 
+          Rmminv = Rmminvold; logdetR=logdetRold;
           if(iscan>=nburn) rejphi+=1.0;
         }
       }
       nn = iscan+1;
       phibarold = phibarnew;
-      phibarnew = (nn)/(nn+1.0)*phibarold + phi/(nn+1.0);
+      phibarnew = (nn)/(nn+1.0)*phibarold + logphi/(nn+1.0);
       phisnew = (nn-1.0)/nn*phisnew + adapter/nn*(nn*pow(phibarold,2) - (nn+1.0)*pow(phibarnew,2)
-                                                    + pow(phi,2) + ESMALL );
+                                                    + pow(logphi,2) + ESMALL );
     }
     
     ///////////////////////////////////////////////

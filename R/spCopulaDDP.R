@@ -281,7 +281,7 @@
                tau2_ = 1.0/sigma2, K_ = K, V_ = V, w_ = w, alpha_ = alpha, mu_ = mu, Sig_ = Sig,
                m0_ = m0, S0_ = S0, Sig0_ = Sig0, k0_ = k0, a0_ = a0, b0_ = b0, nua_ = nua, 
                nub_ = nub, xpred_ = as.matrix(xpred), ds0n_=ds0n, dnn_=dnn, theta_=theta, 
-               theta0_=theta0, spS0_=spS0, l0_ = round(min(5000,nsave/2)), adapter_ = (2.38)^2, 
+               theta0_=theta0, spS0_=spS0, l0_ = round(min(1000,nburn/2)), adapter_ = (2.38)^2, 
                dnm_=dnm, dmm_=dmm, clustindx_=clustindx, ds0m_=ds0m, ds0block_=ds0block, 
                PACKAGE = "spBayesSurv")
   

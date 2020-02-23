@@ -1,19 +1,20 @@
-citHeader("To cite spBayesSurv in publications use:")
-
-citEntry(entry = "Article",
-  title        = "{spBayesSurv}: Fitting Bayesian Spatial Survival Models Using {R}",
-  author       = personList(as.person("Haiming Zhou"),
-                   as.person("Timothy Hanson"), 
-                   as.person("Jiajia Zhang")),
+bibentry(bibtype = "Article",
+  title        = "{spBayesSurv}: Fitting {B}ayesian Spatial Survival Models Using {R}",
+  author       = c(person(given = "Haiming",
+                          family = "Zhou",
+                          email = "zhouh@niu.edu"),
+                   person(given = "Timothy",
+                          family = "Hanson",
+                          email = "tim.hanson2@medtronic.com"),
+                   person(given = "Jiajia",
+                          family = "Zhang",
+                          email = "jzhang@mailbox.sc.edu")),
   journal      = "Journal of Statistical Software",
-  year         = "2018",
-  volume       = "accept minor",
-  url          = "http://arxiv.org/abs/1705.04584",
+  year         = "2020",
+  volume       = "92",
+  number       = "9",
+  pages        = "1--33",
+  doi          = "10.18637/jss.v092.i09",
 
-  textVersion  =
-  paste("Zhou, H., Hanson, T., and Zhang, J. (2018).",
-        "spBayesSurv: Fitting Bayesian Spatial Survival Models Using R.",
-        "Journal of Statistical Software",
-        "accept minor",
-        "URL http://arxiv.org/abs/1705.04584.")
+  header       = "To cite spBayesSurv in publications use:"
 )
