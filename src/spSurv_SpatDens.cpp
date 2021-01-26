@@ -110,7 +110,8 @@ RcppExport SEXP SpatDens(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   
   // temp variables for permutations
   arma::vec y_r=as<arma::vec>(y);
-  Rcpp::IntegerVector indx(n, 0);
+  arma::uvec indx(n);
+  for(int i=0; i<n; ++i) indx[i]=i;
   arma::uvec indx_u(n);
   
   RNGScope scope;
@@ -151,9 +152,7 @@ RcppExport SEXP SpatDens(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
     // data permutation
     //////////////////////////////////////////////
     if(perm==1){
-      for(int i=0; i<n; ++i) indx[i]=i;
-      std::random_shuffle(indx.begin(), indx.end(), randWrapper);
-      indx_u=as<arma::uvec>(indx);
+      indx_u=arma::shuffle(indx);
       y_r = y_r(indx_u);
       for(int i=0; i<n; ++i) y[i]=y_r(i);
       X = X.cols(indx_u);
@@ -465,7 +464,8 @@ RcppExport SEXP SpatDens_BF(SEXP y_, SEXP X_, SEXP Sinv_, SEXP theta_, SEXP maxJ
     yperm[i] = y[i];
   }
   
-  Rcpp::IntegerVector indx(n, 0);
+  arma::uvec indx(n);
+  for(int i=0; i<n; ++i) indx[i]=i;
   arma::uvec indx_u(n);
   
   RNGScope scope;
@@ -496,9 +496,7 @@ RcppExport SEXP SpatDens_BF(SEXP y_, SEXP X_, SEXP Sinv_, SEXP theta_, SEXP maxJ
   for (int iscan=0; iscan<nperm; iscan++){
     R_CheckUserInterrupt();
     //Rprintf( "iscan = %d\n", iscan );
-    for(int i=0; i<n; ++i) indx[i]=i;
-    std::random_shuffle(indx.begin(), indx.end(), randWrapper);
-    indx_u=as<arma::uvec>(indx);
+    indx_u=arma::shuffle(indx);
     yperm_r = y_r(indx_u);
     for(int i=0; i<n; ++i) yperm[i]=yperm_r(i);
     kyindex_r.fill(0);

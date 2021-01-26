@@ -2,8 +2,8 @@ Package: spBayesSurv
 Type: Package
 Title: Bayesian Modeling and Analysis of Spatially Correlated Survival
         Data
-Version: 1.1.4
-Date: 2020-02-22
+Version: 1.1.5
+Date: 2021-01-25
 Author: Haiming Zhou <zhouh@niu.edu> and Timothy Hanson <hansont@stat.sc.edu>
 Maintainer: Haiming Zhou <zhouh@niu.edu>
 Description: Provides several Bayesian survival models for spatial/non-spatial survival data: proportional hazards (PH), accelerated failure time (AFT), proportional odds (PO), and accelerated hazards (AH), a super model that includes PH, AFT, PO and AH as special cases, Bayesian nonparametric nonproportional hazards (LDDPM), generalized accelerated failure time (GAFT), and spatially smoothed Polya tree density estimation. The spatial dependence is modeled via frailties under PH, AFT, PO, AH and GAFT, and via copulas under LDDPM and PH. Model choice is carried out via the logarithm of the pseudo marginal likelihood (LPML), the deviance information criterion (DIC), and the Watanabe-Akaike information criterion (WAIC). See Zhou, Hanson and Zhang (2020) <doi:10.18637/jss.v092.i09>. 
@@ -13,6 +13,6 @@ Imports: Rcpp (>= 0.11.1), survival, coda, methods, MASS, fields,
         splines
 LinkingTo: Rcpp, RcppArmadillo (>= 0.4.300.0)
 NeedsCompilation: yes
-Packaged: 2020-02-23 03:51:31 UTC; Haiming
+Packaged: 2021-01-25 21:13:56 UTC; Zhou
 Repository: CRAN
-Date/Publication: 2020-02-23 14:20:02 UTC
+Date/Publication: 2021-01-26 05:30:02 UTC

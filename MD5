@@ -1,4 +1,4 @@
-e70ab026d454c91970f53f4e99a71c1a *DESCRIPTION
+e742a044edc1ff9b134c9a58cff63885 *DESCRIPTION
 e26d4a41c2ad980c6a100f90aae68097 *NAMESPACE
 e6288a567527748159d82c6b32ca203b *R/GetCurves.R
 082227b9ecfea14c365c1f75ff64fe62 *R/SpatDensReg.R
@@ -55,10 +55,10 @@ b1bf4d861237b4ccafc2e8d3576f7e96 *src/spSurv_MPT_tools_single.cpp
 ecf4e0f01140307c62d23f2382fb19fb *src/spSurv_PH_MPT.cpp
 bdf93244e6c92dbf06fae9edf16737f3 *src/spSurv_PO_BP.cpp
 b309bd40175eb7dbd8cfbfd15d9a6ef4 *src/spSurv_PO_MPT.cpp
-08f0cea159cecc11ce3d5de300cf3482 *src/spSurv_SpatDens.cpp
+7dc126ac77cf4393d9ff3caa6d9f3adc *src/spSurv_SpatDens.cpp
 ab7e1117824399c768bdd05877ac5175 *src/spSurv_anovaDDP.cpp
-3606d5c6460e3c642bdfd8de0b55e598 *src/spSurv_common.cpp
-ee6c70ef2186e71769e0421c8ce1c0e0 *src/spSurv_common.h
+ce8f564cf4243b220db80ddbfe436547 *src/spSurv_common.cpp
+1fa0902c38ee5133e390f3fe5d1af158 *src/spSurv_common.h
 a5a568561f0dd1a46cf24ec59f7a935f *src/spSurv_frailtyLDTFP.cpp
 f031fd8cd9cee836ce4427d567196f4d *src/spSurv_frailty_GRF_LDTFP.cpp
 b0a4395a0d2494e9b166672db6dfbcfe *src/spSurv_indeptCoxph.cpp

@@ -12,10 +12,6 @@
 typedef Rcpp::NumericMatrix::iterator mat_iterator;
 using namespace Rcpp;
 
-// wrapper around R's RNG such that we get a uniform distribution over
-// [0,n) as required by the STL algorithm
-int randWrapper(const int n);
-
 //Truncated normal N(y;mu,s)I(a<y<b)
 double rtexp(double a, double b); // Rejection algorithm with a truncated expoential proposal for N(0,1)I(a<x<b) when a is very large: |a| < |b|
 double trun_rnorm(const double mu, const double s, double a, double b);
