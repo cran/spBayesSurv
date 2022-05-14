@@ -30,7 +30,7 @@ Hastie, T. J. (1992) Generalized additive models. Chapter 7 of \emph{Statistical
 }
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou and Timothy Hanson
 }
 
 \examples{

@@ -3,6 +3,7 @@ importFrom(Rcpp, evalCpp)
 importFrom("graphics", "lines", "par", "plot", "polygon", "legend")
 importFrom("methods", "is")
 importFrom("splines", "splineDesign")
+importFrom("MASS", "mvrnorm")
 importFrom("stats", ".getXlevels", "median", "model.extract",
            "model.matrix", "na.fail", "quantile", "rbeta", "sd",
            "terms", "cov", "qnorm", "var", "AIC", "uniroot", "makepredictcall",

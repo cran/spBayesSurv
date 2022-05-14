@@ -22,7 +22,7 @@ Zhou, H., Hanson, T., and Zhang, J. (2017). Generalized accelerated failure time
 
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou and Timothy Hanson
 }
 
 

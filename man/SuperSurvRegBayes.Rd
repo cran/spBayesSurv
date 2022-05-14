@@ -135,7 +135,7 @@ Zhang, J., Hanson, T., and Zhou, H. (2019). Bayes factors for choosing among six
 
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} 
+Haiming Zhou
 }
 
 \examples{

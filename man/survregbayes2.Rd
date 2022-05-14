@@ -66,7 +66,7 @@ Zhao, L. and Hanson, T. (2011). Spatially dependent Polya tree modeling for surv
 
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou and Timothy Hanson
 }
 
 \examples{

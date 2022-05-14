@@ -218,7 +218,7 @@ Sang, H. and Huang, J. Z. (2012). A full scale approximation of covariance funct
 
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou and Timothy Hanson
 }
 
 \examples{

@@ -17,7 +17,7 @@ frailtyprior(prior="car", ...)
 }
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou and Timothy Hanson
 }
 
 

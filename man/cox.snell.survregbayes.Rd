@@ -48,7 +48,7 @@ Zhou, H. and Hanson, T. (2018). A unified framework for fitting Bayesian semipar
 
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou and Timothy Hanson
 }
 
 

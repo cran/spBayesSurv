@@ -79,7 +79,7 @@ De Iorio, M., Johnson, W. O., Mueller, P., and Rosner, G. L. (2009). Bayesian no
 }
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou and Timothy Hanson
 }
 
 \keyword{ANOVA DDP}

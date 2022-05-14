@@ -103,7 +103,7 @@ Zhou, H., Hanson, T., and Knapp, R. (2015). Marginal Bayesian nonparametric mode
 
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou and Timothy Hanson
 }
 
 \keyword{Spatial copula}

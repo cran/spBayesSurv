@@ -62,5 +62,5 @@ GetCurves(x, xnewdata, xtfnewdata, tgrid = NULL, ygrid = NULL,
 }
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou and Timothy Hanson
 }

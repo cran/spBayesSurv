@@ -196,7 +196,7 @@ RcppExport SEXP PH_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   if(frailty==1)  {
     v_r = v_r - arma::mean(v_r);
   }
-  if((frailty==1)|(frailty==2)|(frailty==3)){
+  if((frailty==1)||(frailty==2)||(frailty==3)){
     for(int i=0; i<m; ++i){
       int ind1 = blocki[i];
       int ind2 = blocki[i+1]-1;
@@ -531,7 +531,7 @@ RcppExport SEXP PH_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
             if(ltr[j]>0){
               logSt0tmp = -PH_BP_logsurv(ltr[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
             }
-            if((type[j]==0)|(type[j]==1)){
+            if((type[j]==0)||(type[j]==1)){
               double logtmp = PH_BP_logsurv(t1[j], theta[0], theta[1], weight, BP, dist, Xbeta[j]+vn[j]);
               logSt1tmp += logtmp; logSt1tmp += logSt0tmp;
               logSt2tmp += logtmp; logSt2tmp += logSt0tmp;
@@ -757,7 +757,7 @@ RcppExport SEXP PH_BP_cox_snell(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, S
         if(ltr[j]>0){
           logSt0tmp = -PH_BP_logsurv(ltr[j], th1, th2, wi, true, dist, xbeta[j]);
         }
-        if((type[j]==0)|(type[j]==1)){
+        if((type[j]==0)||(type[j]==1)){
           double logtmp = PH_BP_logsurv(t1[j], th1, th2, wi, true, dist, xbeta[j]);
           logSt1tmp += logtmp; logSt1tmp += logSt0tmp;
           logSt2tmp += logtmp; logSt2tmp += logSt0tmp;

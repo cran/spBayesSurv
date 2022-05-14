@@ -103,7 +103,7 @@ Hanson, T., Zhou, H., and de Carvalho, V. (2018). Bayesian nonparametric spatial
 
 
 \author{
-Haiming Zhou \email{<zhouh@niu.edu>} and Tim Hanson \email{<hansont@stat.sc.edu>}
+Haiming Zhou and Timothy Hanson
 }
 
 \examples{

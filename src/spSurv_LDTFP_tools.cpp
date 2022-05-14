@@ -29,10 +29,9 @@ void ldensldtfp(double y, double xbetavi, const arma::vec& xbetatfi, double sigm
   }
   
   // ldtfp part
-  int j=0; int m=0; 
+  int m=0; 
   for(int j1=1; j1<maxL1; ++j1){ 
     int k2 = m + K[j1-1];
-    j += std::pow(2,j1);
     m += std::pow(2,j1-1);
     int ll = (K[j1-1]-1)*2 +1;
     tmp2 = xbetatfi[k2-1];
@@ -82,10 +81,9 @@ void cdfldtfp(double y, double xbetavi, const arma::vec& xbetatfi, double sigma2
     tmp2 = (i-1.0)/(nsets1-1.0);
     for(int j1=1; j1<=maxL; ++j1) K[j1] = (int)(std::pow(2,j1)*tmp2)+1;
     loglik=0;
-    int j=0; int m=0; 
+    int m=0; 
     for(int j1=1; j1<=maxL; ++j1){ 
       int k2 = m + K[j1-1];
-      j += std::pow(2,j1);
       m += std::pow(2,j1-1);
       int ll = (K[j1-1]-1)*2 +1;
       tmp2 = xbetatfi[k2-1];
@@ -137,10 +135,9 @@ void loglikldtfpvi(double vi, double meanvi, double varvi, int ind1, int ind2, c
     }
   
     // ldtfp part
-    int j=0; int m=0; 
+    int m=0; 
     for(int j1=1; j1<maxL1; ++j1){
       int k2 = m + K[j1-1];
-      j = j + std::pow(2,j1);
       m = m + std::pow(2,j1-1);
       int ll = (K[j1-1]-1)*2 +1;
       tmp2 = xbetatf(k2-1,i);
@@ -170,10 +167,9 @@ void loglikldtfpvi(double vi, double meanvi, double varvi, int ind1, int ind2, c
     }
   
     // ldtfp part
-    int j=0; int m=0; 
+    int m=0; 
     for(int j1=1; j1<maxL1; ++j1){
       int k2 = m + K[j1-1];
-      j = j + std::pow(2,j1);
       m = m + std::pow(2,j1-1);
       int ll = (K[j1-1]-1)*2 +1;
       tmp2 = xbetatf(k2-1,i);
@@ -218,10 +214,9 @@ void loglikldtfpvi2(double vi, int ind1, int ind2, const Rcpp::NumericVector& y,
     }
     
     // ldtfp part
-    int j=0; int m=0; 
+    int m=0; 
     for(int j1=1; j1<maxL1; ++j1){
       int k2 = m + K[j1-1];
-      j = j + std::pow(2,j1);
       m = m + std::pow(2,j1-1);
       int ll = (K[j1-1]-1)*2 +1;
       tmp2 = xbetatf(k2-1,i);
