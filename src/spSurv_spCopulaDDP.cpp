@@ -101,7 +101,7 @@ RcppExport SEXP spCopulaDDP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay
   
   // things to save;
   NumericVector betaArray(nsave*N*p);
-  arma::cube beta_save(betaArray.begin(), p, N, nsave, false);
+  arma::cube beta_save(betaArray.begin(), p, N, nsave, false, true);
   arma::mat w_save(N, nsave);
   NumericMatrix sigma2_save(N, nsave);
   NumericVector alpha_save(nsave);

@@ -110,14 +110,14 @@ RcppExport SEXP PO_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SEX
   Rcpp::NumericVector phi_save(nsave);
   
   // Make arma objects
-  arma::mat X_r(const_cast<NumericMatrix&>(X).begin(), n, p, false);
-  arma::vec theta_r(theta.begin(), 2, false);
-  arma::vec beta_r(beta.begin(), p, false);
-  arma::vec gamma_r(gamma.begin(), p, false);
-  arma::vec Xbeta_r(Xbeta.begin(), n, false);
-  arma::vec Ys_r(Ys.begin(), nYs, false);
-  arma::vec v_r(v.begin(), m, false);
-  arma::vec vn_r(vn.begin(), n, false);
+  arma::mat X_r(const_cast<NumericMatrix&>(X).begin(), n, p, false, true);
+  arma::vec theta_r(theta.begin(), 2, false, true);
+  arma::vec beta_r(beta.begin(), p, false, true);
+  arma::vec gamma_r(gamma.begin(), p, false, true);
+  arma::vec Xbeta_r(Xbeta.begin(), n, false, true);
+  arma::vec Ys_r(Ys.begin(), nYs, false, true);
+  arma::vec v_r(v.begin(), m, false, true);
+  arma::vec vn_r(vn.begin(), n, false, true);
   
   // Working temp variables
   arma::mat logLik=arma::zeros<arma::mat>(n, nsave);
@@ -673,7 +673,7 @@ RcppExport SEXP PO_BP_loo_waic(SEXP ltr_, SEXP subjecti_, SEXP t1_, SEXP t2_, SE
   // Temp variables
   arma::mat logLik=arma::zeros<arma::mat>(n, nsave);
   Rcpp::NumericVector xbeta(n, 0.0);
-  arma::vec xbeta_r(xbeta.begin(), n, false);
+  arma::vec xbeta_r(xbeta.begin(), n, false, true);
   
   // get LOO and WAIC
   for(int isave=0; isave<nsave; ++isave){
@@ -808,11 +808,11 @@ RcppExport SEXP PO_BP_plots(SEXP tgrid_, SEXP xpred_, SEXP theta_, SEXP beta_, S
   // Temp variables
   arma::vec xbeta(npred);
   Rcpp::NumericVector estfArray(nsave*ngrid*npred);
-  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector estSArray(nsave*ngrid*npred);
-  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector esthArray(nsave*ngrid*npred);
-  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false);
+  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false, true);
   
   // things to save;
   arma::mat fhat(ngrid, npred);

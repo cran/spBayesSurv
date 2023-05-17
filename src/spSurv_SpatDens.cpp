@@ -66,14 +66,14 @@ RcppExport SEXP SpatDens(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_,
   Rcpp::NumericVector rejy(n, 0.0);
   
   // Make arma objects
-  arma::vec theta_r(theta.begin(), 2, false);
+  arma::vec theta_r(theta.begin(), 2, false, true);
   
   // Working temp variables
   double llold, llnew;
   double ratio, uu, nn;
   int phi_zero_count=0;
   Rcpp::IntegerMatrix kyindex(n, maxJ);
-  arma::imat kyindex_r(kyindex.begin(), n, maxJ, false);
+  arma::imat kyindex_r(kyindex.begin(), n, maxJ, false, true);
   arma::imat kyindexold(n, maxJ);
   Rcpp::NumericVector lognormy(n);
   Rcpp::NumericVector lognormyold(n);
@@ -364,9 +364,9 @@ RcppExport SEXP SpatDens_plots(SEXP ygrid_, SEXP xpred_, SEXP theta_, SEXP cpar_
   
   // Temp variables
   Rcpp::NumericVector estfArray(nsave*ngrid*npred);
-  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::IntegerMatrix kyindex(n, maxJ);
-  arma::imat kyindex_r(kyindex.begin(), n, maxJ, false);
+  arma::imat kyindex_r(kyindex.begin(), n, maxJ, false, true);
   double maxJ2 = std::pow(2, maxJ);
   double logf=0;
   
@@ -440,7 +440,7 @@ RcppExport SEXP SpatDens_BF(SEXP y_, SEXP X_, SEXP Sinv_, SEXP theta_, SEXP maxJ
   
   // Working temp variables
   Rcpp::IntegerMatrix kyindex(n, maxJ);
-  arma::imat kyindex_r(kyindex.begin(), n, maxJ, false);
+  arma::imat kyindex_r(kyindex.begin(), n, maxJ, false, true);
   //Rcpp::NumericVector lognormy(n);
   double maxJ2 = std::pow(2, maxJ);
   int kJ=0;

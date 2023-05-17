@@ -65,9 +65,9 @@ RcppExport SEXP indeptCoxph(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay
   double rejbeta = 0;
   
   // Make arma objects
-  arma::mat X_r(const_cast<NumericMatrix&>(X).begin(), n, p, false);
-  arma::vec beta_r(beta.begin(), p, false);
-  arma::vec Xbeta_r(Xbeta.begin(), n, false);
+  arma::mat X_r(const_cast<NumericMatrix&>(X).begin(), n, p, false, true);
+  arma::vec beta_r(beta.begin(), p, false, true);
+  arma::vec Xbeta_r(Xbeta.begin(), n, false, true);
   
   // Working temp variables
   arma::mat Linv=arma::zeros<arma::mat>(n, nsave);
@@ -245,11 +245,11 @@ RcppExport SEXP CoxPHplots(SEXP xpred_, SEXP tgrid_, SEXP beta_, SEXP h_, SEXP d
   // Temp variables
   arma::vec xbeta(npred);
   Rcpp::NumericVector estfArray(nsave*ngrid*npred);
-  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector estSArray(nsave*ngrid*npred);
-  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector esthArray(nsave*ngrid*npred);
-  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false);
+  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false, true);
   
   // things to save;
   arma::mat fhat(ngrid, npred);

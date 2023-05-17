@@ -688,7 +688,7 @@ RcppExport SEXP frailtyGAFTplots(SEXP tgrid_, SEXP xcepred_, SEXP xtfpred_, SEXP
   arma::mat v = as<arma::mat>(v_); // npred by nsave;
   Rcpp::NumericVector vecArray(betatf_);
   Rcpp::IntegerVector arrayDims = vecArray.attr("dim");
-  arma::cube betatf(vecArray.begin(), arrayDims[0], arrayDims[1], arrayDims[2], false);
+  arma::cube betatf(vecArray.begin(), arrayDims[0], arrayDims[1], arrayDims[2], false, true);
   //arma::mat v = as<mat>(v_); // npred by nsave;
   Rcpp::NumericVector sigma2(sigma2_); // nsave by 1;
   
@@ -703,11 +703,11 @@ RcppExport SEXP frailtyGAFTplots(SEXP tgrid_, SEXP xcepred_, SEXP xtfpred_, SEXP
   // Temp variables
   arma::vec ygrid = arma::log(tgrid);
   Rcpp::NumericVector estfArray(nsave*ngrid*npred);
-  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector estSArray(nsave*ngrid*npred);
-  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector esthArray(nsave*ngrid*npred);
-  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false);
+  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false, true);
   
   // things to save;
   arma::mat fhat(ngrid, npred);

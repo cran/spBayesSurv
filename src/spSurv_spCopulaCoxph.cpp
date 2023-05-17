@@ -94,9 +94,9 @@ RcppExport SEXP spCopulaCoxph(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndispl
   double rejtheta=0;
   
   // Make arma objects
-  arma::mat X_r(const_cast<NumericMatrix&>(X).begin(), n, p, false);
-  arma::vec beta_r(beta.begin(), p, false);
-  arma::vec Xbeta_r(Xbeta.begin(), n, false);
+  arma::mat X_r(const_cast<NumericMatrix&>(X).begin(), n, p, false, true);
+  arma::vec beta_r(beta.begin(), p, false, true);
+  arma::vec Xbeta_r(Xbeta.begin(), n, false, true);
   
   // Working temp variables
   arma::mat Linv=arma::zeros<arma::mat>(n, nsave);

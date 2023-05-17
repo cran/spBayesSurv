@@ -617,7 +617,7 @@ SEXP DDPplots(SEXP xpred_, SEXP tgrid_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP 
   arma::mat w = as<mat>(w_);
   NumericVector vecArray(beta_);
   IntegerVector arrayDims = vecArray.attr("dim");
-  arma::cube beta(vecArray.begin(), arrayDims[0], arrayDims[1], arrayDims[2], false);
+  arma::cube beta(vecArray.begin(), arrayDims[0], arrayDims[1], arrayDims[2], false, true);
   double CI = as<double>(CI_);
   int nsave = w.n_cols;
   int ngrid = tgrid.size();
@@ -628,11 +628,11 @@ SEXP DDPplots(SEXP xpred_, SEXP tgrid_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP 
   // Temp variables
   arma::vec ygrid = arma::log(tgrid);
   Rcpp::NumericVector estfArray(nsave*ngrid*npred);
-  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector estSArray(nsave*ngrid*npred);
-  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector esthArray(nsave*ngrid*npred);
-  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false);
+  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false, true);
   
   // things to save;
   arma::mat fhat(ngrid, npred);
@@ -689,7 +689,7 @@ SEXP PredMapsZ(SEXP ds0n_, SEXP dnn_, SEXP beta_, SEXP sigma2_, SEXP w_, SEXP th
   arma::mat dnn = as<mat>(dnn_);
   NumericVector vecArray(beta_);
   IntegerVector arrayDims = vecArray.attr("dim");
-  arma::cube beta(vecArray.begin(), arrayDims[0], arrayDims[1], arrayDims[2], false);
+  arma::cube beta(vecArray.begin(), arrayDims[0], arrayDims[1], arrayDims[2], false, true);
   arma::mat sigma2 = as<mat>(sigma2_);
   arma::mat w = as<mat>(w_);
   arma::vec theta1 = as<vec>(theta1_);

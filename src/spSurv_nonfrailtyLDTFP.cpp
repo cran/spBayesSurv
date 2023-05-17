@@ -73,7 +73,7 @@ RcppExport SEXP nonfrailtyLDTFP( SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndi
 	
 	// things to save;
 	NumericVector betaArray(nsave*ntlr*ptf);
-	arma::cube betatf_save(betaArray.begin(), ptf, ntlr, nsave, false);
+	arma::cube betatf_save(betaArray.begin(), ptf, ntlr, nsave, false, true);
   arma::mat beta_save(pce, nsave);
 	NumericVector sigma2_save(nsave);
 	NumericVector alpha_save(nsave);

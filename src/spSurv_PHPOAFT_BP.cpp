@@ -78,16 +78,16 @@ RcppExport SEXP PHPOAFT_BP(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_
   double rejc=0;
   
   // Make arma objects
-  arma::mat X_r(const_cast<NumericMatrix&>(X).begin(), n, p, false);
-  arma::vec theta_r(theta.begin(), 2, false);
-  arma::vec beta_r(beta.begin(), p3, false);
-  arma::vec beta_h_r(beta_h.begin(), p, false);
-  arma::vec beta_o_r(beta_o.begin(), p, false);
-  arma::vec beta_q_r(beta_q.begin(), p, false);
-  arma::vec Xbeta_h_r(Xbeta_h.begin(), n, false);
-  arma::vec Xbeta_o_r(Xbeta_o.begin(), n, false);
-  arma::vec Xbeta_q_r(Xbeta_q.begin(), n, false);
-  arma::vec Ys_r(Ys.begin(), nYs, false);
+  arma::mat X_r(const_cast<NumericMatrix&>(X).begin(), n, p, false, true);
+  arma::vec theta_r(theta.begin(), 2, false, true);
+  arma::vec beta_r(beta.begin(), p3, false, true);
+  arma::vec beta_h_r(beta_h.begin(), p, false, true);
+  arma::vec beta_o_r(beta_o.begin(), p, false, true);
+  arma::vec beta_q_r(beta_q.begin(), p, false, true);
+  arma::vec Xbeta_h_r(Xbeta_h.begin(), n, false, true);
+  arma::vec Xbeta_o_r(Xbeta_o.begin(), n, false, true);
+  arma::vec Xbeta_q_r(Xbeta_q.begin(), n, false, true);
+  arma::vec Ys_r(Ys.begin(), nYs, false, true);
   
   // Working temp variables
   arma::mat logLik=arma::zeros<arma::mat>(n, nsave);
@@ -371,16 +371,16 @@ RcppExport SEXP PHPOAFT_BP_plots(SEXP tgrid_, SEXP xpred_, SEXP theta_, SEXP bet
   arma::vec xbeta_o(npred);
   arma::vec xbeta_q(npred);
   Rcpp::NumericVector estfArray(nsave*ngrid*npred);
-  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector estSArray(nsave*ngrid*npred);
-  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector esthArray(nsave*ngrid*npred);
-  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false);
+  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false, true);
   
   // Make arma objects
-  arma::mat beta_h_r(beta_h.begin(), p, nsave, false);
-  arma::mat beta_o_r(beta_o.begin(), p, nsave, false);
-  arma::mat beta_q_r(beta_q.begin(), p, nsave, false);
+  arma::mat beta_h_r(beta_h.begin(), p, nsave, false, true);
+  arma::mat beta_o_r(beta_o.begin(), p, nsave, false, true);
+  arma::mat beta_q_r(beta_q.begin(), p, nsave, false, true);
   
   // things to save;
   arma::mat fhat(ngrid, npred);

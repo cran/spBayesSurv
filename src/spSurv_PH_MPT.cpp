@@ -98,14 +98,14 @@ RcppExport SEXP PH_MPT(SEXP nburn_, SEXP nsave_, SEXP nskip_, SEXP ndisplay_, SE
   Rcpp::NumericVector lambda_save(nsave);
   
   // Make arma objects
-  arma::mat X_r(const_cast<NumericMatrix&>(X).begin(), n, p, false);
-  arma::vec theta_r(theta.begin(), 2, false);
-  arma::vec beta_r(beta.begin(), p, false);
-  arma::vec gamma_r(gamma.begin(), p, false);
-  arma::vec Xbeta_r(Xbeta.begin(), n, false);
-  arma::vec Ys_r(Ys.begin(), nYs, false);
-  arma::vec v_r(v.begin(), m, false);
-  arma::vec vn_r(vn.begin(), n, false);
+  arma::mat X_r(const_cast<NumericMatrix&>(X).begin(), n, p, false, true);
+  arma::vec theta_r(theta.begin(), 2, false, true);
+  arma::vec beta_r(beta.begin(), p, false, true);
+  arma::vec gamma_r(gamma.begin(), p, false, true);
+  arma::vec Xbeta_r(Xbeta.begin(), n, false, true);
+  arma::vec Ys_r(Ys.begin(), nYs, false, true);
+  arma::vec v_r(v.begin(), m, false, true);
+  arma::vec vn_r(vn.begin(), n, false, true);
   
   // Working temp variables
   arma::mat Linv=arma::zeros<arma::mat>(n, nsave);
@@ -487,14 +487,14 @@ RcppExport SEXP PH_MPT_plots(SEXP tgrid_, SEXP xpred_, SEXP theta_, SEXP beta_, 
   arma::vec xbeta(npred);
   Rcpp::NumericVector probs(nprob,0.0);
   Rcpp::NumericVector estfArray(nsave*ngrid*npred);
-  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estf(estfArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector estSArray(nsave*ngrid*npred);
-  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false);
+  arma::cube estS(estSArray.begin(), ngrid, nsave, npred, false, true);
   Rcpp::NumericVector esthArray(nsave*ngrid*npred);
-  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false);
+  arma::cube esth(esthArray.begin(), ngrid, nsave, npred, false, true);
   
   // Make arma objects
-  arma::mat beta_r(beta.begin(), p, nsave, false);
+  arma::mat beta_r(beta.begin(), p, nsave, false, true);
   
   // things to save;
   arma::mat fhat(ngrid, npred);
