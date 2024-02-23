@@ -19,9 +19,7 @@
     terms(formula, special)
   else terms(formula, special, data = data)
 
-  if (is.R()) 
-    m <- eval(temp, parent.frame())
-  else m <- eval(temp, sys.parent())
+  m <- eval(temp, parent.frame())
   Terms <- attr(m, 'terms')
   
   if(any(names(m)=="(truncation_time)")){
@@ -77,26 +75,13 @@
   if (length(dropx)) {
     newTerms <- Terms[-dropx]
     # R (version 2.7.1) adds intercept=T anytime you drop something
-    if (is.R()) attr(newTerms, 'intercept') <- attr(Terms, 'intercept')
+    attr(newTerms, 'intercept') <- attr(Terms, 'intercept')
   } else  newTerms <- Terms
   
   X <- model.matrix(newTerms, m);
-  if (is.R()) {
-    assign <- lapply(survival::attrassign(X, newTerms)[-1], function(x) x-1)
-    xlevels <- .getXlevels(newTerms, m)
-    contr.save <- attr(X, 'contrasts')
-  }else {
-    assign <- lapply(attr(X, 'assign')[-1], function(x) x -1)
-    xvars <- as.character(attr(newTerms, 'variables'))
-    xvars <- xvars[-attr(newTerms, 'response')]
-    if (length(xvars) >0) {
-      xlevels <- lapply(m[xvars], levels)
-      xlevels <- xlevels[!unlist(lapply(xlevels, is.null))]
-      if(length(xlevels) == 0)
-        xlevels <- NULL
-    } else xlevels <- NULL
-    contr.save <- attr(X, 'contrasts')
-  }
+  assign <- lapply(survival::attrassign(X, newTerms)[-1], function(x) x-1)
+  xlevels <- .getXlevels(newTerms, m)
+  contr.save <- attr(X, 'contrasts')
   
   # drop the intercept after the fact, and also drop baseline if necessary
   adrop <- 0  #levels of "assign" to be dropped; 0= intercept
@@ -892,27 +877,14 @@
       if (length(dropx)) {
         newTerms <- Terms[-dropx]
         # R (version 2.7.1) adds intercept=T anytime you drop something
-        if (is.R()) attr(newTerms, 'intercept') <- attr(Terms, 'intercept')
+        attr(newTerms, 'intercept') <- attr(Terms, 'intercept')
       } else  newTerms <- Terms
       newTerms <- delete.response(newTerms)
       mnew <- model.frame(newTerms, xnewdata, na.action = na.omit, xlev = .getXlevels(newTerms, m))
       Xnew <- model.matrix(newTerms, mnew);
-      if (is.R()) {
-        assign <- lapply(survival::attrassign(Xnew, newTerms)[-1], function(x) x-1)
-        xlevels <- .getXlevels(newTerms, mnew)
-        contr.save <- attr(Xnew, 'contrasts')
-      }else {
-        assign <- lapply(attr(Xnew, 'assign')[-1], function(x) x -1)
-        xvars <- as.character(attr(newTerms, 'variables'))
-        xvars <- xvars[-attr(newTerms, 'response')]
-        if (length(xvars) >0) {
-          xlevels <- lapply(mnew[xvars], levels)
-          xlevels <- xlevels[!unlist(lapply(xlevels, is.null))]
-          if(length(xlevels) == 0)
-            xlevels <- NULL
-        } else xlevels <- NULL
-        contr.save <- attr(Xnew, 'contrasts')
-      }
+      assign <- lapply(survival::attrassign(Xnew, newTerms)[-1], function(x) x-1)
+      xlevels <- .getXlevels(newTerms, mnew)
+      contr.save <- attr(Xnew, 'contrasts')
       # drop the intercept after the fact, and also drop baseline if necessary
       adrop <- 0  #levels of "assign" to be dropped; 0= intercept
       Xatt <- attributes(Xnew) 
