@@ -17,7 +17,7 @@ SuperSurvRegBayes(formula, data, na.action, dist="lognormal",
 }
 
 \arguments{
-   \item{formula}{a formula expression with the response returned by the \code{Surv} function in the \code{survival} package. It supports right-censoring, left-censoring, interval-censoring, and mixtures of them.}
+   \item{formula}{a formula expression with the response returned by the \code{\link[survival]{Surv}} function in the \code{survival} package. It supports right-censoring, left-censoring, interval-censoring, and mixtures of them.}
    
    \item{data}{a data frame in which to interpret the variables named in the \code{formula} argument.}
    
@@ -79,7 +79,7 @@ the vector of subject id numbers when time dependent covariates are considered
 the vector of left-trucation times
 }
 \item{Surv}{
-the \code{\link{Surv}} object used 
+the \code{\link[survival]{Surv}} object used 
 }
 \item{X.scaled}{
 the n by p scaled design matrix

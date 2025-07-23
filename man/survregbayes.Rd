@@ -19,7 +19,7 @@ survregbayes(formula, data, na.action, survmodel="PH", dist="loglogistic",
 }
 
 \arguments{
-   \item{formula}{a formula expression with the response returned by the \code{Surv} function in the \code{survival} package. It supports right-censoring, left-censoring, interval-censoring, and mixtures of them. To include CAR frailties, add \code{frailtyprior("car",ID)} to the formula, where \code{ID} is an n dimensional vector of cluster ID numbers. Furthermore, use \code{frailtyprior("iid",ID)} for Gaussian exchangeable frailties, use \code{frailtyprior("grf",ID)} for Gaussian random fields (GRF) frailties, and exclude the term \code{frailtyprior()} for non-frailty models. Note: the data need to be sorted by ID.}
+   \item{formula}{a formula expression with the response returned by the \code{\link[survival]{Surv}} function in the \code{survival} package. It supports right-censoring, left-censoring, interval-censoring, and mixtures of them. To include CAR frailties, add \code{frailtyprior("car",ID)} to the formula, where \code{ID} is an n dimensional vector of cluster ID numbers. Furthermore, use \code{frailtyprior("iid",ID)} for Gaussian exchangeable frailties, use \code{frailtyprior("grf",ID)} for Gaussian random fields (GRF) frailties, and exclude the term \code{frailtyprior()} for non-frailty models. Note: the data need to be sorted by ID.}
    
    \item{data}{a data frame in which to interpret the variables named in the \code{formula} argument.}
    
@@ -47,7 +47,7 @@ survregbayes(formula, data, na.action, survmodel="PH", dist="loglogistic",
    
    \item{Coordinates}{an m by d coordinates matrix, where m is the number of clusters/regions, d is the dimension of coordiantes. If GRF frailty model is specified in the formula, \code{Coordinates} is required; otherwise it is ignored. Note: this matrix should be specified according to the data that have been sorted by ID.}
    
-   \item{DIST}{This is a function argument, used to calculate the distance. The default is Euclidean distance (\code{fields::rdist}). This function should have two arguments (X1,X2), where X1 and X2 are matrices with coordinates as the rows. The returned value of this function should be the pairwise distance matrix. If nrow(X1)=m and nrow(X2)=n then the function should return an m by n matrix of all distances between these two sets of points.}
+   \item{DIST}{This is a function argument, used to calculate the distance. The default is Euclidean distance (\code{\link[fields]{rdist}}). This function should have two arguments (X1,X2), where X1 and X2 are matrices with coordinates as the rows. The returned value of this function should be the pairwise distance matrix. If nrow(X1)=m and nrow(X2)=n then the function should return an m by n matrix of all distances between these two sets of points.}
    
    \item{InitParamMCMC}{flag to indicate whether an initial MCMC will be run based on the centering parametric model, where \code{TRUE} indicates yes. }
    
@@ -99,7 +99,7 @@ the vector of subject id numbers when time dependent covariates are considered
 the vector of left-trucation times
 }
 \item{Surv}{
-the \code{\link{Surv}} object used 
+the \code{\link[survival]{Surv}} object used 
 }
 \item{X.scaled}{
 the n by p scaled design matrix
@@ -141,7 +141,7 @@ the effective number of parameters involved in WAIC
 the Watanabe-Akaike information criterion (WAIC)
 }
 \item{Surv.cox.snell}{
-the \code{\link{Surv}} object used for Cox-Snell residual plot. This is not recommended for frailty models, for which please use the function \code{\link{cox.snell.survregbayes}}. 
+the \code{\link[survival]{Surv}} object used for Cox-Snell residual plot. This is not recommended for frailty models, for which please use the function \code{\link{cox.snell.survregbayes}}. 
 }
 \item{ratetheta}{
 the acceptance rate in the posterior sampling of theta vector involved in the centering baseline survival function
@@ -205,7 +205,7 @@ the p by nsave matrix of posterior samples for gamma involved in the variable se
 }
 
 \seealso{
-\code{\link{frailtyprior}}, \code{\link{cox.snell.survregbayes}}, \code{\link{rdist}}, \code{\link{rdist.earth}}
+\code{\link{frailtyprior}}, \code{\link{cox.snell.survregbayes}}, \code{\link[fields]{rdist}}, \code{\link[fields]{rdist.earth}}
 }
 
 \references{

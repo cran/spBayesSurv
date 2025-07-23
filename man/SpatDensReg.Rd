@@ -17,7 +17,7 @@ SpatDensReg(formula, data, na.action, prior=NULL, state=NULL,
 }
 
 \arguments{
-   \item{formula}{a formula expression with the response returned by the \code{Surv} function in the \code{survival} package. It supports right-censoring, left-censoring, interval-censoring, and mixtures of them. Note: for survival data, the input response should be log survival times.}
+   \item{formula}{a formula expression with the response returned by the \code{\link[survival]{Surv}} function in the \code{survival} package. It supports right-censoring, left-censoring, interval-censoring, and mixtures of them. Note: for survival data, the input response should be log survival times.}
    
    \item{data}{a data frame in which to interpret the variables named in the \code{formula} argument.}
    
@@ -58,7 +58,7 @@ the number of row observations used in fitting the model
 the number of columns in the model matrix
 }
 \item{Surv}{
-the \code{\link{Surv}} object used 
+the \code{\link[survival]{Surv}} object used 
 }
 \item{X}{
 the n by p design matrix
@@ -77,7 +77,7 @@ the truncation level used in the PT prior.
 }
 
 \item{Surv.cox.snell}{
-the \code{\link{Surv}} object used for Cox-Snell residual plot. This is not recommended for frailty models, for which please use the function \code{\link{cox.snell.survregbayes}}. 
+the \code{\link[survival]{Surv}} object used for Cox-Snell residual plot. This is not recommended for frailty models, for which please use the function \code{\link{cox.snell.survregbayes}}. 
 }
 \item{ratetheta}{
 the acceptance rate in the posterior sampling of theta vector involved in the centering distribution

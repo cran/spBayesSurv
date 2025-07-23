@@ -22,10 +22,10 @@ cox.snell.survregbayes(x, ncurves = 10, PLOT = TRUE)
 \value{
 The function returns the plot (if \code{PLOT = TRUE}) and a list with the following components:
 \item{resid}{
-the \code{\link{Surv}} object using the everaged residuals
+the \code{\link[survival]{Surv}} object using the everaged residuals
 }
 \item{resid*}{
-the \code{*} goes from 1 to \code{ncurves}, and each is the \code{\link{Surv}} object using the residuals obtained from each posterior draw. 
+the \code{*} goes from 1 to \code{ncurves}, and each is the \code{\link[survival]{Surv}} object using the residuals obtained from each posterior draw. 
 }
 \item{St1}{
 the \code{n} by \code{ncurves} matrix of survival functions evaluated at left endpoints of the time interval.

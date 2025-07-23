@@ -2,8 +2,8 @@ Package: spBayesSurv
 Type: Package
 Title: Bayesian Modeling and Analysis of Spatially Correlated Survival
         Data
-Version: 1.1.8
-Date: 2024-02-23
+Version: 1.1.9
+Date: 2025-07-23
 Authors@R: c(person("Haiming", "Zhou", role = c("aut", "cre","cph"),
                     email = "haiming2019@gmail.com"),
              person("Timothy", "Hanson", role = "aut") )
@@ -18,5 +18,5 @@ Author: Haiming Zhou [aut, cre, cph],
   Timothy Hanson [aut]
 Maintainer: Haiming Zhou <haiming2019@gmail.com>
 Repository: CRAN
-Packaged: 2024-02-23 13:58:09 UTC; hzhou
-Date/Publication: 2024-02-23 16:30:02 UTC
+Packaged: 2025-07-23 16:21:44 UTC; hzhou
+Date/Publication: 2025-07-23 18:10:02 UTC

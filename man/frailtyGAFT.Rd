@@ -17,7 +17,7 @@ frailtyGAFT(formula, data, na.action,
 }
 
 \arguments{
-   \item{formula}{a formula expression with the response returned by the \code{Surv} function in the \code{survival} package. It supports right-censoring, left-censoring, interval-censoring, and mixtures of them. To include CAR frailties, add \code{frailtyprior("car",ID)} to the formula, where \code{ID} is an n dimensional vector of cluster ID numbers. Furthermore, use \code{frailtyprior("iid",ID)} for Gaussian exchangeable frailties, use \code{frailtyprior("grf",ID)} for Gaussian random fields (GRF) frailties, and exclude the term \code{frailtyprior()} for non-frailty models. Note: the data need to be sorted by ID. }
+   \item{formula}{a formula expression with the response returned by the \code{\link[survival]{Surv}} function in the \code{survival} package. It supports right-censoring, left-censoring, interval-censoring, and mixtures of them. To include CAR frailties, add \code{frailtyprior("car",ID)} to the formula, where \code{ID} is an n dimensional vector of cluster ID numbers. Furthermore, use \code{frailtyprior("iid",ID)} for Gaussian exchangeable frailties, use \code{frailtyprior("grf",ID)} for Gaussian random fields (GRF) frailties, and exclude the term \code{frailtyprior()} for non-frailty models. Note: the data need to be sorted by ID. }
    
    \item{data}{a data frame in which to interpret the variables named in the \code{formula} argument.}
    
@@ -32,7 +32,7 @@ frailtyGAFT(formula, data, na.action,
    \item{Proximity}{an m by m symetric adjacency matrix, where m is the number of clusters/regions. If CAR frailty model is specified in the formula, \code{Proximity} is required; otherwise it is ignored. Note: this matrix should be specified according to the data that have been sorted by ID. }
    
    \item{Coordinates}{an m by d coordinates matrix, where m is the number of clusters/regions, d is the dimension of coordiantes. If GRF frailty model is specified in the formula, \code{Coordinates} is required; otherwise it is ignored. Note: this matrix should be specified according to the data that have been sorted by ID.}
-   \item{DIST}{This is a function argument, used to calculate the distance. The default is Euclidean distance (\code{fields::rdist}). This function should have two arguments (X1,X2), where X1 and X2 are matrices with coordinates as the rows. The returned value of this function should be the pairwise distance matrix. If nrow(X1)=m and nrow(X2)=n then the function should return an m by n matrix of all distances between these two sets of points.}
+   \item{DIST}{This is a function argument, used to calculate the distance. The default is Euclidean distance (\code{\link[fields]{rdist}}). This function should have two arguments (X1,X2), where X1 and X2 are matrices with coordinates as the rows. The returned value of this function should be the pairwise distance matrix. If nrow(X1)=m and nrow(X2)=n then the function should return an m by n matrix of all distances between these two sets of points.}
    \item{scale.designX}{flag to indicate whether the design matrix X and Xtf will be centered by column means and scaled by column standard deviations, where \code{TRUE} indicates yes. The default is \code{TRUE} for improving numerical stability. Even when it is scaled, the reported regression coefficients are in original scales. Note if we want to specify informative priors for regression coefficients, these priors should correspond to scaled predictors when \code{scale.designX=TRUE}.}
 }
 
@@ -70,7 +70,7 @@ the number of columns in the model matrix including the intercept
 the number of columns in the model matrix used in the LDTFP baseline including the intercept
 }
 \item{Surv}{
-the \code{\link{Surv}} object used 
+the \code{\link[survival]{Surv}} object used 
 }
 \item{X.scaled}{
 the n by pce-1 scaled design matrix
@@ -138,7 +138,7 @@ the vector of posterior samples for phi involved in the GRF prior
 }
 
 \seealso{
-\code{\link{baseline}}, \code{\link{frailtyprior}}, \code{\link{survregbayes}}, \code{\link{rdist}}
+\code{\link{baseline}}, \code{\link{frailtyprior}}, \code{\link{survregbayes}}, \code{\link[fields]{rdist}}
 }
 
 \references{
